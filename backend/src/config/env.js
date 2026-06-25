@@ -1,0 +1,46 @@
+import dotenv from "dotenv";
+import { z } from "zod";
+
+dotenv.config();
+
+const envSchema = z.object({
+  NODE_ENV: z.string(),
+
+  APP_NAME: z.string(),
+
+  APP_PORT: z.coerce.number(),
+
+  API_PREFIX: z.string(),
+
+  LOG_LEVEL: z.string(),
+
+  DB_HOST: z.string(),
+  DB_PORT: z.coerce.number(),
+  DB_NAME: z.string(),
+  DB_USER: z.string(),
+  DB_PASSWORD: z.string(),
+
+  REDIS_HOST: z.string(),
+  REDIS_PORT: z.coerce.number(),
+
+  JWT_ACCESS_SECRET: z.string(),
+  JWT_REFRESH_SECRET: z.string(),
+
+  JWT_ACCESS_EXPIRES: z.string(),
+  JWT_REFRESH_EXPIRES: z.string(),
+
+  STORAGE_PROVIDER: z.string(),
+
+  UPLOAD_PATH: z.string(),
+
+  TIMEZONE: z.string()
+});
+
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  console.error(parsed.error.format());
+  process.exit(1);
+}
+
+export default parsed.data;

@@ -89,3 +89,30 @@ redis-data/
 # -------------------------
 
 uploads/
+
+
+# -------------------------
+# Persistent Data
+# -------------------------
+
+data/dev/postgres/*
+data/dev/redis/*
+data/dev/minio/*
+
+data/uat/postgres/*
+data/uat/redis/*
+data/uat/minio/*
+
+
+
+# ==========================
+# Persistent Infrastructure Data
+# ==========================
+
+data/dev/postgres/*
+data/dev/redis/*
+data/dev/minio/*
+
+data/uat/postgres/*
+data/uat/redis/*
+data/uat/minio/*
