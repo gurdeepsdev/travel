@@ -1,14 +1,17 @@
 import { Router } from "express";
 
+import Response from "../core/response/index.js";
+
 const router = Router();
 
 router.get("/", async (req, res) => {
-  res.json({
-    success: true,
-    service: "artictern-api",
-    status: "healthy",
-    timestamp: new Date().toISOString()
-  });
+    Response.success(res, {
+
+        service: "artictern-api",
+    
+        status: "healthy"
+    
+    }, "Health check successful");
 });
 
 export default router;
