@@ -30,17 +30,40 @@ class AuthService {
 
         // Store in database
 
-        await OtpRepository.create({
+    // Store or update active OTP
 
-            identifier,
+const activeOtp = await OtpRepository.findActive(
+    identifier,
+    provider
+);
 
-            provider,
+if (activeOtp) {
 
-            otpHash,
+    await OtpRepository.updateActive({
 
-            expiresAt
+        id: activeOtp.id,
 
-        });
+        otpHash,
+
+        expiresAt
+
+    });
+
+} else {
+
+    await OtpRepository.create({
+
+        identifier,
+
+        provider,
+
+        otpHash,
+
+        expiresAt
+
+    });
+
+}
 
         // Send OTP
 
