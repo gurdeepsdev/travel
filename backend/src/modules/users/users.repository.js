@@ -1,5 +1,4 @@
-import BaseRepository from "../../../database/repositories/base.repository.js";
-
+import BaseRepository from "../../database/repositories/base.repository.js";
 class UsersRepository extends BaseRepository {
 
     constructor() {

@@ -125,10 +125,13 @@ class OtpRepository extends BaseRepository {
             UPDATE ${this.fullTableName}
             SET verified_at = CURRENT_TIMESTAMP
             WHERE id = $1
+            RETURNING *
         `;
-
-        await this.query(query, [id]);
-
+    
+        const { rows } = await this.query(query, [id]);
+    
+        return rows[0];
+    
     }
 
     async incrementAttempts(id) {
@@ -137,10 +140,13 @@ class OtpRepository extends BaseRepository {
             UPDATE ${this.fullTableName}
             SET attempt_count = attempt_count + 1
             WHERE id = $1
+            RETURNING *
         `;
-
-        await this.query(query, [id]);
-
+    
+        const { rows } = await this.query(query, [id]);
+    
+        return rows[0];
+    
     }
 
 }

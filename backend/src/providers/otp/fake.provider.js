@@ -1,9 +1,14 @@
 import OtpProvider from "./otp.interface.js";
 
-class FakeOtpProvider extends OtpProvider
+class FakeOtpProvider extends OtpProvider {
 
+    constructor() {
 
-  {
+        super();
+
+        this.latestOtps = new Map();
+
+    }
 
     name() {
 
@@ -18,6 +23,9 @@ class FakeOtpProvider extends OtpProvider
     }
 
     async send({ identifier, otp }) {
+
+        // Store latest OTP for integration tests
+        this.latestOtps.set(identifier, otp);
 
         console.log("");
 
@@ -44,6 +52,18 @@ class FakeOtpProvider extends OtpProvider
             referenceId: `fake_${Date.now()}`
 
         };
+
+    }
+
+    getLatestOtp(identifier) {
+
+        return this.latestOtps.get(identifier);
+
+    }
+
+    clear() {
+
+        this.latestOtps.clear();
 
     }
 

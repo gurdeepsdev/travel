@@ -4,6 +4,17 @@ import { z } from "zod";
 dotenv.config();
 
 const envSchema = z.object({
+  // TIMEZONE: z.string(),
+
+  // OTP_PROVIDER: z.string(),
+
+  // SIMPLEVERIFY_API_KEY: z.string().optional(),
+  
+  // SIMPLEVERIFY_BASE_URL: z.string().default(
+  //     "https://api.simpleverify.io/v1"
+  // ),
+
+
   NODE_ENV: z.string(),
 
   APP_NAME: z.string(),
@@ -33,7 +44,17 @@ const envSchema = z.object({
 
   UPLOAD_PATH: z.string(),
 
-  TIMEZONE: z.string()
+  TIMEZONE: z.string(),
+
+  OTP_PROVIDER: z.string(),
+
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  
+  TWILIO_VERIFY_SERVICE_SID: z.string().optional(),
+
+  
 });
 
 const parsed = envSchema.safeParse(process.env);
