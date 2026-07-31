@@ -55,6 +55,38 @@ class UsersController {
       return next(error);
     }
   }
+
+  async getUserPosts(req, res, next) {
+    try {
+      const viewerUserId =
+        req.user?.id ??
+        req.user?.userId ??
+        req.auth?.userId ??
+        null;
+  
+      const result =
+        await PostService.getUserPosts({
+          username: req.params.username,
+          viewerUserId,
+          limit: req.query.limit,
+          cursor: req.query.cursor ?? null,
+        });
+  
+      return res.status(200).json({
+        success: true,
+        message:
+          "User posts fetched successfully.",
+        data: result,
+        requestId:
+          req.requestId ??
+          req.id ??
+          null,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 export default new UsersController();

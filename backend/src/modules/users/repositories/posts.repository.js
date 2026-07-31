@@ -7,8 +7,11 @@ class PostsRepository {
     limit,
     cursor = null,
   }) {
-    const params = [userId];
-    let cursorWhere = "";
+    const params = [
+        targetUserId,
+        viewerUserId,
+      ];
+          let cursorWhere = "";
 
     if (cursor) {
       params.push(cursor.createdAt);
@@ -123,38 +126,43 @@ COALESCE(
       LEFT JOIN poi.countries country
         ON country.id = place.country_id
 
-      LEFT JOIN LATERAL (
-        SELECT
-          jsonb_agg(
-            jsonb_build_object(
-              'id', asset.id,
-              'postAssetId', post_asset.id,
-              'displayOrder', post_asset.display_order,
-              'storageProvider', asset.storage_provider,
-              'bucket', asset.bucket,
-              'storageKey', asset.storage_key,
-              'originalFilename', asset.original_filename,
-              'mimeType', asset.mime_type,
-              'extension', asset.extension,
-              'fileSize', asset.file_size,
-              'width', asset.original_width,
-              'height', asset.original_height,
-              'durationSeconds', asset.duration_seconds,
-              'isPublic', asset.is_public,
-              'createdAt', asset.created_at
-            )
-            ORDER BY post_asset.display_order ASC
-          ) AS assets
+   LEFT JOIN LATERAL (
+  SELECT
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'id', asset.id,
+          'postAssetId', post_asset.id,
+          'displayOrder', post_asset.display_order,
+          'storageProvider', asset.storage_provider,
+          'bucket', asset.bucket,
+          'storageKey', asset.storage_key,
+          'originalFilename', asset.original_filename,
+          'mimeType', asset.mime_type,
+          'extension', asset.extension,
+          'fileSize', asset.file_size,
+          'width', asset.original_width,
+          'height', asset.original_height,
+          'durationSeconds', asset.duration_seconds,
+          'isPublic', asset.is_public,
+          'createdAt', asset.created_at
+        )
+        ORDER BY post_asset.display_order ASC
+      ) FILTER (
+        WHERE asset.id IS NOT NULL
+      ),
+      '[]'::jsonb
+    ) AS assets
 
-        FROM explore.post_assets post_asset
+  FROM explore.post_assets AS post_asset
 
-        INNER JOIN media.assets asset
-          ON asset.id = post_asset.asset_id
-          AND asset.deleted_at IS NULL
+  INNER JOIN media.assets AS asset
+    ON asset.id = post_asset.asset_id
+   AND asset.deleted_at IS NULL
 
-        WHERE post_asset.post_id = p.id
-      ) post_media
-        ON TRUE
+  WHERE post_asset.post_id = post.id
+) AS asset_stats
+  ON TRUE
 
       LEFT JOIN LATERAL (
         SELECT
@@ -278,6 +286,336 @@ COALESCE(
           : null,
     };
   }
+/**
+ * Fetches posts displayed on another user's profile.
+ *
+ * Visibility rules:
+ * - Owner can see all their own posts.
+ * - Other viewers can see PUBLIC posts only.
+ * - Anonymous viewers can see PUBLIC posts only.
+ *
+ * @param {object} params
+ * @param {string} params.targetUserId
+ * @param {string|null} params.viewerUserId
+ * @param {number} params.limit
+ * @param {string|null} params.cursor
+ * @returns {Promise<{
+*   rows: object[],
+*   hasMore: boolean,
+*   nextCursor: string|null
+* }>}
+*/
+async getUserPosts({
+ targetUserId,
+ viewerUserId = null,
+ limit = 20,
+ cursor = null,
+}) {
+ const safeLimit = Math.min(
+   Math.max(Number(limit) || 20, 1),
+   50,
+ );
+
+ const normalizedViewerUserId =
+   viewerUserId || null;
+
+ const params = [
+   targetUserId,
+   normalizedViewerUserId,
+ ];
+
+ let cursorCondition = "";
+
+ if (cursor) {
+   params.push(cursor);
+
+   cursorCondition = `
+     AND post.created_at < $${params.length}::timestamptz
+   `;
+ }
+
+ params.push(safeLimit + 1);
+
+ const limitParameter = `$${params.length}`;
+
+ const query = `
+   SELECT
+     post.id,
+     post.user_id,
+     post.caption,
+     post.post_type,
+     post.visibility,
+     post.created_at,
+     post.updated_at,
+
+     profile.username,
+     profile.display_name,
+     profile.is_verified,
+
+   profile_photo.id
+  AS profile_photo_id,
+
+profile_photo.storage_provider
+  AS profile_photo_storage_provider,
+
+profile_photo.bucket
+  AS profile_photo_bucket,
+
+profile_photo.storage_key
+  AS profile_photo_storage_key,
+
+profile_photo.mime_type
+  AS profile_photo_mime_type,
+
+profile_photo.original_filename
+  AS profile_photo_original_filename,
+
+profile_photo.extension
+  AS profile_photo_extension,
+
+profile_photo.file_size
+  AS profile_photo_file_size,
+
+profile_photo.original_width
+  AS profile_photo_original_width,
+
+profile_photo.original_height
+  AS profile_photo_original_height,
+
+     place.id
+       AS place_id,
+
+     place.name
+       AS place_name,
+
+     place.address
+       AS place_address,
+
+     place.latitude
+       AS place_latitude,
+
+     place.longitude
+       AS place_longitude,
+
+     place.rating
+       AS place_rating,
+
+     place.review_count
+       AS place_review_count,
+
+     city.id
+       AS city_id,
+
+     city.name
+       AS city_name,
+
+     city.official_name
+       AS city_official_name,
+
+     region.id
+       AS region_id,
+
+     region.name
+       AS region_name,
+
+     region.official_name
+       AS region_official_name,
+
+     region.timezone
+       AS region_timezone,
+
+     country.id
+       AS country_id,
+
+     country.name
+       AS country_name,
+
+     country.code
+       AS country_code,
+
+     country.phone_prefix
+       AS country_phone_prefix,
+
+     country.timezone
+       AS country_timezone,
+
+     COALESCE(
+       asset_stats.assets,
+       '[]'::jsonb
+     ) AS assets,
+
+     COALESCE(
+       itinerary_stats.itineraries,
+       '[]'::jsonb
+     ) AS itineraries,
+
+     0::integer AS likes_count,
+     0::integer AS comments_count,
+     0::integer AS shares_count,
+     0::integer AS views_count,
+
+     FALSE AS viewer_liked,
+     FALSE AS viewer_been_there,
+     FALSE AS viewer_is_reshared,
+
+     CASE
+       WHEN $2::uuid IS NOT NULL
+        AND $2::uuid = post.user_id
+       THEN TRUE
+       ELSE FALSE
+     END AS viewer_is_owner
+
+   FROM explore.posts AS post
+
+   INNER JOIN users.profiles AS profile
+     ON profile.user_id = post.user_id
+    AND profile.deleted_at IS NULL
+
+   LEFT JOIN media.assets AS profile_photo
+     ON profile_photo.id =
+       profile.profile_photo_asset_id
+    AND profile_photo.deleted_at IS NULL
+
+   LEFT JOIN poi.places AS place
+     ON place.id = post.place_id
+
+   LEFT JOIN poi.cities AS city
+     ON city.id = place.city_id
+
+   LEFT JOIN poi.regions AS region
+     ON region.id = city.region_id
+
+   LEFT JOIN poi.countries AS country
+     ON country.id = city.country_id
+
+   LEFT JOIN LATERAL
+   (
+     SELECT
+       COALESCE(
+         JSONB_AGG(
+           JSONB_BUILD_OBJECT(
+             'id',
+               asset.id,
+
+            'mimeType',
+asset.mime_type,
+
+             'storageKey',
+               asset.storage_key,
+
+           
+'originalFilename',
+asset.original_filename,
+
+             'extension',
+               asset.extension,
+
+             'fileSize',
+               asset.file_size,
+
+             'width',
+               asset.original_width,
+
+             'height',
+               asset.original_height,
+
+            'displayOrder',
+post_asset.display_order
+           )
+           ORDER BY
+ post_asset.display_order ASC
+         ) FILTER (
+           WHERE asset.id IS NOT NULL
+         ),
+         '[]'::jsonb
+       ) AS assets
+
+     FROM explore.post_assets AS post_asset
+
+     INNER JOIN media.assets AS asset
+       ON asset.id = post_asset.asset_id
+      AND asset.deleted_at IS NULL
+
+     WHERE post_asset.post_id = post.id
+   ) AS asset_stats
+     ON TRUE
+
+   LEFT JOIN LATERAL
+   (
+     SELECT
+       COALESCE(
+         JSONB_AGG(
+           JSONB_BUILD_OBJECT(
+  'id',
+    itinerary.id,
+
+  'title',
+    itinerary.title,
+
+  'tripStatus',
+    itinerary.trip_status
+)
+           ORDER BY
+             itinerary.created_at DESC
+         ) FILTER (
+           WHERE itinerary.id IS NOT NULL
+         ),
+         '[]'::jsonb
+       ) AS itineraries
+
+     FROM explore.post_itineraries
+       AS post_itinerary
+
+     INNER JOIN itinerary.itineraries
+       AS itinerary
+       ON itinerary.id =
+         post_itinerary.itinerary_id
+
+     WHERE post_itinerary.post_id = post.id
+   ) AS itinerary_stats
+     ON TRUE
+
+   WHERE post.user_id = $1
+
+     AND (
+       $2::uuid = post.user_id
+       OR post.visibility = 'PUBLIC'
+     )
+
+     ${cursorCondition}
+
+   ORDER BY
+     post.created_at DESC,
+     post.id DESC
+
+   LIMIT ${limitParameter}
+ `;
+
+ const { rows } = await Database.query(
+    query,
+    params,
+  );
+
+ const hasMore =
+   rows.length > safeLimit;
+
+ const resultRows = hasMore
+   ? rows.slice(0, safeLimit)
+   : rows;
+
+ const lastPost =
+   resultRows[resultRows.length - 1] ?? null;
+
+ return {
+   rows: resultRows,
+   hasMore,
+   nextCursor:
+     hasMore && lastPost
+       ? lastPost.created_at
+       : null,
+ };
+}
+
 }
 
 export default new PostsRepository();
