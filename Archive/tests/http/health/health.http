@@ -1,0 +1,4 @@
+### Health Check
+
+GET http://localhost:3000/api/v1/health
+Accept: application/json

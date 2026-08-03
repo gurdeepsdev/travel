@@ -1,0 +1,145 @@
+// import { PostsRepository } from "../repositories/index.js";
+
+// class PostService {
+//   async getMyPosts({
+//     userId,
+//     limit,
+//     cursor = null,
+//   }) {
+//     const result = await PostsRepository.getMyPosts({
+//         userId,
+//         limit,
+//         cursor,
+//       });
+      
+//       return {
+//         posts: result.rows,
+//         pagination: {
+//           hasMore: result.hasMore,
+//           nextCursor: result.nextCursor,
+//         },
+//       };
+//   }
+// }
+
+// export default new PostService();
+
+import {
+    PostsRepository,
+    profilesRepository,
+  } from "../repositories/index.js";
+  
+  class PostService {
+    /**
+     * Fetch authenticated user's own posts.
+     */
+    async getMyPosts({
+      userId,
+      limit,
+      cursor = null,
+    }) {
+      const result =
+        await PostsRepository.getMyPosts({
+          userId,
+          limit,
+          cursor,
+        });
+  
+      return {
+        posts: result.rows,
+        pagination: {
+          hasMore: result.hasMore,
+          nextCursor: result.nextCursor,
+        },
+      };
+    }
+  
+    /**
+     * Fetch posts shown on another user's profile.
+     */
+    async getUserPosts({
+      username,
+      viewerUserId = null,
+      limit = 20,
+      cursor = null,
+    }) {
+      const normalizedUsername =
+        typeof username === "string"
+          ? username.trim()
+          : "";
+  
+      if (!normalizedUsername) {
+        const error =
+          new Error("Username is required.");
+  
+        error.statusCode = 400;
+        error.code = "USERNAME_REQUIRED";
+        error.isOperational = true;
+  
+        throw error;
+      }
+  
+      const safeLimit = Math.min(
+        Math.max(Number(limit) || 20, 1),
+        50,
+      );
+  
+      const profile =
+        await profilesRepository.findByUsername(
+          normalizedUsername,
+        );
+  
+      if (!profile) {
+        const error =
+          new Error("User profile not found.");
+  
+        error.statusCode = 404;
+        error.code = "USER_PROFILE_NOT_FOUND";
+        error.isOperational = true;
+  
+        throw error;
+      }
+  
+      const targetUserId = profile.user_id;
+  
+      const isOwner =
+        viewerUserId &&
+        String(viewerUserId) ===
+          String(targetUserId);
+  
+      /*
+       * Current rule:
+       * A private profile is visible only to its owner.
+       *
+       * Later, this should also allow accepted
+       * followers/connections.
+       */
+      if (profile.is_private && !isOwner) {
+        return {
+          posts: [],
+          pagination: {
+            hasMore: false,
+            nextCursor: null,
+          },
+        };
+      }
+  
+      const result =
+        await PostsRepository.getUserPosts({
+          targetUserId,
+          viewerUserId,
+          limit: safeLimit,
+          cursor,
+        });
+  
+      return {
+        posts: result.rows,
+        pagination: {
+          hasMore: result.hasMore,
+          nextCursor: result.nextCursor,
+        },
+      };
+    }
+  }
+  
+  export default new PostService();
