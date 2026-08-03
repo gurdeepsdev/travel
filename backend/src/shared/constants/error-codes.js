@@ -57,9 +57,29 @@ const ErrorCodes = Object.freeze({
 
         VALIDATION_FAILED: "COMMON.VALIDATION_FAILED",
 
-        INTERNAL_SERVER_ERROR: "COMMON.INTERNAL_SERVER_ERROR"
+        INTERNAL_SERVER_ERROR: "COMMON.INTERNAL_SERVER_ERROR",
 
-    })
+        INVALID_CURSOR:
+  "COMMON.INVALID_CURSOR",
+
+    }),
+    
+ 
+      
+      COMMENT: Object.freeze({
+          NOT_FOUND:
+    "COMMENT.NOT_FOUND",
+        PARENT_NOT_FOUND:
+          "COMMENT.PARENT_NOT_FOUND",
+        CREATE_FAILED:
+          "COMMENT.CREATE_FAILED",
+      }),
+
+    POST: Object.freeze({
+        NOT_FOUND: "POST.NOT_FOUND",
+        REACTION_NOT_ALLOWED:
+          "POST.REACTION_NOT_ALLOWED",
+      })
 
 });
 

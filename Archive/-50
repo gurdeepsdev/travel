@@ -1,0 +1,56 @@
+
+> backend@1.0.0 test
+> cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests tests/integration/auth --runInBand
+
+  console.log
+    ◇ injected env (24) from .env // tip: ⌘ override existing { override: true }
+
+      at _log (node_modules/dotenv/lib/main.js:131:11)
+
+(node:7903) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  console.log
+
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:30:17)
+
+  console.log
+    ====================================
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:32:17)
+
+  console.log
+    📱 FAKE OTP PROVIDER
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:34:17)
+
+  console.log
+    ------------------------------------
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:36:17)
+
+  console.log
+    Recipient : 9876543210
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:38:17)
+
+  console.log
+    OTP       : 426402
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:40:17)
+
+  console.log
+    ====================================
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:42:17)
+
+  console.log
+
+
+      at FakeOtpProvider.send (src/providers/otp/fake.provider.js:44:17)
+
+{"level":30,"time":"2026-07-02T10:16:04.225Z","service":"artictern","environment":"test","requestId":"b1488069-292b-4445-bfe3-391d2137f6a0","method":"POST","url":"/api/v1/auth/send-otp","statusCode":200,"duration":"294.42 ms","ip":"::ffff:127.0.0.1","userId":null,"sessionId":null,"pageId":null,"msg":"HTTP Request Completed"}
+{"level":50,"time":"2026-07-02T10:16:04.496Z","service":"artictern","environment":"test","requestId":"10ef921f-4543-4369-b64d-2963c3e09403","error":{"name":"InvalidOtpError","code":"AUTH.INVALID_OTP","message":"The OTP provided is invalid.","stack":"InvalidOtpError: The OTP provided is invalid.\n    at OtpService.verify (/Users/gurdeep/Documents/travel-platform/backend/src/modules/auth/services/otp.service.js:45:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at AuthService.verifyOtp (/Users/gurdeep/Documents/travel-platform/backend/src/modules/auth/auth.service.js:121:9)\n    at verifyOtp (/Users/gurdeep/Documents/travel-platform/backend/src/modules/auth/auth.controller.js:39:28)"},"msg":"Unhandled Exception"}
+{"level":30,"time":"2026-07-02T10:16:04.497Z","service":"artictern","environment":"test","requestId":"10ef921f-4543-4369-b64d-2963c3e09403","method":"POST","url":"/api/v1/auth/verify-otp","statusCode":401,"duration":"261.64 ms","ip":"::ffff:127.0.0.1","userId":null,"sessionId":null,"pageId":null,"msg":"HTTP Request Completed"}
+{"level":50,"time":"2026-07-02T10:16:04.764Z","service":"artictern","environment":"test","requestId":"b76c3609-643f-4683-a816-8d2be90f984b","error":{"name":"InvalidOtpError","code":"AUTH.INVALID_OTP","message":"The OTP provided is invalid.","stack":"InvalidOtpError: The OTP provided is invalid.\n    at OtpService.verify (/Users/gurdeep/Documents/travel-platform/backend/src/modules/auth/services/otp.service.js:45:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at AuthService.verifyOtp (/Users/gurdeep/Documents/travel-platform/backend/src/modules/auth/auth.service.js:121:9)\n    at verifyOtp (/Users/gurdeep/Documents/travel-platform/backend/src/modules/auth/auth.controller.js:39:28)"},"msg":"Unhandled Exception"}
+{"level":30,"time":"2026-07-02T10:16:04.764Z","service":"artictern","environment":"test","requestId":"b76c3609-643f-4683-a816-8d2be90f984b","method":"POST","url":"/api/v1/auth/verify-otp","statusCode":401,"duration":"260.22 ms","ip":"::ffff:127.0.0.1","userId":null,"sessionId":null,"pageId":null,"msg":"HTTP Request Completed"}

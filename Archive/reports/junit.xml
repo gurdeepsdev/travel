@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="1" failures="1" errors="0" time="2.081">
+  <testsuite name="Authentication - Me" errors="0" failures="1" skipped="0" timestamp="2026-07-28T14:12:27" time="2.03" tests="1">
+    <testcase classname="Authentication - Me should return current authenticated user" name="Authentication - Me should return current authenticated user" time="1.349">
+      <failure>TypeError: Cannot read properties of undefined (reading &apos;accessToken&apos;)
+    at TestAuth.accessToken [as login] (/Users/gurdeep/Documents/travel-platform/backend/tests/helpers/auth.js:32:41)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at Object.&lt;anonymous&gt; (/Users/gurdeep/Documents/travel-platform/backend/tests/integration/auth/me.test.js:10:22)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

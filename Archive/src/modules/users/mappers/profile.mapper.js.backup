@@ -1,0 +1,116 @@
+class ProfileMapper {
+
+    toResponse(profile) {
+
+        return {
+
+            userId: profile.user_id,
+
+            username: profile.username,
+
+            displayName: profile.display_name,
+
+            bio: profile.bio,
+
+            profilePhoto: {
+
+                assetId: profile.profile_photo_asset_id,
+
+                url: null
+
+            },
+
+            coverPhoto: {
+
+                assetId: profile.cover_photo_asset_id,
+
+                url: null
+
+            },
+
+            country: {
+
+                id: profile.country_id,
+
+                name: null
+
+            },
+
+            city: {
+
+                id: profile.city_id,
+
+                name: null
+
+            },
+
+            socialLinks: profile.social_links ?? {},
+
+            // verified: profile.is_verified,
+
+            // profileCompleted:
+            //     profile.profile_completed_at !== null,
+            isVerified: profile.is_verified,
+
+isProfileCompleted:
+    profile.profile_completed_at !== null,
+
+            createdAt: profile.created_at,
+
+            updatedAt: profile.updated_at
+
+        };
+
+    }
+
+    toPublicResponse(profile) {
+
+        return {
+
+            username: profile.username,
+
+            displayName: profile.display_name,
+
+            bio: profile.bio,
+
+            profilePhoto: {
+
+                assetId: profile.profile_photo_asset_id,
+
+                url: null
+
+            },
+
+            coverPhoto: {
+
+                assetId: profile.cover_photo_asset_id,
+
+                url: null
+
+            },
+
+            country: {
+
+                id: profile.country_id,
+
+                name: null
+
+            },
+
+            city: {
+
+                id: profile.city_id,
+
+                name: null
+
+            },
+
+            verified: profile.is_verified
+
+        };
+
+    }
+
+}
+
+export default new ProfileMapper();

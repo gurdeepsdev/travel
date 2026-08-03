@@ -1,0 +1,938 @@
+===== package.json =====
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development nodemon src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs --passWithNoTests",
+    "test:watch": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs --watch",
+    "test:coverage": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs --coverage",
+    "test:integration": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs tests/integration",
+    "test:unit": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs tests/unit",
+    "test:e2e": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs tests/e2e",
+    "test:file": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs --runInBand"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.18.1",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^5.79.1",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
+    "express-request-id": "^3.0.0",
+    "helmet": "^8.2.0",
+    "ioredis": "^5.11.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "redis": "^6.0.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "twilio": "^6.0.2",
+    "uuid": "^14.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "jest": "^30.4.2",
+    "jest-html-reporters": "^3.1.7",
+    "jest-junit": "^17.0.0",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.4",
+    "supertest": "^7.2.2"
+  }
+}
+
+===== src/routes/index.js =====
+import { Router } from "express";
+
+import healthRoutes from "./health.routes.js";
+import testRoutes from "./test.routes.js";
+import authRoutes from "../modules/auth/auth.routes.js";
+import usersRoutes from "../modules/users/users.routes.js";
+
+const router = Router();
+
+router.use("/health", healthRoutes);
+
+router.use("/test", testRoutes);
+router.use("/auth", authRoutes);
+router.use("/users", usersRoutes);
+
+
+export default router;
+
+===== src/modules/users/users.routes.js =====
+import { Router } from "express";
+
+import UsersController from "./users.controller.js";
+import AuthMiddleware from "../../middleware/auth.middleware.js";
+
+const router = Router();
+
+router.get(
+
+    "/me",
+
+    AuthMiddleware.authenticate,
+
+    UsersController.me
+
+);
+
+export default router;
+
+===== src/modules/users/users.controller.js =====
+import Response from "../../core/response/index.js";
+import ProfileService from "./services/profile.service.js";
+
+class UsersController {
+
+    async me(req, res, next) {
+
+        try {
+
+            const profile = await ProfileService.getMyProfile(
+                req.user.id
+            );
+
+            return Response.success(
+
+                res,
+
+                {
+                    profile
+                },
+
+                "Profile fetched successfully."
+
+            );
+
+        } catch (error) {
+
+            next(error);
+
+        }
+
+    }
+
+}
+
+export default new UsersController();
+
+===== src/modules/users/services/profile.service.js =====
+import {
+    profilesRepository
+} from "../repositories/index.js";
+
+import profileMapper from "../mappers/profile.mapper.js";
+
+class ProfileService {
+
+    async getMyProfile(userId) {
+
+        const profile = await profilesRepository.findByUserId(
+            userId
+        );
+
+        return profileMapper.toResponse(profile);
+
+    }
+
+}
+
+export default new ProfileService();
+===== src/modules/users/repositories/profiles.repository.js =====
+import BaseRepository from "../../../database/repositories/base.repository.js";
+
+class ProfilesRepository extends BaseRepository {
+
+    constructor() {
+
+        super("users", "profiles");
+
+    }
+
+    async create({
+
+    userId,
+
+    username,
+
+    displayName = null,
+
+    bio = null,
+
+    profilePhotoAssetId = null,
+
+    coverPhotoAssetId = null,
+
+    countryId = null,
+
+    cityId = null,
+
+    socialLinks = {}
+
+}) {
+
+    const query = `
+        INSERT INTO ${this.fullTableName}
+        (
+            user_id,
+            username,
+            display_name,
+            bio,
+            profile_photo_asset_id,
+            cover_photo_asset_id,
+            country_id,
+            city_id,
+            social_links
+        )
+        VALUES
+        (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9
+        )
+        RETURNING *
+    `;
+
+    const { rows } = await this.query(query, [
+
+        userId,
+
+        username,
+
+        displayName,
+
+        bio,
+
+        profilePhotoAssetId,
+
+        coverPhotoAssetId,
+
+        countryId,
+
+        cityId,
+
+        socialLinks
+
+    ]);
+
+    return rows[0];
+
+}
+
+    async findByUserId(userId) {
+
+    return this.findOne(
+
+        "user_id = $1 AND deleted_at IS NULL",
+
+        [userId]
+
+    );
+
+}
+}
+
+export default new ProfilesRepository();
+
+===== src/modules/users/mappers/profile.mapper.js =====
+class ProfileMapper {
+
+    toResponse(profile) {
+
+        return {
+
+            userId: profile.user_id,
+
+            username: profile.username,
+
+            displayName: profile.display_name,
+
+            bio: profile.bio,
+
+            profilePhoto: {
+
+                assetId: profile.profile_photo_asset_id,
+
+                url: null
+
+            },
+
+            coverPhoto: {
+
+                assetId: profile.cover_photo_asset_id,
+
+                url: null
+
+            },
+
+            country: {
+
+                id: profile.country_id,
+
+                name: null
+
+            },
+
+            city: {
+
+                id: profile.city_id,
+
+                name: null
+
+            },
+
+            socialLinks: profile.social_links ?? {},
+
+            // verified: profile.is_verified,
+
+            // profileCompleted:
+            //     profile.profile_completed_at !== null,
+            isVerified: profile.is_verified,
+
+isProfileCompleted:
+    profile.profile_completed_at !== null,
+
+            createdAt: profile.created_at,
+
+            updatedAt: profile.updated_at
+
+        };
+
+    }
+
+    toPublicResponse(profile) {
+
+        return {
+
+            username: profile.username,
+
+            displayName: profile.display_name,
+
+            bio: profile.bio,
+
+            profilePhoto: {
+
+                assetId: profile.profile_photo_asset_id,
+
+                url: null
+
+            },
+
+            coverPhoto: {
+
+                assetId: profile.cover_photo_asset_id,
+
+                url: null
+
+            },
+
+            country: {
+
+                id: profile.country_id,
+
+                name: null
+
+            },
+
+            city: {
+
+                id: profile.city_id,
+
+                name: null
+
+            },
+
+            verified: profile.is_verified
+
+        };
+
+    }
+
+}
+
+export default new ProfileMapper();
+===== src/modules/users/validations/profile.validation.js =====
+import { z } from "zod";
+
+class ProfileValidation {
+
+}
+
+export default new ProfileValidation();
+===== src/modules/users/index.js =====
+import profileService from "./profile.service.js";
+
+export {
+    profileService
+};
+===== src/middleware/auth.middleware.js =====
+import { AuthContextService } from "../modules/auth/services/index.js";
+
+class AuthMiddleware {
+
+    async authenticate(req, res, next) {
+
+        try {
+
+            const header = req.headers.authorization;
+
+            if (!header) {
+
+                return res.status(401).json({
+
+                    success: false,
+
+                    message: "Authorization header missing."
+
+                });
+
+            }
+
+            const [scheme, token] = header.split(" ");
+
+            if (scheme !== "Bearer" || !token) {
+
+                return res.status(401).json({
+
+                    success: false,
+
+                    message: "Invalid authorization header."
+
+                });
+
+            }
+
+            const context = await AuthContextService.authenticate(token);
+
+            req.context = {
+
+                ...(req.context ?? {}),
+
+                ...context
+
+            };
+
+            req.user = context.user;
+
+            req.session = context.session;
+
+            req.identity = context.identity;
+
+            req.profile = context.profile;
+
+            next();
+
+        } 
+        catch (error) {
+
+            console.error("AUTH ERROR:", error);
+        
+            return res.status(401).json({
+        
+                success: false,
+        
+                message: error.message
+        
+            });
+        
+        }
+
+    }
+
+}
+
+export default new AuthMiddleware();
+===== src/core/response/response.js =====
+class Response {
+
+    static success(res, data = null, message = "Success") {
+
+        return res.status(200).json({
+
+            success: true,
+
+            message,
+
+            data,
+
+            requestId: res.req.context?.requestId ?? null,
+
+            timestamp: new Date().toISOString()
+
+        });
+
+    }
+
+    static created(res, data = null, message = "Created successfully") {
+
+        return res.status(201).json({
+
+            success: true,
+
+            message,
+
+            data,
+
+            requestId: res.req.context?.requestId ?? null,
+
+            timestamp: new Date().toISOString()
+
+        });
+
+    }
+
+    static noContent(res) {
+
+        return res.status(204).send();
+
+    }
+
+    static error(res, {
+
+        statusCode,
+
+        code,
+
+        message,
+
+        details = null
+
+    }) {
+
+        return res.status(statusCode).json({
+
+            success: false,
+
+            code,
+
+            message,
+
+            details,
+
+            requestId: res.req.context?.requestId ?? null,
+
+            timestamp: new Date().toISOString()
+
+        });
+
+    }
+
+}
+
+export default Response;
+===== src/core/errors/app-error.js =====
+export default class AppError extends Error {
+
+    constructor({
+        code,
+        message,
+        statusCode,
+        details = null,
+        cause = null
+    }) {
+
+        super(message);
+
+        this.name = this.constructor.name;
+
+        this.code = code;
+
+        this.statusCode = statusCode;
+
+        this.details = details;
+
+        this.cause = cause;
+
+        Error.captureStackTrace?.(
+            this,
+            this.constructor
+        );
+    }
+
+    toJSON() {
+
+        return {
+
+            code: this.code,
+
+            message: this.message,
+
+            statusCode: this.statusCode,
+
+            details: this.details
+        };
+
+    }
+
+}
+===== src/config/database.js =====
+// import DatabaseManager from "../database/database-manager.js";
+// import logger from "../core/logger/logger.js";
+
+// export async function connectDatabase() {
+//   try {
+//     await DatabaseManager.healthCheck();
+
+//     logger.info("✅ PostgreSQL Connected");
+//   } catch (error) {
+//     logger.error(error);
+
+//     process.exit(1);
+//   }
+// }
+
+import DatabaseManager from "../database/database-manager.js";
+import redis from "./redis.js";
+
+import logger from "../core/logger/logger.js";
+
+export async function connectInfrastructure() {
+  try {
+    await DatabaseManager.healthCheck();
+    logger.info("✅ PostgreSQL Connected");
+
+    await redis.ping();
+    logger.info("✅ Redis Connected");
+  } catch (error) {
+    logger.error(error);
+
+    process.exit(1);
+  }
+}
+===== src/database/repositories/base.repository.js =====
+import db from "../database-manager.js";
+
+export default class BaseRepository {
+
+    constructor(schema, table) {
+
+        this.schema = schema;
+        this.table = table;
+
+    }
+
+    get fullTableName() {
+
+        return `${this.schema}.${this.table}`;
+
+    }
+
+    async findById(id) {
+
+        const query = `
+            SELECT *
+            FROM ${this.fullTableName}
+            WHERE id = $1
+            LIMIT 1
+        `;
+
+        const { rows } = await db.query(query, [id]);
+
+        return rows[0] ?? null;
+
+    }
+
+    async findOne(whereClause, params = []) {
+
+        const query = `
+            SELECT *
+            FROM ${this.fullTableName}
+            WHERE ${whereClause}
+            LIMIT 1
+        `;
+
+        const { rows } = await db.query(query, params);
+
+        return rows[0] ?? null;
+
+    }
+
+    async exists(whereClause, params = []) {
+
+        const query = `
+            SELECT EXISTS(
+                SELECT 1
+                FROM ${this.fullTableName}
+                WHERE ${whereClause}
+            ) AS exists
+        `;
+
+        const { rows } = await db.query(query, params);
+
+        return rows[0].exists;
+
+    }
+
+    async deleteById(id) {
+
+        const query = `
+            DELETE
+            FROM ${this.fullTableName}
+            WHERE id = $1
+        `;
+
+        await db.query(query, [id]);
+
+    }
+
+    async query(sql, params = []) {
+
+        return db.query(sql, params);
+
+    }
+
+}
+===== migration 005 =====
+BEGIN;
+
+-- =====================================================
+-- Upgrade users.profiles
+-- =====================================================
+
+-- -----------------------------------------------------
+-- Remove old column
+-- -----------------------------------------------------
+
+ALTER TABLE users.profiles
+DROP COLUMN avatar_url;
+
+-- -----------------------------------------------------
+-- Remove old country column
+-- -----------------------------------------------------
+
+ALTER TABLE users.profiles
+DROP COLUMN country_code;
+
+-- -----------------------------------------------------
+-- Add new columns
+-- -----------------------------------------------------
+
+ALTER TABLE users.profiles
+
+ADD COLUMN profile_photo_asset_id UUID,
+
+ADD COLUMN cover_photo_asset_id UUID,
+
+ADD COLUMN country_id UUID,
+
+ADD COLUMN city_id UUID,
+
+ADD COLUMN social_links JSONB DEFAULT '{}'::jsonb,
+
+ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+
+ADD COLUMN profile_completed_at TIMESTAMP,
+
+ADD COLUMN deleted_at TIMESTAMP;
+
+-- -----------------------------------------------------
+-- Helpful indexes
+-- -----------------------------------------------------
+
+CREATE INDEX IF NOT EXISTS idx_profiles_username
+ON users.profiles(username);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_country
+ON users.profiles(country_id);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_city
+ON users.profiles(city_id);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_deleted
+ON users.profiles(deleted_at);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_verified
+ON users.profiles(is_verified);
+
+COMMIT;
+
+===== migration 047 =====
+BEGIN;
+
+-- =====================================================
+-- TABLE: users.saved_items
+-- PURPOSE: Stores all user saved content
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS users.saved_items (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_id UUID NOT NULL,
+
+    item_type VARCHAR(20) NOT NULL,
+
+    item_id UUID NOT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_saved_item_type
+        CHECK (
+            item_type IN (
+                'PLACE',
+                'ITINERARY',
+                'MEDIA',
+                'POST'
+            )
+        ),
+
+    CONSTRAINT uq_saved_item
+        UNIQUE(user_id, item_type, item_id),
+
+    CONSTRAINT fk_saved_items_user
+        FOREIGN KEY (user_id)
+        REFERENCES auth.users(id)
+        ON DELETE CASCADE
+);
+
+-- =====================================================
+-- INDEXES
+-- =====================================================
+
+CREATE INDEX idx_saved_items_user
+ON users.saved_items(user_id);
+
+CREATE INDEX idx_saved_items_type
+ON users.saved_items(item_type);
+
+CREATE INDEX idx_saved_items_item
+ON users.saved_items(item_id);
+
+CREATE INDEX idx_saved_items_created_at
+ON users.saved_items(created_at);
+
+COMMIT;
+
+
+
+
+
+===== migration 048 =====
+BEGIN;
+
+-- =====================================================
+-- TABLE: users.visited_places
+-- PURPOSE: Stores places actually visited by users
+-- =====================================================
+
+CREATE TABLE users.visited_places
+(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    user_id UUID NOT NULL,
+
+    place_id UUID NOT NULL,
+
+    trip_id UUID,
+
+    verification_asset_id UUID,
+
+    verification_status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+
+    visit_source VARCHAR(30) NOT NULL DEFAULT 'MANUAL',
+
+    visited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    -- =====================================================
+    -- CHECK CONSTRAINTS
+    -- =====================================================
+
+    CONSTRAINT chk_verification_status
+        CHECK (
+            verification_status IN (
+                'PENDING',
+                'VERIFIED',
+                'REJECTED'
+            )
+        ),
+
+    CONSTRAINT chk_visit_source
+        CHECK (
+            visit_source IN (
+                'MANUAL',
+                'TRIP_COMPLETION',
+                'PHOTO_VERIFICATION',
+                'ADMIN'
+            )
+        ),
+
+    CONSTRAINT uq_user_place_visit
+        UNIQUE (user_id, place_id),
+
+    -- =====================================================
+    -- FOREIGN KEYS
+    -- =====================================================
+
+    CONSTRAINT fk_visited_places_user
+        FOREIGN KEY (user_id)
+        REFERENCES auth.users(id)
+        ON DELETE CASCADE,
+
+
+
+    CONSTRAINT fk_visited_places_trip
+        FOREIGN KEY (trip_id)
+        REFERENCES trip.trips(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_visited_places_asset
+        FOREIGN KEY (verification_asset_id)
+        REFERENCES media.assets(id)
+        ON DELETE SET NULL
+);
+
+-- =====================================================
+-- INDEXES
+-- =====================================================
+
+CREATE INDEX idx_visited_places_user
+ON users.visited_places(user_id);
+
+CREATE INDEX idx_visited_places_place
+ON users.visited_places(place_id);
+
+CREATE INDEX idx_visited_places_trip
+ON users.visited_places(trip_id);
+
+CREATE INDEX idx_visited_places_status
+ON users.visited_places(verification_status);
+
+CREATE INDEX idx_visited_places_source
+ON users.visited_places(visit_source);
+
+CREATE INDEX idx_visited_places_visited_at
+ON users.visited_places(visited_at);
+
+CREATE INDEX idx_visited_places_created_at
+ON users.visited_places(created_at);
+
+COMMIT;

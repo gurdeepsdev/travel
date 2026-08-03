@@ -1,51 +1,70 @@
-import jwt from "jsonwebtoken";
+import {
+  AuthContextService,
+} from "../modules/auth/services/index.js";
 
-const optionalAuthMiddleware = (
+async function optionalAuthMiddleware(
   req,
-  res,
+  _res,
   next,
-) => {
+) {
+  const authorizationHeader =
+    req.headers.authorization;
+
+  if (!authorizationHeader) {
+    req.user = null;
+    req.session = null;
+    req.identity = null;
+    req.profile = null;
+
+    return next();
+  }
+
+  const parts =
+    authorizationHeader
+      .trim()
+      .split(/\s+/);
+
+  if (
+    parts.length !== 2 ||
+    parts[0].toLowerCase() !== "bearer" ||
+    !parts[1]
+  ) {
+    req.user = null;
+    req.session = null;
+    req.identity = null;
+    req.profile = null;
+
+    return next();
+  }
+
   try {
-    const authorization =
-      req.headers.authorization;
+    const context =
+      await AuthContextService
+        .authenticate(parts[1]);
 
-    if (!authorization) {
-      req.user = null;
-      return next();
-    }
-
-    const [scheme, token] =
-      authorization.split(" ");
-
-    if (
-      scheme !== "Bearer" ||
-      !token
-    ) {
-      req.user = null;
-      return next();
-    }
-
-    const payload = jwt.verify(
-      token,
-      process.env.ACCESS_TOKEN_SECRET,
-    );
-
-    req.user = {
-      id: payload.sub,
-      userId: payload.sub,
-      sessionId: payload.sid,
+    req.context = {
+      ...(req.context ?? {}),
+      ...context,
     };
+
+    req.user = context.user;
+    req.session = context.session;
+    req.identity = context.identity;
+    req.profile = context.profile;
 
     return next();
   } catch {
     /*
-     * Optional authentication:
-     * invalid or expired token is treated
-     * as an anonymous request.
+     * Optional authentication deliberately treats an
+     * invalid, expired, or revoked token as anonymous.
      */
     req.user = null;
+    req.session = null;
+    req.identity = null;
+    req.profile = null;
+
     return next();
   }
-};
+}
 
 export default optionalAuthMiddleware;
