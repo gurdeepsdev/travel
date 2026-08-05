@@ -1,6 +1,7 @@
 import {
   constants as fileConstants,
 } from "node:fs";
+import StorageProvider from "./storage.interface.js";
 
 import {
   copyFile,
@@ -180,7 +181,8 @@ async function moveAcrossFilesystems({
   }
 }
 
-class LocalStorageProvider {
+class LocalStorageProvider 
+  extends StorageProvider {
   get name() {
     return "local";
   }

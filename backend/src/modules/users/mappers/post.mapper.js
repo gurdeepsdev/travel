@@ -244,10 +244,20 @@ import {
         storageKey:
           asset.storageKey ?? null,
   
-        url: buildAssetUrl(
-          asset.storageKey,
-        ),
-  
+      url: buildAssetUrl({
+          assetId:
+            asset.id,
+
+          storageProvider:
+            asset.storageProvider,
+
+          storageKey:
+            asset.storageKey,
+
+          isPublic:
+            asset.isPublic ===
+            true,
+        }),
         originalFilename:
           asset.originalFilename ?? null,
   

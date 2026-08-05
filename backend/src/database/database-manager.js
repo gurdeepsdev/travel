@@ -22,6 +22,52 @@ class DatabaseManager {
     return this.pool.connect();
   }
 
+    async transaction(callback) {
+    if (
+      typeof callback !==
+      "function"
+    ) {
+      throw new TypeError(
+        "Database transaction callback must be a function.",
+      );
+    }
+
+    const client =
+      await this.getClient();
+
+    try {
+      await client.query(
+        "BEGIN",
+      );
+
+      const result =
+        await callback(
+          client,
+        );
+
+      await client.query(
+        "COMMIT",
+      );
+
+      return result;
+    } catch (error) {
+      try {
+        await client.query(
+          "ROLLBACK",
+        );
+      } catch (
+        rollbackError
+      ) {
+        error.rollbackError =
+          rollbackError;
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async healthCheck() {
     await this.query("SELECT 1");
     return true;

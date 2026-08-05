@@ -119,7 +119,13 @@ COALESCE(
   false
 ) AS viewer_reshared,
 
-(p.user_id = $1) AS viewer_is_owner
+(p.user_id = $1) AS viewer_is_owner,
+
+COALESCE(
+  tagged_people_data
+    .tagged_people,
+  '[]'::jsonb
+) AS tagged_people
 
       FROM explore.posts p
 
@@ -241,6 +247,58 @@ COALESCE(
 
         WHERE post_itinerary.post_id = p.id
       ) post_itinerary_data
+        ON TRUE
+
+          LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(
+            JSONB_AGG(
+              JSONB_BUILD_OBJECT(
+                'id',
+                  tagged_user
+                    .tagged_user_id,
+
+                'username',
+                  tagged_profile
+                    .username,
+
+                'displayName',
+                  tagged_profile
+                    .display_name,
+
+                'isVerified',
+                  COALESCE(
+                    tagged_profile
+                      .is_verified,
+                    FALSE
+                  ),
+
+                'taggedAt',
+                  tagged_user
+                    .created_at
+              )
+              ORDER BY
+                tagged_user
+                  .created_at ASC,
+                tagged_user.id ASC
+            ),
+            '[]'::jsonb
+          ) AS tagged_people
+
+        FROM explore
+          .post_tagged_users
+          AS tagged_user
+
+        INNER JOIN users.profiles
+          AS tagged_profile
+          ON tagged_profile.user_id =
+            tagged_user.tagged_user_id
+         AND tagged_profile.deleted_at
+           IS NULL
+
+        WHERE tagged_user.post_id =
+          p.id
+      ) AS tagged_people_data
         ON TRUE
 
         LEFT JOIN LATERAL (
@@ -568,8 +626,11 @@ async getUserPosts({
      repost_data.created_at
        AS repost_created_at,
 
-     '[]'::jsonb
-       AS tagged_people
+     COALESCE(
+       tagged_people_data
+         .tagged_people,
+       '[]'::jsonb
+     ) AS tagged_people
        
 
    FROM explore.posts AS post
@@ -798,6 +859,61 @@ COALESCE(
      WHERE post_itinerary.post_id =
        post.id
    ) AS itinerary_stats
+     ON TRUE
+
+      /*
+    * Users tagged in the post.
+    */
+   LEFT JOIN LATERAL (
+     SELECT
+       COALESCE(
+         JSONB_AGG(
+           JSONB_BUILD_OBJECT(
+             'id',
+               tagged_user
+                 .tagged_user_id,
+
+             'username',
+               tagged_profile
+                 .username,
+
+             'displayName',
+               tagged_profile
+                 .display_name,
+
+             'isVerified',
+               COALESCE(
+                 tagged_profile
+                   .is_verified,
+                 FALSE
+               ),
+
+             'taggedAt',
+               tagged_user
+                 .created_at
+           )
+           ORDER BY
+             tagged_user
+               .created_at ASC,
+             tagged_user.id ASC
+         ),
+         '[]'::jsonb
+       ) AS tagged_people
+
+     FROM explore
+       .post_tagged_users
+       AS tagged_user
+
+     INNER JOIN users.profiles
+       AS tagged_profile
+       ON tagged_profile.user_id =
+         tagged_user.tagged_user_id
+      AND tagged_profile.deleted_at
+        IS NULL
+
+     WHERE tagged_user.post_id =
+       post.id
+   ) AS tagged_people_data
      ON TRUE
 
    /*
@@ -1175,9 +1291,11 @@ async getPostsByIds({
      repost_data.created_at
        AS repost_created_at,
 
-     '[]'::jsonb
-       AS tagged_people
-       
+   COALESCE(
+       tagged_people_data
+         .tagged_people,
+       '[]'::jsonb
+     ) AS tagged_people
 
    FROM explore.posts AS post
    
@@ -1406,7 +1524,64 @@ COALESCE(
        post.id
    ) AS itinerary_stats
      ON TRUE
+ /*
+    * Users tagged in the post.
+    */
+   LEFT JOIN LATERAL (
+     SELECT
+       COALESCE(
+         JSONB_AGG(
+           JSONB_BUILD_OBJECT(
+             'id',
+               tagged_user
+                 .tagged_user_id,
 
+             'username',
+               tagged_profile
+                 .username,
+
+             'displayName',
+               tagged_profile
+                 .display_name,
+
+             'isVerified',
+               COALESCE(
+                 tagged_profile
+                   .is_verified,
+                 FALSE
+               ),
+
+             'taggedAt',
+               tagged_user
+                 .created_at
+           )
+           ORDER BY
+             tagged_user
+               .created_at ASC,
+             tagged_user.id ASC
+         ),
+         '[]'::jsonb
+       ) AS tagged_people
+
+     FROM explore
+       .post_tagged_users
+       AS tagged_user
+
+     INNER JOIN users.profiles
+       AS tagged_profile
+       ON tagged_profile.user_id =
+         tagged_user.tagged_user_id
+      AND tagged_profile.deleted_at
+        IS NULL
+
+     WHERE tagged_user.post_id =
+       post.id
+   ) AS tagged_people_data
+     ON TRUE
+
+   /*
+    * Likes, been-there count and viewer-specific states.
+    */
    /*
     * Likes, been-there count and viewer-specific states.
     */
