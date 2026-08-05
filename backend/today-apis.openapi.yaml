@@ -1,11 +1,12 @@
 openapi: 3.0.3
 
 info:
-  title: Artictern APIs Created on 2026-08-04
-  version: 1.0.0
+  title: Artictern Recently Implemented APIs
+  version: 1.1.0
   description: >
     APIs implemented for saved content, partial profile updates,
-    comment deletion, comment liker visibility, and private memories.
+    comment deletion, comment liker visibility, private memories,
+    multipart post creation, and access-controlled local media delivery.
 
 servers:
   - url: http://localhost:3001/api/v1
@@ -17,8 +18,60 @@ tags:
   - name: Comments
   - name: Comment Likes
   - name: Memories
+  - name: Post Creation
+  - name: Media Delivery
 
 paths:
+  /posts:
+    post:
+      tags:
+        - Post Creation
+      summary: Create a place post
+      description: >
+        Creates a PLACE post for the authenticated user. The request
+        may contain newly uploaded media, existing media assets owned
+        by the user, owned itineraries, or a combination of these.
+        At least one media asset or itinerary is required. When newly
+        uploaded files and existing assets are combined, mediaOrder
+        must reference every file and existing asset exactly once.
+        The first ordered asset becomes the cover asset.
+      operationId: createPost
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreatePostMultipartRequest"
+            encoding:
+              files:
+                contentType: >
+                  image/jpeg, image/png, image/webp, image/gif,
+                  image/heic, image/heif, video/mp4,
+                  video/quicktime, video/webm
+      responses:
+        "201":
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PostReferenceNotAllowed"
+        "413":
+          $ref: "#/components/responses/PostMediaTooLarge"
+        "415":
+          $ref: "#/components/responses/PostMediaInvalidType"
+        "500":
+          $ref: "#/components/responses/PostCreateFailed"
+
+
+
   /users/me/saved-posts:
     get:
       tags:
@@ -41,7 +94,82 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
+  /media/assets/{assetId}/content:
+    get:
+      tags:
+        - Media Delivery
+      summary: Get local media content
+      description: >
+        Delivers the binary content of a local media asset.
+        Authentication is optional for public assets. A private local
+        asset is delivered only when the authenticated viewer owns it.
+        Missing, unauthorized, and non-local assets are returned as
+        not found.
+      operationId: getMediaAssetContent
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Media content
+          headers:
+            Cache-Control:
+              description: >
+                Public assets use public caching. Private assets use
+                private, no-store.
+              schema:
+                type: string
+            Content-Disposition:
+              description: Content is delivered inline
+              schema:
+                type: string
+                example: inline
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/heic:
+              schema:
+                type: string
+                format: binary
+            image/heif:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/quicktime:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/MediaAssetNotFound"
+        "503":
+          $ref: "#/components/responses/MediaContentUnavailable"
+          
   /users/{username}/saved-places:
     get:
       tags:
@@ -255,6 +383,14 @@ components:
         type: string
         format: uuid
 
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
     Limit:
       name: limit
       in: query
@@ -289,6 +425,105 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+
+    PostReferenceNotAllowed:
+      description: >
+        The place, existing asset, itinerary, or tagged user was not
+        found or is not allowed for the authenticated user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            placeNotAllowed:
+              value:
+                success: false
+                code: POST.PLACE_NOT_ALLOWED
+                message: Post place was not found or is not available.
+                details: null
+                requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+                timestamp: "2026-08-05T07:22:58.846Z"
+            assetNotAllowed:
+              value:
+                success: false
+                code: POST.ASSET_NOT_ALLOWED
+                message: A post asset was not found or is not allowed.
+                details: null
+                requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+                timestamp: "2026-08-05T07:22:58.846Z"
+
+    PostMediaTooLarge:
+      description: Uploaded media exceeds its permitted size
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: POST.MEDIA_TOO_LARGE
+            message: A post media file is too large.
+            details:
+              field: files
+              maximumBytes: 262144000
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    PostMediaInvalidType:
+      description: >
+        Uploaded media has an unsupported type or its declared MIME
+        type does not match its binary file signature.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: POST.MEDIA_INVALID_TYPE
+            message: Post media type is not supported.
+            details:
+              field: files
+              mimeType: application/pdf
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    PostCreateFailed:
+      description: Post creation or media storage failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    MediaAssetNotFound:
+      description: >
+        The asset is missing, unauthorized, or is not stored by the
+        local storage provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEDIA.ASSET_NOT_FOUND
+            message: Media asset not found.
+            details: null
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    MediaContentUnavailable:
+      description: >
+        The local asset metadata exists, but its physical content
+        cannot currently be read.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEDIA.CONTENT_UNAVAILABLE
+            message: Media content is temporarily unavailable.
+            details: null
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
 
     CommentNotFound:
       description: >
@@ -802,8 +1037,9 @@ components:
           type: string
           nullable: true
           description: >
-            Public URL when the underlying asset is public. Null for
-            private assets until authenticated media delivery is built.
+            Public R2 URL for public remote assets, or the local
+            access-controlled media endpoint for local assets.
+            Private non-local assets may return null.
         createdAt:
           type: string
           format: date-time
@@ -868,3 +1104,83 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/GetMemoriesData"
+
+    CreatePostMultipartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - placeId
+      properties:
+        caption:
+          type: string
+          minLength: 1
+          maxLength: 250
+        visibility:
+          type: string
+          enum:
+            - PUBLIC
+            - PRIVATE
+          default: PUBLIC
+        placeId:
+          type: string
+          format: uuid
+        files:
+          type: array
+          maxItems: 10
+          description: >
+            New image or video files. Images may be at most 25 MiB
+            each. Videos may be at most 250 MiB each.
+          items:
+            type: string
+            format: binary
+        existingAssetIds:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array containing at most 10 unique UUIDs of
+            active media assets owned by the authenticated user.
+          example: >
+            ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"]
+        mediaOrder:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array defining final media order. UPLOAD
+            entries reference the zero-based position in files.
+            EXISTING entries reference an ID included in
+            existingAssetIds. Required when uploads and existing
+            assets are combined.
+          example: >
+            [{"source":"UPLOAD","fileIndex":0},{"source":"EXISTING","assetId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"}]
+        itineraryIds:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array containing at most 5 unique UUIDs of
+            eligible itineraries owned by the authenticated user.
+          example: >
+            ["11111111-1111-4111-8111-111111111111"]
+        taggedUserIds:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array containing at most 20 unique user UUIDs.
+            The author cannot tag themselves, unavailable users, or
+            users across a block relationship.
+          example: "[]"
+
+    CreatePostData:
+      type: object
+      required:
+        - post
+      properties:
+        post:
+          $ref: "./saved-content.openapi.yaml#/components/schemas/FullPost"
+
+    CreatePostResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreatePostData"

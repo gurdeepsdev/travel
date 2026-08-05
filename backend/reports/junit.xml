@@ -1,9 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="30" failures="0" errors="0" time="0.266">
-  <testsuite name="MemoriesService" errors="0" failures="0" skipped="0" timestamp="2026-08-04T11:25:57" time="0.101" tests="7">
+<testsuites name="jest tests" tests="89" failures="0" errors="0" time="0.735">
+  <testsuite name="MediaService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:58" time="0.095" tests="5">
+    <testcase classname="MediaService returns readable public local content" name="MediaService returns readable public local content" time="0.002">
+    </testcase>
+    <testcase classname="MediaService returns private local content to an authorized owner" name="MediaService returns private local content to an authorized owner" time="0">
+    </testcase>
+    <testcase classname="MediaService hides a missing or unauthorized asset" name="MediaService hides a missing or unauthorized asset" time="0.001">
+    </testcase>
+    <testcase classname="MediaService does not deliver an R2 asset through the local endpoint" name="MediaService does not deliver an R2 asset through the local endpoint" time="0.001">
+    </testcase>
+    <testcase classname="MediaService reports unavailable local content without exposing its path" name="MediaService reports unavailable local content without exposing its path" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="PostCreateService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:58" time="0.05" tests="9">
+    <testcase classname="PostCreateService creates an itinerary-only post and returns the canonical post" name="PostCreateService creates an itinerary-only post and returns the canonical post" time="0.002">
+    </testcase>
+    <testcase classname="PostCreateService rejects a request with no media or itinerary before opening a transaction" name="PostCreateService rejects a request with no media or itinerary before opening a transaction" time="0">
+    </testcase>
+    <testcase classname="PostCreateService rejects an unavailable place and removes newly stored files" name="PostCreateService rejects an unavailable place and removes newly stored files" time="0">
+    </testcase>
+    <testcase classname="PostCreateService rejects an unavailable existing asset" name="PostCreateService rejects an unavailable existing asset" time="0.001">
+    </testcase>
+    <testcase classname="PostCreateService requires explicit ordering when uploaded and existing media are combined" name="PostCreateService requires explicit ordering when uploaded and existing media are combined" time="0">
+    </testcase>
+    <testcase classname="PostCreateService creates uploaded and existing media in frontend order" name="PostCreateService creates uploaded and existing media in frontend order" time="0.001">
+    </testcase>
+    <testcase classname="PostCreateService removes a redundant stored object after per-user deduplication" name="PostCreateService removes a redundant stored object after per-user deduplication" time="0">
+    </testcase>
+    <testcase classname="PostCreateService rejects tagging the author before inspecting or storing files" name="PostCreateService rejects tagging the author before inspecting or storing files" time="0">
+    </testcase>
+    <testcase classname="PostCreateService rejects a blocked or unavailable tagged user" name="PostCreateService rejects a blocked or unavailable tagged user" time="0.001">
+    </testcase>
+  </testsuite>
+  <testsuite name="CommentLikesService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:58" time="0.182" tests="12">
+    <testcase classname="CommentLikesService getCommentLikes returns liker identities to the post owner" name="CommentLikesService getCommentLikes returns liker identities to the post owner" time="0.002">
+    </testcase>
+    <testcase classname="CommentLikesService getCommentLikes creates a timestamp-safe next cursor" name="CommentLikesService getCommentLikes creates a timestamp-safe next cursor" time="0.001">
+    </testcase>
+    <testcase classname="CommentLikesService getCommentLikes hides the liker list from a non-owner" name="CommentLikesService getCommentLikes hides the liker list from a non-owner" time="0">
+    </testcase>
+    <testcase classname="CommentLikesService getCommentLikes rejects a malformed cursor after ownership is confirmed" name="CommentLikesService getCommentLikes rejects a malformed cursor after ownership is confirmed" time="0.002">
+    </testcase>
+    <testcase classname="CommentLikesService setLike likes a comment and returns canonical state" name="CommentLikesService setLike likes a comment and returns canonical state" time="0">
+    </testcase>
+    <testcase classname="CommentLikesService setLike is idempotent when the like already exists" name="CommentLikesService setLike is idempotent when the like already exists" time="0.001">
+    </testcase>
+    <testcase classname="CommentLikesService setLike maps a foreign-key race to comment not found" name="CommentLikesService setLike maps a foreign-key race to comment not found" time="0">
+    </testcase>
+    <testcase classname="CommentLikesService removeLike removes a like and returns canonical state" name="CommentLikesService removeLike removes a like and returns canonical state" time="0">
+    </testcase>
+    <testcase classname="CommentLikesService removeLike is idempotent when no like exists" name="CommentLikesService removeLike is idempotent when no like exists" time="0">
+    </testcase>
+    <testcase classname="CommentLikesService hides a missing comment" name="CommentLikesService hides a missing comment" time="0">
+    </testcase>
+    <testcase classname="CommentLikesService prevents interaction across a block relationship" name="CommentLikesService prevents interaction across a block relationship" time="0.001">
+    </testcase>
+    <testcase classname="CommentLikesService does not write when post access is denied" name="CommentLikesService does not write when post access is denied" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="MemoriesService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:58" time="0.049" tests="7">
     <testcase classname="MemoriesService saveMemory saves an owned compatible asset" name="MemoriesService saveMemory saves an owned compatible asset" time="0.002">
     </testcase>
-    <testcase classname="MemoriesService saveMemory returns the same memory for a repeated save" name="MemoriesService saveMemory returns the same memory for a repeated save" time="0.002">
+    <testcase classname="MemoriesService saveMemory returns the same memory for a repeated save" name="MemoriesService saveMemory returns the same memory for a repeated save" time="0.001">
     </testcase>
     <testcase classname="MemoriesService saveMemory hides a missing, unowned, or incompatible asset" name="MemoriesService saveMemory hides a missing, unowned, or incompatible asset" time="0.001">
     </testcase>
@@ -11,17 +69,17 @@
     </testcase>
     <testcase classname="MemoriesService getMyMemories returns only the authenticated user&apos;s memories" name="MemoriesService getMyMemories returns only the authenticated user&apos;s memories" time="0.001">
     </testcase>
-    <testcase classname="MemoriesService getMyMemories creates a timestamp-safe next cursor" name="MemoriesService getMyMemories creates a timestamp-safe next cursor" time="0.004">
+    <testcase classname="MemoriesService getMyMemories creates a timestamp-safe next cursor" name="MemoriesService getMyMemories creates a timestamp-safe next cursor" time="0">
     </testcase>
     <testcase classname="MemoriesService getMyMemories rejects a malformed cursor before querying" name="MemoriesService getMyMemories rejects a malformed cursor before querying" time="0">
     </testcase>
   </testsuite>
-  <testsuite name="SavedContentService" errors="0" failures="0" skipped="0" timestamp="2026-08-04T11:25:57" time="0.051" tests="11">
+  <testsuite name="SavedContentService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:58" time="0.052" tests="11">
     <testcase classname="SavedContentService getMySavedPosts returns complete saved posts in saved-item order" name="SavedContentService getMySavedPosts returns complete saved posts in saved-item order" time="0.002">
     </testcase>
-    <testcase classname="SavedContentService getMySavedPosts returns an empty saved-post list" name="SavedContentService getMySavedPosts returns an empty saved-post list" time="0">
+    <testcase classname="SavedContentService getMySavedPosts returns an empty saved-post list" name="SavedContentService getMySavedPosts returns an empty saved-post list" time="0.001">
     </testcase>
-    <testcase classname="SavedContentService getMySavedPosts creates a cursor from the last saved item" name="SavedContentService getMySavedPosts creates a cursor from the last saved item" time="0.001">
+    <testcase classname="SavedContentService getMySavedPosts creates a cursor from the last saved item" name="SavedContentService getMySavedPosts creates a cursor from the last saved item" time="0">
     </testcase>
     <testcase classname="SavedContentService getMySavedPosts rejects a malformed cursor before querying" name="SavedContentService getMySavedPosts rejects a malformed cursor before querying" time="0.001">
     </testcase>
@@ -33,37 +91,111 @@
     </testcase>
     <testcase classname="SavedContentService getUserSavedPlaces allows an owner to view their private profile" name="SavedContentService getUserSavedPlaces allows an owner to view their private profile" time="0">
     </testcase>
-    <testcase classname="SavedContentService getUserSavedPlaces hides saved places across a block relationship" name="SavedContentService getUserSavedPlaces hides saved places across a block relationship" time="0.001">
+    <testcase classname="SavedContentService getUserSavedPlaces hides saved places across a block relationship" name="SavedContentService getUserSavedPlaces hides saved places across a block relationship" time="0">
     </testcase>
     <testcase classname="SavedContentService getUserSavedPlaces returns not found for a missing profile" name="SavedContentService getUserSavedPlaces returns not found for a missing profile" time="0">
     </testcase>
-    <testcase classname="SavedContentService getUserSavedPlaces rejects a malformed cursor" name="SavedContentService getUserSavedPlaces rejects a malformed cursor" time="0.001">
+    <testcase classname="SavedContentService getUserSavedPlaces rejects a malformed cursor" name="SavedContentService getUserSavedPlaces rejects a malformed cursor" time="0">
     </testcase>
   </testsuite>
-  <testsuite name="ProfileService" errors="0" failures="0" skipped="0" timestamp="2026-08-04T11:25:57" time="0.046" tests="12">
+  <testsuite name="ProfileService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:59" time="0.044" tests="12">
     <testcase classname="ProfileService updateMyProfile updates only the supplied profile fields" name="ProfileService updateMyProfile updates only the supplied profile fields" time="0.002">
     </testcase>
     <testcase classname="ProfileService updateMyProfile rejects a username owned by another profile" name="ProfileService updateMyProfile rejects a username owned by another profile" time="0">
     </testcase>
-    <testcase classname="ProfileService updateMyProfile rejects an unavailable or unowned profile photo" name="ProfileService updateMyProfile rejects an unavailable or unowned profile photo" time="0.001">
+    <testcase classname="ProfileService updateMyProfile rejects an unavailable or unowned profile photo" name="ProfileService updateMyProfile rejects an unavailable or unowned profile photo" time="0">
     </testcase>
     <testcase classname="ProfileService updateMyProfile allows the profile photo to be cleared" name="ProfileService updateMyProfile allows the profile photo to be cleared" time="0">
     </testcase>
-    <testcase classname="ProfileService updateMyProfile rejects an inactive or missing country" name="ProfileService updateMyProfile rejects an inactive or missing country" time="0">
+    <testcase classname="ProfileService updateMyProfile rejects an inactive or missing country" name="ProfileService updateMyProfile rejects an inactive or missing country" time="0.001">
     </testcase>
-    <testcase classname="ProfileService updateMyProfile rejects an inactive or missing city" name="ProfileService updateMyProfile rejects an inactive or missing city" time="0.001">
+    <testcase classname="ProfileService updateMyProfile rejects an inactive or missing city" name="ProfileService updateMyProfile rejects an inactive or missing city" time="0">
     </testcase>
     <testcase classname="ProfileService updateMyProfile rejects a city from a different country" name="ProfileService updateMyProfile rejects a city from a different country" time="0">
     </testcase>
-    <testcase classname="ProfileService updateMyProfile accepts a matching country and city" name="ProfileService updateMyProfile accepts a matching country and city" time="0">
+    <testcase classname="ProfileService updateMyProfile accepts a matching country and city" name="ProfileService updateMyProfile accepts a matching country and city" time="0.001">
     </testcase>
-    <testcase classname="ProfileService updateMyProfile allows country and city to be cleared together" name="ProfileService updateMyProfile allows country and city to be cleared together" time="0.001">
+    <testcase classname="ProfileService updateMyProfile allows country and city to be cleared together" name="ProfileService updateMyProfile allows country and city to be cleared together" time="0">
     </testcase>
     <testcase classname="ProfileService updateMyProfile maps a concurrent username conflict" name="ProfileService updateMyProfile maps a concurrent username conflict" time="0">
     </testcase>
-    <testcase classname="ProfileService updateMyProfile maps a concurrent profile-photo foreign-key failure" name="ProfileService updateMyProfile maps a concurrent profile-photo foreign-key failure" time="0">
+    <testcase classname="ProfileService updateMyProfile maps a concurrent profile-photo foreign-key failure" name="ProfileService updateMyProfile maps a concurrent profile-photo foreign-key failure" time="0.001">
     </testcase>
     <testcase classname="ProfileService updateMyProfile does not write when the profile is missing" name="ProfileService updateMyProfile does not write when the profile is missing" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="PostBeenThereService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:59" time="0.045" tests="9">
+    <testcase classname="PostBeenThereService setBeenThere sets Been There and returns canonical state" name="PostBeenThereService setBeenThere sets Been There and returns canonical state" time="0.001">
+    </testcase>
+    <testcase classname="PostBeenThereService setBeenThere is idempotent when the row already exists" name="PostBeenThereService setBeenThere is idempotent when the row already exists" time="0">
+    </testcase>
+    <testcase classname="PostBeenThereService setBeenThere converts a foreign-key race into post not found" name="PostBeenThereService setBeenThere converts a foreign-key race into post not found" time="0">
+    </testcase>
+    <testcase classname="PostBeenThereService setBeenThere does not write when access is denied" name="PostBeenThereService setBeenThere does not write when access is denied" time="0">
+    </testcase>
+    <testcase classname="PostBeenThereService removeBeenThere removes Been There and returns canonical state" name="PostBeenThereService removeBeenThere removes Been There and returns canonical state" time="0">
+    </testcase>
+    <testcase classname="PostBeenThereService removeBeenThere is idempotent when no row exists" name="PostBeenThereService removeBeenThere is idempotent when no row exists" time="0">
+    </testcase>
+    <testcase classname="PostBeenThereService getPostBeenThere returns the visitor list" name="PostBeenThereService getPostBeenThere returns the visitor list" time="0.001">
+    </testcase>
+    <testcase classname="PostBeenThereService getPostBeenThere creates a timestamp-safe next cursor" name="PostBeenThereService getPostBeenThere creates a timestamp-safe next cursor" time="0">
+    </testcase>
+    <testcase classname="PostBeenThereService getPostBeenThere rejects a malformed cursor" name="PostBeenThereService getPostBeenThere rejects a malformed cursor" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="PostReactionsService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:59" time="0.041" tests="8">
+    <testcase classname="PostReactionsService setReaction creates or updates a reaction on an accessible public post" name="PostReactionsService setReaction creates or updates a reaction on an accessible public post" time="0.003">
+    </testcase>
+    <testcase classname="PostReactionsService setReaction allows the owner to react to their private post" name="PostReactionsService setReaction allows the owner to react to their private post" time="0">
+    </testcase>
+    <testcase classname="PostReactionsService setReaction hides an inaccessible private post" name="PostReactionsService setReaction hides an inaccessible private post" time="0">
+    </testcase>
+    <testcase classname="PostReactionsService setReaction prevents reactions across a block relationship" name="PostReactionsService setReaction prevents reactions across a block relationship" time="0">
+    </testcase>
+    <testcase classname="PostReactionsService removeReaction is successful when no existing reaction is found" name="PostReactionsService removeReaction is successful when no existing reaction is found" time="0.001">
+    </testcase>
+    <testcase classname="PostReactionsService getPostReactions returns an unfiltered reaction list" name="PostReactionsService getPostReactions returns an unfiltered reaction list" time="0">
+    </testcase>
+    <testcase classname="PostReactionsService getPostReactions filters by type and creates a next cursor" name="PostReactionsService getPostReactions filters by type and creates a next cursor" time="0.001">
+    </testcase>
+    <testcase classname="PostReactionsService getPostReactions rejects a malformed cursor" name="PostReactionsService getPostReactions rejects a malformed cursor" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="PostCommentsService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:59" time="0.042" tests="10">
+    <testcase classname="PostCommentsService getPostComments returns top-level comments with author and reply count" name="PostCommentsService getPostComments returns top-level comments with author and reply count" time="0.002">
+    </testcase>
+    <testcase classname="PostCommentsService getPostComments creates a timestamp-safe next cursor" name="PostCommentsService getPostComments creates a timestamp-safe next cursor" time="0.001">
+    </testcase>
+    <testcase classname="PostCommentsService getPostComments rejects a malformed cursor" name="PostCommentsService getPostComments rejects a malformed cursor" time="0">
+    </testcase>
+    <testcase classname="PostCommentsService creates a top-level comment" name="PostCommentsService creates a top-level comment" time="0.001">
+    </testcase>
+    <testcase classname="PostCommentsService creates a reply on the same post" name="PostCommentsService creates a reply on the same post" time="0">
+    </testcase>
+    <testcase classname="PostCommentsService rejects a parent from another post" name="PostCommentsService rejects a parent from another post" time="0.002">
+    </testcase>
+    <testcase classname="PostCommentsService does not write when post access is denied" name="PostCommentsService does not write when post access is denied" time="0">
+    </testcase>
+    <testcase classname="PostCommentsService maps a concurrently deleted parent to not found" name="PostCommentsService maps a concurrently deleted parent to not found" time="0">
+    </testcase>
+    <testcase classname="PostCommentsService deleteComment deletes an authorized comment and returns the canonical count" name="PostCommentsService deleteComment deletes an authorized comment and returns the canonical count" time="0">
+    </testcase>
+    <testcase classname="PostCommentsService deleteComment hides a missing or unauthorized comment" name="PostCommentsService deleteComment hides a missing or unauthorized comment" time="0">
+    </testcase>
+  </testsuite>
+  <testsuite name="PostSavesService" errors="0" failures="0" skipped="0" timestamp="2026-08-05T07:15:59" time="0.035" tests="6">
+    <testcase classname="PostSavesService savePost saves a post and returns canonical state" name="PostSavesService savePost saves a post and returns canonical state" time="0.001">
+    </testcase>
+    <testcase classname="PostSavesService savePost is idempotent when already saved" name="PostSavesService savePost is idempotent when already saved" time="0">
+    </testcase>
+    <testcase classname="PostSavesService savePost maps a concurrently deleted post to not found" name="PostSavesService savePost maps a concurrently deleted post to not found" time="0">
+    </testcase>
+    <testcase classname="PostSavesService savePost does not write when post access is denied" name="PostSavesService savePost does not write when post access is denied" time="0.001">
+    </testcase>
+    <testcase classname="PostSavesService removeSavedPost soft-removes a saved post" name="PostSavesService removeSavedPost soft-removes a saved post" time="0">
+    </testcase>
+    <testcase classname="PostSavesService removeSavedPost is idempotent when no active save exists" name="PostSavesService removeSavedPost is idempotent when no active save exists" time="0">
     </testcase>
   </testsuite>
 </testsuites>

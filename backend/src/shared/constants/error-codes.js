@@ -53,8 +53,17 @@ const ErrorCodes = Object.freeze({
 
 
 MEMORY: Object.freeze({
+    
   ASSET_NOT_ALLOWED:
     "MEMORY.ASSET_NOT_ALLOWED",
+    
+}),
+MEDIA: Object.freeze({
+  ASSET_NOT_FOUND:
+    "MEDIA.ASSET_NOT_FOUND",
+
+  CONTENT_UNAVAILABLE:
+    "MEDIA.CONTENT_UNAVAILABLE",
 }),
 
 
@@ -126,7 +135,8 @@ MEMORY: Object.freeze({
 
       MEDIA_UPLOAD_FAILED:
         "POST.MEDIA_UPLOAD_FAILED",
-    })
+    }),
+
 
 });
 

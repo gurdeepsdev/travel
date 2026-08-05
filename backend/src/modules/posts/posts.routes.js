@@ -7,7 +7,9 @@ import PostReactionsController from "./controllers/post-reactions.controller.js"
 import PostBeenThereController from "./controllers/post-been-there.controller.js";
 import PostCommentsController from "./controllers/post-comments.controller.js";
 import PostSavesController from "./controllers/post-saves.controller.js";
+import PostCreateController from "./controllers/post-create.controller.js";
 
+import postMediaUploadMiddleware from "./middleware/post-media-upload.middleware.js";
 import {
   getPostBeenThereSchema,
   removePostBeenThereSchema,
@@ -33,10 +35,21 @@ import {
 } from "./validations/post-saves.validation.js";
 
 
-
+import {
+  createPostSchema,
+} from "./validations/post-create.validation.js";
 
 
 const router = Router();
+
+// Create a post with uploaded or existing media.
+router.post(
+  "/",
+  AuthMiddleware.authenticate,
+  postMediaUploadMiddleware,
+  validate(createPostSchema),
+  PostCreateController.createPost,
+);
 
 //add reaction
 router.put(
