@@ -123,6 +123,49 @@ class PostCommentsService {
     });
   }
 
+
+
+async deleteComment({
+  commentId,
+  userId,
+}) {
+  /*
+   * Authorization and deletion happen in one SQL
+   * statement. Only the comment author or the post
+   * owner can delete the comment.
+   */
+  const deletedComment =
+    await PostCommentsRepository
+      .deleteAuthorized({
+        commentId,
+        userId,
+      });
+
+  /*
+   * This also hides comments that exist but are not
+   * owned by the viewer or written on their post.
+   */
+  if (!deletedComment) {
+    throw this.createNotFoundError();
+  }
+
+  /*
+   * PostgreSQL may cascade-delete replies. Reading the
+   * count afterward returns the trigger-updated total.
+   */
+  const commentCount =
+    await PostCommentsRepository
+      .countByPostId(
+        deletedComment.post_id,
+      );
+
+  return PostCommentsMapper
+    .toDeleteResponse({
+      deletedComment,
+      commentCount,
+    });
+}
+
   async handleForeignKeyRace({
     postId,
     userId,
@@ -147,6 +190,19 @@ class PostCommentsService {
 
     throw PostAccessService.createNotFoundError();
   }
+
+createNotFoundError() {
+  return new AppError({
+    code:
+      ErrorCodes.COMMENT.NOT_FOUND,
+
+    message:
+      "Comment not found.",
+
+    statusCode:
+      HttpStatus.NOT_FOUND,
+  });
+}
 
   createParentNotFoundError() {
     return new AppError({

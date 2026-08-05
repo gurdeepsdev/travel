@@ -110,12 +110,34 @@ const createPostCommentSchema = z.object({
     .strict(),
 });
 
+const deleteCommentSchema = z.object({
+  params: z
+    .object({
+      commentId: z
+        .string()
+        .trim()
+        .uuid(
+          "Comment ID must be a valid UUID.",
+        ),
+    })
+    .strict(),
+
+  body: z
+    .object({})
+    .strict()
+    .optional(),
+
+  query: z
+    .object({})
+    .strict(),
+});
 
 export {
   MAX_COMMENT_LENGTH,
   DEFAULT_COMMENTS_LIMIT,
   MAX_COMMENTS_LIMIT,
   createPostCommentSchema,
+  deleteCommentSchema,
   getPostCommentsSchema,
-
+  
 };

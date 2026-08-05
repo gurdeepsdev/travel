@@ -1,0 +1,693 @@
+openapi: 3.0.3
+
+info:
+  title: Artictern Saved Content API
+  version: 1.0.0
+  description: >
+    Implemented APIs for retrieving the authenticated user's complete
+    saved posts and public POI cards derived from a user's saved posts.
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+
+tags:
+  - name: Saved Content
+
+paths:
+  /users/me/saved-posts:
+    get:
+      tags:
+        - Saved Content
+      summary: Get my saved posts
+      description: >
+        Returns the authenticated user's active, accessible saved posts
+        as complete post objects, ordered by the time they were saved.
+      operationId: getMySavedPosts
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Saved posts fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MySavedPostsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/{username}/saved-places:
+    get:
+      tags:
+        - Saved Content
+      summary: Get a user's saved places
+      description: >
+        Returns canonical POI cards derived from accessible saved posts.
+        Source post IDs, captions, post assets, itineraries, and saved-item
+        metadata are not exposed. Authentication is optional.
+      operationId: getUserSavedPlaces
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Saved places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSavedPlacesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/UserProfileNotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: "^[A-Za-z0-9_-]+$"
+
+  responses:
+    BadRequest:
+      description: Validation failed or the pagination cursor is invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            validationFailed:
+              value:
+                success: false
+                code: COMMON.VALIDATION_FAILED
+                message: Validation failed.
+                details:
+                  formErrors: []
+                  fieldErrors:
+                    query:
+                      - Limit cannot exceed 50.
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: "2026-08-04T10:00:00.000Z"
+            invalidCursor:
+              value:
+                success: false
+                code: COMMON.INVALID_CURSOR
+                message: Pagination cursor is invalid.
+                details: null
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: "2026-08-04T10:00:00.000Z"
+
+    Unauthorized:
+      description: Access token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: AUTH.INVALID_ACCESS_TOKEN
+            message: Authorization header is required.
+            details: null
+            requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+            timestamp: "2026-08-04T10:00:00.000Z"
+
+    UserProfileNotFound:
+      description: User profile was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: USER_PROFILE_NOT_FOUND
+            message: User profile not found.
+            details: null
+            requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+            timestamp: "2026-08-04T10:00:00.000Z"
+
+  schemas:
+    Pagination:
+      type: object
+      required:
+        - hasMore
+        - nextCursor
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
+
+    Asset:
+      type: object
+      required:
+        - id
+        - storageProvider
+        - bucket
+        - storageKey
+        - url
+      properties:
+        id:
+          type: string
+          format: uuid
+        postAssetId:
+          type: string
+          format: uuid
+        displayOrder:
+          type: integer
+        mediaType:
+          type: string
+        storageProvider:
+          type: string
+          nullable: true
+        bucket:
+          type: string
+          nullable: true
+        storageKey:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        originalFilename:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        extension:
+          type: string
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        durationSeconds:
+          type: number
+          nullable: true
+        isPublic:
+          type: boolean
+        createdAt:
+          type: string
+
+    Author:
+      type: object
+      required:
+        - id
+        - username
+        - displayName
+        - isVerified
+        - profilePhoto
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        profilePhoto:
+          allOf:
+            - $ref: "#/components/schemas/Asset"
+          nullable: true
+
+    City:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        officialName:
+          type: string
+          nullable: true
+
+    Region:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        officialName:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+
+    Country:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+        phonePrefix:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+
+    PostPlace:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        rating:
+          type: number
+          nullable: true
+        reviewCount:
+          type: integer
+          minimum: 0
+        city:
+          $ref: "#/components/schemas/City"
+        region:
+          $ref: "#/components/schemas/Region"
+        country:
+          $ref: "#/components/schemas/Country"
+
+    Engagement:
+      type: object
+      required:
+        - likes
+        - comments
+        - shares
+        - views
+        - beenThere
+      properties:
+        likes:
+          type: integer
+          minimum: 0
+        comments:
+          type: integer
+          minimum: 0
+        shares:
+          type: integer
+          minimum: 0
+        views:
+          type: integer
+          minimum: 0
+        beenThere:
+          type: integer
+          minimum: 0
+
+    ViewerState:
+      type: object
+      required:
+        - liked
+        - saved
+        - beenThere
+        - reshared
+        - isOwner
+      properties:
+        liked:
+          type: boolean
+        saved:
+          type: boolean
+        beenThere:
+          type: boolean
+        reshared:
+          type: boolean
+        isOwner:
+          type: boolean
+
+    Repost:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          nullable: true
+        originalPostId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          nullable: true
+
+    Itinerary:
+      type: object
+      properties:
+        postItineraryId:
+          type: string
+          format: uuid
+        id:
+          type: string
+          format: uuid
+        createdBy:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          nullable: true
+        endDate:
+          type: string
+          nullable: true
+        durationDays:
+          type: integer
+          nullable: true
+        budgetAmount:
+          type: number
+          nullable: true
+        currencyCode:
+          type: string
+          nullable: true
+        visibility:
+          type: string
+          nullable: true
+        tripStatus:
+          type: string
+          nullable: true
+        aiGenerated:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        linkedAt:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+        cover:
+          allOf:
+            - $ref: "#/components/schemas/Asset"
+          nullable: true
+
+    FullPost:
+      type: object
+      required:
+        - id
+        - caption
+        - postType
+        - visibility
+        - createdAt
+        - updatedAt
+        - author
+        - assets
+        - coverAsset
+        - itineraries
+        - place
+        - engagement
+        - viewerState
+        - repost
+        - taggedPeople
+      properties:
+        id:
+          type: string
+          format: uuid
+        caption:
+          type: string
+          nullable: true
+        postType:
+          type: string
+        visibility:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        author:
+          $ref: "#/components/schemas/Author"
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+        coverAsset:
+          allOf:
+            - $ref: "#/components/schemas/Asset"
+          nullable: true
+        itineraries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Itinerary"
+        place:
+          $ref: "#/components/schemas/PostPlace"
+        engagement:
+          $ref: "#/components/schemas/Engagement"
+        viewerState:
+          $ref: "#/components/schemas/ViewerState"
+        repost:
+          $ref: "#/components/schemas/Repost"
+        taggedPeople:
+          type: array
+          items:
+            type: object
+
+    MySavedPostsData:
+      type: object
+      required:
+        - posts
+        - pagination
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FullPost"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    SavedPlaceImage:
+      type: object
+      nullable: true
+      required:
+        - id
+        - storageProvider
+        - bucket
+        - storageKey
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+        storageProvider:
+          type: string
+          nullable: true
+        bucket:
+          type: string
+          nullable: true
+        storageKey:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+
+    SavedPlace:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - image
+        - address
+        - latitude
+        - longitude
+        - rating
+        - reviewCount
+        - isVerified
+        - isClosed
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        image:
+          $ref: "#/components/schemas/SavedPlaceImage"
+        address:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        rating:
+          type: number
+          nullable: true
+        reviewCount:
+          type: integer
+          minimum: 0
+        isVerified:
+          type: boolean
+        isClosed:
+          type: boolean
+
+    UserSavedPlacesData:
+      type: object
+      required:
+        - username
+        - places
+        - pagination
+      properties:
+        username:
+          type: string
+        places:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedPlace"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    SuccessEnvelope:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+        data:
+          type: object
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    MySavedPostsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/MySavedPostsData"
+
+    UserSavedPlacesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/UserSavedPlacesData"
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - details
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          nullable: true
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time

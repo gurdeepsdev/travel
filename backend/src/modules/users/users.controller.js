@@ -26,6 +26,40 @@ class UsersController {
   }
 
   /**
+ * Partially updates the authenticated user's
+ * profile.
+ *
+ * Route:
+ * PATCH /api/v1/users/me/profile
+ */
+async updateMyProfile(
+  req,
+  res,
+  next,
+) {
+  try {
+    const profile =
+      await ProfileService
+        .updateMyProfile({
+          userId: req.user.id,
+
+          changes:
+            req.validated.body,
+        });
+
+    return Response.success(
+      res,
+      {
+        profile,
+      },
+      "Profile updated successfully.",
+    );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+  /**
    * Returns posts created or reposted by the authenticated user.
    *
    * Route:
