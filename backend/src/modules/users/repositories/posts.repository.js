@@ -52,6 +52,8 @@ class PostsRepository {
           AS profile_photo_bucket,
         profile_photo.storage_key
           AS profile_photo_storage_key,
+        profile_photo.is_public
+          AS profile_photo_is_public,
         profile_photo.mime_type
           AS profile_photo_mime_type,
 
@@ -474,8 +476,11 @@ async getUserPosts({
      profile_photo.bucket
        AS profile_photo_bucket,
 
-     profile_photo.storage_key
+        profile_photo.storage_key
        AS profile_photo_storage_key,
+
+     profile_photo.is_public
+       AS profile_photo_is_public,
 
      profile_photo.mime_type
        AS profile_photo_mime_type,
@@ -1139,8 +1144,11 @@ async getPostsByIds({
      profile_photo.bucket
        AS profile_photo_bucket,
 
-     profile_photo.storage_key
+    profile_photo.storage_key
        AS profile_photo_storage_key,
+
+     profile_photo.is_public
+       AS profile_photo_is_public,
 
      profile_photo.mime_type
        AS profile_photo_mime_type,

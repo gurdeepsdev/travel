@@ -264,6 +264,7 @@ async findActiveCity(cityId) {
 async updatePartial({
   userId,
   changes,
+  client = null,
 }) {
   const columnByField =
     Object.freeze({
@@ -337,7 +338,18 @@ async updatePartial({
       updated_at
   `;
 
-  const { rows } = await this.query(
+ const executeQuery =
+    client
+      ? client.query.bind(
+        client,
+      )
+      : this.query.bind(
+        this,
+      );
+
+  const {
+    rows,
+  } = await executeQuery(
     query,
     values,
   );

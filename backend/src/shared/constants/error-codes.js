@@ -37,9 +37,18 @@ const ErrorCodes = Object.freeze({
 
     }),
 
-    PROFILE: Object.freeze({
+ PROFILE: {
   PHOTO_NOT_ALLOWED:
     "PROFILE.PHOTO_NOT_ALLOWED",
+
+  PHOTO_INVALID_TYPE:
+    "PROFILE.PHOTO_INVALID_TYPE",
+
+  PHOTO_TOO_LARGE:
+    "PROFILE.PHOTO_TOO_LARGE",
+
+  PHOTO_UPLOAD_FAILED:
+    "PROFILE.PHOTO_UPLOAD_FAILED",
 
   COUNTRY_NOT_FOUND:
     "PROFILE.COUNTRY_NOT_FOUND",
@@ -49,7 +58,7 @@ const ErrorCodes = Object.freeze({
 
   CITY_COUNTRY_MISMATCH:
     "PROFILE.CITY_COUNTRY_MISMATCH",
-}),
+},
 
 
 MEMORY: Object.freeze({

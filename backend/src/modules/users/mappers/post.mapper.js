@@ -419,35 +419,49 @@ import {
           isVerified:
             row.is_verified ?? false,
   
-          profilePhoto:
+                   profilePhoto:
             row.profile_photo_id
               ? {
                   id:
                     row.profile_photo_id,
-  
+
                   storageProvider:
                     row.profile_photo_storage_provider ??
                     null,
-  
+
                   bucket:
                     row.profile_photo_bucket ??
                     null,
-  
+
                   storageKey:
                     row.profile_photo_storage_key ??
                     null,
-  
-                  url: buildAssetUrl(
-                    row.profile_photo_storage_key,
-                  ),
-  
+
+                  url:
+                    buildAssetUrl({
+                      assetId:
+                        row.profile_photo_id,
+
+                      storageProvider:
+                        row.profile_photo_storage_provider ??
+                        null,
+
+                      storageKey:
+                        row.profile_photo_storage_key ??
+                        null,
+
+                      isPublic:
+                        row.profile_photo_is_public ===
+                        true,
+                    }),
+
                   mimeType:
                     row.profile_photo_mime_type ??
                     null,
                 }
               : null,
         },
-  
+
         assets,
   
         coverAsset:

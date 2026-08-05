@@ -40,11 +40,18 @@ async updateMyProfile(
   try {
     const profile =
       await ProfileService
-        .updateMyProfile({
-          userId: req.user.id,
+         .updateMyProfile({
+          userId:
+            req.user.id,
 
           changes:
             req.validated.body,
+
+          profilePhotoFile:
+            req.file ?? null,
+
+          logger:
+            req.logger ?? null,
         });
 
     return Response.success(

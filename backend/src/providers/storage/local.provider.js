@@ -44,10 +44,22 @@ function assertSafeSegment({
 }
 
 function createStorageKey({
+  category = "posts",
   userId,
   extension,
   now = new Date(),
 }) {
+
+      assertSafeSegment({
+    name:
+      "Storage category",
+
+    value:
+      category,
+
+    pattern:
+      SAFE_PATH_SEGMENT,
+  });
   assertSafeSegment({
     name:
       "User ID",
@@ -83,8 +95,8 @@ function createStorageKey({
       "0",
     );
 
-  return [
-    "posts",
+   return [
+    category,
     userId,
     year,
     month,
@@ -189,11 +201,13 @@ class LocalStorageProvider
 
   async store({
     temporaryPath,
+    category = "posts",
     userId,
     extension,
   }) {
     const storageKey =
       createStorageKey({
+        category,
         userId,
         extension,
       });

@@ -5,6 +5,28 @@ const MAX_USERNAME_LENGTH = 50;
 const MAX_DISPLAY_NAME_LENGTH = 100;
 const MAX_BIO_LENGTH = 250;
 
+function parseMultipartNull(
+  value,
+) {
+  return value === "null"
+    ? null
+    : value;
+}
+
+function parseMultipartBoolean(
+  value,
+) {
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return value;
+}
+
 const usernameSchema = z
   .string({
     error:
@@ -25,41 +47,56 @@ const usernameSchema = z
   );
 
 const displayNameSchema = z
-  .string({
-    error:
-      "Display name must be a string.",
-  })
-  .trim()
-  .min(
-    1,
-    "Display name cannot be empty.",
-  )
-  .max(
-    MAX_DISPLAY_NAME_LENGTH,
-    `Display name cannot exceed ${MAX_DISPLAY_NAME_LENGTH} characters.`,
-  )
-  .nullable();
+  .preprocess(
+    parseMultipartNull,
+
+    z
+      .string({
+        error:
+          "Display name must be a string.",
+      })
+      .trim()
+      .min(
+        1,
+        "Display name cannot be empty.",
+      )
+      .max(
+        MAX_DISPLAY_NAME_LENGTH,
+        `Display name cannot exceed ${MAX_DISPLAY_NAME_LENGTH} characters.`,
+      )
+      .nullable(),
+  );
 
 const bioSchema = z
-  .string({
-    error:
-      "Bio must be a string.",
-  })
-  .trim()
-  .max(
-    MAX_BIO_LENGTH,
-    `Bio cannot exceed ${MAX_BIO_LENGTH} characters.`,
-  )
-  .nullable();
+  .preprocess(
+    parseMultipartNull,
+
+    z
+      .string({
+        error:
+          "Bio must be a string.",
+      })
+      .trim()
+      .max(
+        MAX_BIO_LENGTH,
+        `Bio cannot exceed ${MAX_BIO_LENGTH} characters.`,
+      )
+      .nullable(),
+  );
 
 const nullableUuidSchema = (
   invalidMessage,
 ) =>
-  z
-    .uuid({
-      error: invalidMessage,
-    })
-    .nullable();
+  z.preprocess(
+    parseMultipartNull,
+
+    z
+      .uuid({
+        error:
+          invalidMessage,
+      })
+      .nullable(),
+  );
 
 const updateMyProfileBodySchema = z
   .object({
@@ -87,22 +124,19 @@ const updateMyProfileBodySchema = z
         "City ID must be a valid UUID.",
       ).optional(),
 
-    isPrivate: z
-      .boolean({
-        error:
-          "Profile visibility must be a boolean.",
-      })
+   isPrivate: z
+      .preprocess(
+        parseMultipartBoolean,
+
+        z.boolean({
+          error:
+            "Profile visibility must be a boolean.",
+        }),
+      )
       .optional(),
   })
   .strict()
-  .refine(
-    (body) =>
-      Object.keys(body).length > 0,
-    {
-      message:
-        "At least one profile field must be provided.",
-    },
-  );
+ 
 
 const updateMyProfileSchema = z.object({
   params: z
