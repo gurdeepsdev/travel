@@ -14,6 +14,7 @@ const PARENT_COMMENT_ID =
 
 const commentsRepositoryMock = {
   create: jest.fn(),
+  deleteAuthorized: jest.fn(),
   listTopLevelByPost: jest.fn(),
   countByPostId: jest.fn(),
 };
@@ -433,4 +434,95 @@ describe("PostCommentsService", () => {
       ).toHaveBeenCalledTimes(2);
     },
   );
+
+  describe("deleteComment", () => {
+  test(
+    "deletes an authorized comment and returns the canonical count",
+    async () => {
+      commentsRepositoryMock
+        .deleteAuthorized
+        .mockResolvedValue({
+          id:
+            PARENT_COMMENT_ID,
+          post_id:
+            POST_ID,
+          user_id:
+            USER_ID,
+          parent_comment_id:
+            null,
+        });
+
+      /*
+       * This count is read after PostgreSQL has deleted
+       * the comment and cascade-deleted its replies.
+       */
+      commentsRepositoryMock
+        .countByPostId
+        .mockResolvedValue(2);
+
+      const result =
+        await PostCommentsService
+          .deleteComment({
+            commentId:
+              PARENT_COMMENT_ID,
+            userId:
+              USER_ID,
+          });
+
+      expect(
+        commentsRepositoryMock
+          .deleteAuthorized,
+      ).toHaveBeenCalledWith({
+        commentId:
+          PARENT_COMMENT_ID,
+        userId:
+          USER_ID,
+      });
+
+      expect(
+        commentsRepositoryMock
+          .countByPostId,
+      ).toHaveBeenCalledWith(
+        POST_ID,
+      );
+
+      expect(result).toEqual({
+        commentId:
+          PARENT_COMMENT_ID,
+        postId:
+          POST_ID,
+        deleted: true,
+        commentCount: 2,
+      });
+    },
+  );
+
+  test(
+    "hides a missing or unauthorized comment",
+    async () => {
+      commentsRepositoryMock
+        .deleteAuthorized
+        .mockResolvedValue(null);
+
+      await expect(
+        PostCommentsService
+          .deleteComment({
+            commentId:
+              PARENT_COMMENT_ID,
+            userId:
+              USER_ID,
+          }),
+      ).rejects.toMatchObject({
+        code:
+          "COMMENT.NOT_FOUND",
+        statusCode: 404,
+      });
+
+      expect(
+        commentsRepositoryMock
+          .countByPostId,
+      ).not.toHaveBeenCalled();
+    },
+  );
+});
 });

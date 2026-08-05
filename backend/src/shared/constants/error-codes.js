@@ -37,6 +37,27 @@ const ErrorCodes = Object.freeze({
 
     }),
 
+    PROFILE: Object.freeze({
+  PHOTO_NOT_ALLOWED:
+    "PROFILE.PHOTO_NOT_ALLOWED",
+
+  COUNTRY_NOT_FOUND:
+    "PROFILE.COUNTRY_NOT_FOUND",
+
+  CITY_NOT_FOUND:
+    "PROFILE.CITY_NOT_FOUND",
+
+  CITY_COUNTRY_MISMATCH:
+    "PROFILE.CITY_COUNTRY_MISMATCH",
+}),
+
+
+MEMORY: Object.freeze({
+  ASSET_NOT_ALLOWED:
+    "MEMORY.ASSET_NOT_ALLOWED",
+}),
+
+
     PAGE: Object.freeze({
 
         NOT_FOUND: "PAGE.NOT_FOUND",
@@ -75,11 +96,37 @@ const ErrorCodes = Object.freeze({
           "COMMENT.CREATE_FAILED",
       }),
 
-    POST: Object.freeze({
-        NOT_FOUND: "POST.NOT_FOUND",
-        REACTION_NOT_ALLOWED:
-          "POST.REACTION_NOT_ALLOWED",
-      })
+      POST: Object.freeze({
+      NOT_FOUND:
+        "POST.NOT_FOUND",
+
+      REACTION_NOT_ALLOWED:
+        "POST.REACTION_NOT_ALLOWED",
+
+      CREATE_FAILED:
+        "POST.CREATE_FAILED",
+
+      PLACE_NOT_ALLOWED:
+        "POST.PLACE_NOT_ALLOWED",
+
+      ASSET_NOT_ALLOWED:
+        "POST.ASSET_NOT_ALLOWED",
+
+      ITINERARY_NOT_ALLOWED:
+        "POST.ITINERARY_NOT_ALLOWED",
+
+      TAGGED_USER_NOT_ALLOWED:
+        "POST.TAGGED_USER_NOT_ALLOWED",
+
+      MEDIA_INVALID_TYPE:
+        "POST.MEDIA_INVALID_TYPE",
+
+      MEDIA_TOO_LARGE:
+        "POST.MEDIA_TOO_LARGE",
+
+      MEDIA_UPLOAD_FAILED:
+        "POST.MEDIA_UPLOAD_FAILED",
+    })
 
 });
 

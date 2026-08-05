@@ -1,4 +1,7 @@
 import { jest } from "@jest/globals";
+import {
+  decodeCursor,
+} from "../../../src/shared/utils/cursor.js";
 
 const COMMENT_ID =
   "0044c566-a39a-40a1-9b90-a7d256ef32f9";
@@ -14,6 +17,8 @@ const COMMENT_AUTHOR_ID =
 
 const repositoryMock = {
   findCommentContext: jest.fn(),
+  findOwnerListContext: jest.fn(),
+  listByComment: jest.fn(),
   add: jest.fn(),
   remove: jest.fn(),
   getState: jest.fn(),
@@ -54,6 +59,49 @@ function createCommentContext(
   };
 }
 
+function createCommentLikeRow(
+  overrides = {},
+) {
+  return {
+    id:
+      "94000000-0000-4000-8000-000000000001",
+
+    comment_id:
+      COMMENT_ID,
+
+    user_id:
+      COMMENT_AUTHOR_ID,
+
+    created_at:
+      new Date(
+        "2026-08-04T10:00:00Z",
+      ),
+
+    cursor_created_at:
+      "2026-08-04 10:00:00.123456",
+
+    username:
+      "traveller",
+
+    display_name:
+      "Traveller",
+
+    is_verified:
+      false,
+
+    is_private:
+      false,
+
+    profile_photo_id:
+      null,
+
+    viewer_is_self:
+      false,
+
+    ...overrides,
+  };
+}
+
 function createPostNotFoundError() {
   return Object.assign(
     new Error("Post not found."),
@@ -80,6 +128,234 @@ describe("CommentLikesService", () => {
         id: POST_ID,
       });
   });
+
+describe("getCommentLikes", () => {
+  test(
+    "returns liker identities to the post owner",
+    async () => {
+      repositoryMock
+        .findOwnerListContext
+        .mockResolvedValue({
+          id:
+            COMMENT_ID,
+          post_id:
+            POST_ID,
+          comment_author_user_id:
+            COMMENT_AUTHOR_ID,
+          post_owner_user_id:
+            USER_ID,
+          like_count:
+            "1",
+        });
+
+      repositoryMock
+        .listByComment
+        .mockResolvedValue({
+          rows: [
+            createCommentLikeRow(),
+          ],
+          hasMore: false,
+          lastRow: null,
+        });
+
+      const result =
+        await CommentLikesService
+          .getCommentLikes({
+            commentId:
+              COMMENT_ID,
+            userId:
+              USER_ID,
+            limit: 20,
+            cursor: null,
+          });
+
+      expect(
+        repositoryMock
+          .findOwnerListContext,
+      ).toHaveBeenCalledWith({
+        commentId:
+          COMMENT_ID,
+        viewerUserId:
+          USER_ID,
+      });
+
+      expect(
+        repositoryMock
+          .listByComment,
+      ).toHaveBeenCalledWith({
+        commentId:
+          COMMENT_ID,
+        viewerUserId:
+          USER_ID,
+        limit: 20,
+        cursor: null,
+      });
+
+      expect(result).toEqual({
+        commentId:
+          COMMENT_ID,
+        likeCount: 1,
+        users: [
+          {
+            id:
+              "94000000-0000-4000-8000-000000000001",
+
+            likedAt:
+              new Date(
+                "2026-08-04T10:00:00Z",
+              ),
+
+            user: {
+              id:
+                COMMENT_AUTHOR_ID,
+              username:
+                "traveller",
+              displayName:
+                "Traveller",
+              isVerified:
+                false,
+              isPrivate:
+                false,
+              profilePhoto:
+                null,
+              viewerIsSelf:
+                false,
+            },
+          },
+        ],
+        pagination: {
+          hasMore:
+            false,
+          nextCursor:
+            null,
+        },
+      });
+    },
+  );
+
+  test(
+    "creates a timestamp-safe next cursor",
+    async () => {
+      const lastRow =
+        createCommentLikeRow();
+
+      repositoryMock
+        .findOwnerListContext
+        .mockResolvedValue({
+          id:
+            COMMENT_ID,
+          post_id:
+            POST_ID,
+          post_owner_user_id:
+            USER_ID,
+          like_count:
+            "2",
+        });
+
+      repositoryMock
+        .listByComment
+        .mockResolvedValue({
+          rows: [lastRow],
+          hasMore: true,
+          lastRow,
+        });
+
+      const result =
+        await CommentLikesService
+          .getCommentLikes({
+            commentId:
+              COMMENT_ID,
+            userId:
+              USER_ID,
+            limit: 1,
+            cursor: null,
+          });
+
+      expect(
+        result.pagination.hasMore,
+      ).toBe(true);
+
+      expect(
+        decodeCursor(
+          result.pagination.nextCursor,
+        ),
+      ).toEqual({
+        createdAt:
+          lastRow.cursor_created_at,
+        id:
+          lastRow.id,
+      });
+    },
+  );
+
+  test(
+    "hides the liker list from a non-owner",
+    async () => {
+      repositoryMock
+        .findOwnerListContext
+        .mockResolvedValue(null);
+
+      await expect(
+        CommentLikesService
+          .getCommentLikes({
+            commentId:
+              COMMENT_ID,
+            userId:
+              USER_ID,
+            limit: 20,
+            cursor: null,
+          }),
+      ).rejects.toMatchObject({
+        code:
+          "COMMENT.NOT_FOUND",
+        statusCode: 404,
+      });
+
+      expect(
+        repositoryMock.listByComment,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test(
+    "rejects a malformed cursor after ownership is confirmed",
+    async () => {
+      repositoryMock
+        .findOwnerListContext
+        .mockResolvedValue({
+          id:
+            COMMENT_ID,
+          post_id:
+            POST_ID,
+          post_owner_user_id:
+            USER_ID,
+          like_count:
+            "1",
+        });
+
+      await expect(
+        CommentLikesService
+          .getCommentLikes({
+            commentId:
+              COMMENT_ID,
+            userId:
+              USER_ID,
+            limit: 20,
+            cursor:
+              "invalid",
+          }),
+      ).rejects.toMatchObject({
+        code:
+          "COMMON.INVALID_CURSOR",
+        statusCode: 400,
+      });
+
+      expect(
+        repositoryMock.listByComment,
+      ).not.toHaveBeenCalled();
+    },
+  );
+});
 
   describe("setLike", () => {
     test(

@@ -98,6 +98,58 @@ class PostCommentsRepository {
 
 
   /**
+ * Deletes a comment only when the viewer is either:
+ * - the comment author, or
+ * - the owner of the post.
+ *
+ * Deleting a parent automatically deletes its
+ * replies and attached likes through database
+ * cascades.
+ */
+async deleteAuthorized({
+  commentId,
+  userId,
+}) {
+  const sql = `
+    DELETE FROM explore.comments
+      AS post_comment
+
+    USING explore.posts
+      AS post
+
+    WHERE post_comment.id =
+        $1::uuid
+
+      AND post.id =
+        post_comment.post_id
+
+      AND (
+        post_comment.user_id =
+          $2::uuid
+
+        OR post.user_id =
+          $2::uuid
+      )
+
+    RETURNING
+      post_comment.id,
+      post_comment.post_id,
+      post_comment.user_id,
+      post_comment.parent_comment_id
+  `;
+
+  const { rows } = await Database.query(
+    sql,
+    [
+      commentId,
+      userId,
+    ],
+  );
+
+  return rows[0] ?? null;
+}
+
+  /**
    * Returns top-level comments for a post using
    * keyset pagination.
    *

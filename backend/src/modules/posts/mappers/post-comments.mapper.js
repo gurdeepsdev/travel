@@ -134,6 +134,27 @@ import {
         ),
       };
     }
+
+
+    static toDeleteResponse({
+  deletedComment,
+  commentCount,
+}) {
+  return {
+    commentId:
+      deletedComment.id,
+
+    postId:
+      deletedComment.post_id,
+
+    deleted: true,
+
+    commentCount: Number(
+      commentCount ?? 0,
+    ),
+  };
+}
+
   }
   
   export default PostCommentsMapper;

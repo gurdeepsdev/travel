@@ -91,6 +91,261 @@ class ProfilesRepository extends BaseRepository {
     return rows[0] ?? null;
   }
 
+
+  /**
+ * Returns only the current fields required to
+ * validate a partial profile update.
+ */
+async findUpdateContext(userId) {
+  const query = `
+    SELECT
+      profile.user_id,
+      profile.username,
+      profile.display_name,
+      profile.bio,
+      profile.profile_photo_asset_id,
+      profile.country_id,
+      profile.city_id,
+      profile.is_private
+
+    FROM users.profiles AS profile
+
+    WHERE profile.user_id = $1::uuid
+      AND profile.deleted_at IS NULL
+
+    LIMIT 1
+  `;
+
+  const { rows } = await this.query(
+    query,
+    [userId],
+  );
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Checks whether another profile already uses
+ * the requested username.
+ *
+ * Deleted profiles are included because the live
+ * database also has a global unique username index.
+ */
+async findUsernameConflict({
+  username,
+  userId,
+}) {
+  const query = `
+    SELECT
+      profile.user_id,
+      profile.username
+
+    FROM users.profiles AS profile
+
+    WHERE LOWER(profile.username) =
+        LOWER($1)
+
+      AND profile.user_id <>
+        $2::uuid
+
+    LIMIT 1
+  `;
+
+  const { rows } = await this.query(
+    query,
+    [
+      username,
+      userId,
+    ],
+  );
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Returns a profile-photo asset only when it is
+ * active, image-based, and owned by the viewer.
+ */
+async findOwnedProfilePhoto({
+  assetId,
+  userId,
+}) {
+  const query = `
+    SELECT
+      asset.id,
+      asset.uploaded_by,
+      asset.mime_type,
+      asset.is_public,
+      asset.deleted_at
+
+    FROM media.assets AS asset
+
+    WHERE asset.id = $1::uuid
+
+      AND asset.uploaded_by =
+        $2::uuid
+
+      AND asset.deleted_at IS NULL
+
+      AND LOWER(asset.mime_type)
+        LIKE 'image/%'
+
+    LIMIT 1
+  `;
+
+  const { rows } = await this.query(
+    query,
+    [
+      assetId,
+      userId,
+    ],
+  );
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Returns an active country.
+ */
+async findActiveCountry(countryId) {
+  const query = `
+    SELECT
+      country.id,
+      country.name,
+      country.code
+
+    FROM poi.countries AS country
+
+    WHERE country.id = $1::uuid
+      AND country.is_active IS TRUE
+
+    LIMIT 1
+  `;
+
+  const { rows } = await this.query(
+    query,
+    [countryId],
+  );
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Returns an active city and the country to which
+ * it belongs.
+ */
+async findActiveCity(cityId) {
+  const query = `
+    SELECT
+      city.id,
+      city.name,
+      city.country_id
+
+    FROM poi.cities AS city
+
+    WHERE city.id = $1::uuid
+      AND city.is_active IS TRUE
+
+    LIMIT 1
+  `;
+
+  const { rows } = await this.query(
+    query,
+    [cityId],
+  );
+
+  return rows[0] ?? null;
+}
+
+/**
+ * Applies only explicitly supplied fields.
+ * Omitted fields are never included in the SET list.
+ */
+async updatePartial({
+  userId,
+  changes,
+}) {
+  const columnByField =
+    Object.freeze({
+      username:
+        "username",
+
+      displayName:
+        "display_name",
+
+      bio:
+        "bio",
+
+      profilePhotoAssetId:
+        "profile_photo_asset_id",
+
+      countryId:
+        "country_id",
+
+      cityId:
+        "city_id",
+
+      isPrivate:
+        "is_private",
+    });
+
+  const entries =
+    Object.entries(changes)
+      .filter(
+        ([field]) =>
+          Object.hasOwn(
+            columnByField,
+            field,
+          ),
+      );
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  const values = [userId];
+
+  const setClauses =
+    entries.map(
+      ([field, value]) => {
+        values.push(value);
+
+        return `${
+          columnByField[field]
+        } = $${values.length}`;
+      },
+    );
+
+  const query = `
+    UPDATE users.profiles
+
+    SET
+      ${setClauses.join(",\n      ")}
+
+    WHERE user_id = $1::uuid
+      AND deleted_at IS NULL
+
+    RETURNING
+      user_id,
+      username,
+      display_name,
+      bio,
+      profile_photo_asset_id,
+      country_id,
+      city_id,
+      is_private,
+      updated_at
+  `;
+
+  const { rows } = await this.query(
+    query,
+    values,
+  );
+
+  return rows[0] ?? null;
+}
+
+
   /**
    * Fetch the authenticated user's complete profile.
    *
@@ -113,6 +368,7 @@ class ProfilesRepository extends BaseRepository {
         profile.display_name,
         profile.bio,
         profile.social_links,
+        profile.is_private,
         profile.is_verified,
         profile.profile_completed_at,
         profile.created_at,
@@ -136,10 +392,16 @@ class ProfilesRepository extends BaseRepository {
           AS profile_photo_bucket,
         profile_photo.storage_key
           AS profile_photo_original_storage_key,
-        profile_photo.mime_type
-          AS profile_photo_mime_type,
-        profile_photo.original_width
-          AS profile_photo_original_width,
+      profile_photo.mime_type
+  AS profile_photo_mime_type,
+profile_photo.original_filename
+  AS profile_photo_original_file_name,
+profile_photo.extension
+  AS profile_photo_extension,
+profile_photo.file_size
+  AS profile_photo_file_size,
+profile_photo.original_width
+  AS profile_photo_original_width,
         profile_photo.original_height
           AS profile_photo_original_height,
         profile_photo.is_public
@@ -167,10 +429,16 @@ class ProfilesRepository extends BaseRepository {
           AS cover_photo_bucket,
         cover_photo.storage_key
           AS cover_photo_original_storage_key,
-        cover_photo.mime_type
-          AS cover_photo_mime_type,
-        cover_photo.original_width
-          AS cover_photo_original_width,
+       cover_photo.mime_type
+  AS cover_photo_mime_type,
+cover_photo.original_filename
+  AS cover_photo_original_file_name,
+cover_photo.extension
+  AS cover_photo_extension,
+cover_photo.file_size
+  AS cover_photo_file_size,
+cover_photo.original_width
+  AS cover_photo_original_width,
         cover_photo.original_height
           AS cover_photo_original_height,
         cover_photo.is_public
