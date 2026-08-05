@@ -91,7 +91,8 @@ if (fixedTestOtpEnabled) {
     parsed.data.NODE_ENV ===
       "development" ||
     parsed.data.NODE_ENV ===
-      "test";
+      "test" || parsed.data.NODE_ENV ==="uat";
+
 
   const usesFakeProvider =
     parsed.data.OTP_PROVIDER ===
@@ -111,7 +112,7 @@ if (fixedTestOtpEnabled) {
       [
         "Unsafe fixed OTP configuration.",
         "FIXED_TEST_OTP_ENABLED=true requires:",
-        "- NODE_ENV=development or test",
+"- NODE_ENV=development, test, or uat",
         "- OTP_PROVIDER=fake",
         "- FIXED_TEST_OTP containing exactly six digits",
       ].join("\n"),
