@@ -15,6 +15,38 @@ const CITY_ID =
 const PHOTO_ID =
   "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
 
+  const UPLOADED_PHOTO_ID =
+  "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1";
+
+const STORED_PHOTO_KEY =
+  "profile-photos/63aae149-8f8f-4b30-b30d-211da764c080/2026/08/upload.png";
+
+const transactionClient = {
+  query:
+    jest.fn(),
+};
+
+const databaseMock = {
+  transaction:
+    jest.fn(),
+};
+
+const storageManagerMock = {
+  store:
+    jest.fn(),
+
+  remove:
+    jest.fn(),
+};
+
+const mediaRepositoryMock = {
+  resolveUploadedAssets:
+    jest.fn(),
+};
+
+const inspectProfilePhotoFileMock =
+  jest.fn();
+
 const profilesRepositoryMock = {
   findByUserId:
     jest.fn(),
@@ -42,6 +74,38 @@ const profileMapperMock = {
   toResponse:
     jest.fn(),
 };
+
+jest.unstable_mockModule(
+  "../../../src/database/database-manager.js",
+  () => ({
+    default:
+      databaseMock,
+  }),
+);
+
+jest.unstable_mockModule(
+  "../../../src/providers/storage/storage-manager.js",
+  () => ({
+    default:
+      storageManagerMock,
+  }),
+);
+
+jest.unstable_mockModule(
+  "../../../src/modules/media/media.repository.js",
+  () => ({
+    default:
+      mediaRepositoryMock,
+  }),
+);
+
+jest.unstable_mockModule(
+  "../../../src/modules/users/utils/profile-photo-file.util.js",
+  () => ({
+    inspectProfilePhotoFile:
+      inspectProfilePhotoFileMock,
+  }),
+);
 
 jest.unstable_mockModule(
   "../../../src/modules/users/repositories/index.js",
@@ -83,6 +147,77 @@ function createUpdateContext(
 describe("ProfileService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+databaseMock
+      .transaction
+      .mockImplementation(
+        async (callback) =>
+          callback(
+            transactionClient,
+          ),
+      );
+
+    inspectProfilePhotoFileMock
+      .mockResolvedValue({
+        temporaryPath:
+          "/tmp/profile-photo",
+
+        originalFilename:
+          "profile.png",
+
+        mimeType:
+          "image/png",
+
+        extension:
+          "png",
+
+        fileSize: 445,
+
+        checksum:
+          "5b0cfd52dc0bfbe544f4e1a9c77aa46b8629b0e0aad6c54f95eef457b86c2a89",
+      });
+
+    storageManagerMock
+      .store
+      .mockResolvedValue({
+        storageProvider:
+          "local",
+
+        bucket:
+          "local",
+
+        storageKey:
+          STORED_PHOTO_KEY,
+      });
+
+    storageManagerMock
+      .remove
+      .mockResolvedValue();
+
+    mediaRepositoryMock
+      .resolveUploadedAssets
+      .mockResolvedValue({
+        assets: [
+          {
+            id:
+              UPLOADED_PHOTO_ID,
+
+            storage_provider:
+              "local",
+
+            storage_key:
+              STORED_PHOTO_KEY,
+
+            is_public: true,
+
+            fileIndex: 0,
+          },
+        ],
+
+        unusedStoredObjects: [],
+
+        supersededStoredObjects: [],
+      });
 
     profilesRepositoryMock
       .findUpdateContext
@@ -146,6 +281,313 @@ describe("ProfileService", () => {
   });
 
   describe("updateMyProfile", () => {
+test(
+      "rejects an empty update without an uploaded photo",
+      async () => {
+        await expect(
+          ProfileService
+            .updateMyProfile({
+              userId: USER_ID,
+              changes: {},
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "COMMON.VALIDATION_FAILED",
+
+          statusCode: 400,
+        });
+
+        expect(
+          profilesRepositoryMock
+            .findUpdateContext,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "rejects upload and profilePhotoAssetId together",
+      async () => {
+        await expect(
+          ProfileService
+            .updateMyProfile({
+              userId: USER_ID,
+
+              changes: {
+                profilePhotoAssetId:
+                  PHOTO_ID,
+              },
+
+              profilePhotoFile: {
+                path:
+                  "/tmp/profile-photo",
+              },
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "COMMON.VALIDATION_FAILED",
+
+          statusCode: 400,
+        });
+
+        expect(
+          inspectProfilePhotoFileMock,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          storageManagerMock.store,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "stores an uploaded photo and updates the profile transactionally",
+      async () => {
+        const profilePhotoFile = {
+          path:
+            "/tmp/profile-photo",
+
+          originalname:
+            "profile.png",
+
+          mimetype:
+            "image/png",
+        };
+
+        const result =
+          await ProfileService
+            .updateMyProfile({
+              userId: USER_ID,
+
+              changes: {
+                bio:
+                  "Updated with photo",
+              },
+
+              profilePhotoFile,
+            });
+
+        expect(
+          inspectProfilePhotoFileMock,
+        ).toHaveBeenCalledWith(
+          profilePhotoFile,
+        );
+
+        expect(
+          storageManagerMock.store,
+        ).toHaveBeenCalledWith({
+          temporaryPath:
+            "/tmp/profile-photo",
+
+          category:
+            "profile-photos",
+
+          userId:
+            USER_ID,
+
+          extension:
+            "png",
+        });
+
+        expect(
+          databaseMock.transaction,
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          mediaRepositoryMock
+            .resolveUploadedAssets,
+        ).toHaveBeenCalledWith({
+          client:
+            transactionClient,
+
+          userId:
+            USER_ID,
+
+          isPublic: true,
+
+          uploads: [
+            expect.objectContaining({
+              storageKey:
+                STORED_PHOTO_KEY,
+
+              checksum:
+                "5b0cfd52dc0bfbe544f4e1a9c77aa46b8629b0e0aad6c54f95eef457b86c2a89",
+
+              fileIndex: 0,
+            }),
+          ],
+        });
+
+        expect(
+          profilesRepositoryMock
+            .updatePartial,
+        ).toHaveBeenCalledWith({
+          userId:
+            USER_ID,
+
+          changes: {
+            bio:
+              "Updated with photo",
+
+            profilePhotoAssetId:
+              UPLOADED_PHOTO_ID,
+          },
+
+          client:
+            transactionClient,
+        });
+
+        expect(
+          storageManagerMock.remove,
+        ).not.toHaveBeenCalled();
+
+        expect(result).toEqual({
+          userId: USER_ID,
+          username: "current_user",
+          bio: "Updated bio",
+        });
+      },
+    );
+
+    test(
+      "removes a redundant object after checksum deduplication",
+      async () => {
+        mediaRepositoryMock
+          .resolveUploadedAssets
+          .mockResolvedValue({
+            assets: [
+              {
+                id:
+                  PHOTO_ID,
+
+                storage_provider:
+                  "local",
+
+                storage_key:
+                  "profile-photos/existing.png",
+
+                is_public: true,
+
+                fileIndex: 0,
+              },
+            ],
+
+            unusedStoredObjects: [
+              {
+                storageKey:
+                  STORED_PHOTO_KEY,
+              },
+            ],
+
+            supersededStoredObjects: [],
+          });
+
+        await ProfileService
+          .updateMyProfile({
+            userId: USER_ID,
+            changes: {},
+
+            profilePhotoFile: {
+              path:
+                "/tmp/profile-photo",
+            },
+          });
+
+        expect(
+          profilesRepositoryMock
+            .updatePartial,
+        ).toHaveBeenCalledWith({
+          userId:
+            USER_ID,
+
+          changes: {
+            profilePhotoAssetId:
+              PHOTO_ID,
+          },
+
+          client:
+            transactionClient,
+        });
+
+        expect(
+          storageManagerMock.remove,
+        ).toHaveBeenCalledWith({
+          storageKey:
+            STORED_PHOTO_KEY,
+        });
+      },
+    );
+
+    test(
+      "removes the stored object when the transaction fails",
+      async () => {
+        databaseMock
+          .transaction
+          .mockRejectedValue(
+            new Error(
+              "Transaction failed",
+            ),
+          );
+
+        await expect(
+          ProfileService
+            .updateMyProfile({
+              userId: USER_ID,
+              changes: {},
+
+              profilePhotoFile: {
+                path:
+                  "/tmp/profile-photo",
+              },
+            }),
+        ).rejects.toThrow(
+          "Transaction failed",
+        );
+
+        expect(
+          storageManagerMock.remove,
+        ).toHaveBeenCalledWith({
+          storageKey:
+            STORED_PHOTO_KEY,
+        });
+      },
+    );
+
+    test(
+      "does not inspect or store a photo when the profile is missing",
+      async () => {
+        profilesRepositoryMock
+          .findUpdateContext
+          .mockResolvedValue(null);
+
+        await expect(
+          ProfileService
+            .updateMyProfile({
+              userId: USER_ID,
+              changes: {},
+
+              profilePhotoFile: {
+                path:
+                  "/tmp/profile-photo",
+              },
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "USER.NOT_FOUND",
+
+          statusCode: 404,
+        });
+
+        expect(
+          inspectProfilePhotoFileMock,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          storageManagerMock.store,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+
     test(
       "updates only the supplied profile fields",
       async () => {

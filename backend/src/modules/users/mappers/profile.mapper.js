@@ -1,3 +1,7 @@
+import {
+  buildAssetUrl,
+} from "../utils/asset-url.util.js";
+
 class ProfileMapper {
   toResponse(profile) {
     if (!profile) {
@@ -124,15 +128,32 @@ class ProfileMapper {
     }
 
     const variantId = profile[`${prefix}_variant_id`];
-
+  const storageKey =
+      profile[`${prefix}_storage_key`] ??
+      profile[`${prefix}_original_storage_key`] ??
+      null;
     return {
       assetId,
 
       type: profile[`${prefix}_type`] ?? null,
-      storageKey:
-        profile[`${prefix}_storage_key`] ??
-        profile[`${prefix}_original_storage_key`] ??
-        null,
+      storageKey,
+
+      url:
+        buildAssetUrl({
+          assetId,
+
+          storageProvider:
+            profile[
+              `${prefix}_storage_provider`
+            ] ?? null,
+
+          storageKey,
+
+          isPublic:
+            profile[
+              `${prefix}_is_public`
+            ] === true,
+        }),
 
       originalFileName:
         profile[`${prefix}_original_file_name`] ?? null,

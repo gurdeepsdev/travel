@@ -3,6 +3,8 @@ import { Router } from "express";
 import UsersController from "./users.controller.js";
 import AuthMiddleware from "../../middleware/auth.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
+import profilePhotoUploadMiddleware
+  from "./middleware/profile-photo-upload.middleware.js";
 import optionalAuthMiddleware from "../../middleware/optional-auth.middleware.js";
 import SavedContentController from "./controllers/saved-content.controller.js";
 import MemoriesController from "./controllers/memories.controller.js";
@@ -32,9 +34,11 @@ router.get(
     UsersController.me
 );
 
+//profile update
 router.patch(
   "/me/profile",
   AuthMiddleware.authenticate,
+  profilePhotoUploadMiddleware,
   validate(updateMyProfileSchema),
   UsersController.updateMyProfile,
 );
