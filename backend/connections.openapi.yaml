@@ -1,0 +1,240 @@
+openapi: 3.0.3
+
+info:
+  title: Artictern Connections API
+  version: 1.0.0
+  description: >
+    APIs for sending, listing, accepting, rejecting, and cancelling
+    connection requests, as well as listing and removing accepted
+    symmetric user connections.
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+
+tags:
+  - name: Connections
+    description: Accepted user connections
+  - name: Connection Requests
+    description: Connection-request lifecycle
+
+paths:
+  /users/{userId}/connection-requests:
+    post:
+      tags:
+        - Connection Requests
+      summary: Send a connection request
+      operationId: sendConnectionRequest
+      description: >
+        Sends a connection request from the authenticated user to the
+        specified user. Repeating an existing outgoing pending request
+        is idempotent. A reverse pending request must be explicitly
+        accepted or rejected.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "201":
+          description: New connection request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendConnectionRequestResponse"
+        "200":
+          description: Existing outgoing pending request returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendConnectionRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionTargetNotAvailable"
+        "409":
+          $ref: "#/components/responses/ConnectionRequestConflict"
+
+  /users/me/connection-requests/incoming:
+    get:
+      tags:
+        - Connection Requests
+      summary: List incoming connection requests
+      operationId: getIncomingConnectionRequests
+      description: >
+        Returns pending requests received by the authenticated user
+        using stable cursor pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Incoming requests fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingConnectionRequestsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connection-requests/outgoing:
+    get:
+      tags:
+        - Connection Requests
+      summary: List outgoing connection requests
+      operationId: getOutgoingConnectionRequests
+      description: >
+        Returns pending requests sent by the authenticated user
+        using stable cursor pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Outgoing requests fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutgoingConnectionRequestsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connection-requests/{requestId}:
+    patch:
+      tags:
+        - Connection Requests
+      summary: Accept or reject a connection request
+      operationId: respondToConnectionRequest
+      description: >
+        Allows only the stored receiver to accept or reject a pending
+        request. Repeating the same action is idempotent. Accepting
+        creates one canonical symmetric connection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondToConnectionRequest"
+            examples:
+              accept:
+                value:
+                  action: ACCEPT
+              reject:
+                value:
+                  action: REJECT
+      responses:
+        "200":
+          description: Request accepted, rejected, or already resolved with the same action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespondToConnectionRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionRequestNotFound"
+
+    delete:
+      tags:
+        - Connection Requests
+      summary: Cancel an outgoing connection request
+      operationId: cancelConnectionRequest
+      description: >
+        Allows only the stored sender to cancel a pending request.
+        Repeating cancellation is idempotent. Request history is
+        preserved with status CANCELLED.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Request cancelled or already cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelConnectionRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionRequestNotFound"
+
+  /users/me/connections:
+    get:
+      tags:
+        - Connections
+      summary: List my accepted connections
+      operationId: getMyConnections
+      description: >
+        Returns current accepted connections using stable cursor
+        pagination. Each item contains the other user relative to the
+        authenticated user. Internal user_low_id and user_high_id
+        fields are not exposed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Connections fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connections/{userId}:
+    delete:
+      tags:
+        - Connections
+      summary: Remove an accepted connection
+      operationId: removeConnection
+      description: >
+        Removes the current symmetric connection between the
+        authenticated user and the specified user. Historical
+        connection requests remain unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Connection removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoveConnectionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionNotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

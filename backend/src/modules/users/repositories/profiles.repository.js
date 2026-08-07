@@ -480,8 +480,10 @@ cover_photo.original_width
         COALESCE(saved_item_stats.total, 0)::integer
           AS saved_items_count,
 
-        0::integer AS connections_count,
-
+        COALESCE(
+          connection_stats.total,
+          0
+        )::integer AS connections_count,
         COALESCE(
           preferred_collection_stats.total_places,
           0
@@ -649,6 +651,21 @@ cover_photo.original_width
       ) AS saved_item_stats
         ON TRUE
 
+              LEFT JOIN LATERAL
+      (
+        SELECT
+          COUNT(*) AS total
+
+        FROM users.connections
+          AS connection
+
+        WHERE connection.user_low_id =
+            profile.user_id
+
+          OR connection.user_high_id =
+            profile.user_id
+      ) AS connection_stats
+        ON TRUE
    
 
     LEFT JOIN LATERAL

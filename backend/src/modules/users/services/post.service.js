@@ -28,6 +28,9 @@ import {
     PostsRepository,
     profilesRepository,
   } from "../repositories/index.js";
+
+  import ConnectionsRepository
+  from "../repositories/connections.repository.js";
   
   class PostService {
     /**
@@ -107,19 +110,78 @@ import {
         String(viewerUserId) ===
           String(targetUserId);
   
+         let relationshipContext = {
+        is_connected:
+          false,
+
+        is_blocked:
+          false,
+      };
+
       /*
-       * Current rule:
-       * A private profile is visible only to its owner.
-       *
-       * Later, this should also allow accepted
-       * followers/connections.
+       * Owner access requires no relationship lookup.
+       * Anonymous viewers cannot have a connection.
        */
-      if (profile.is_private && !isOwner) {
+      if (
+        !isOwner &&
+        viewerUserId
+      ) {
+        relationshipContext =
+          await ConnectionsRepository
+            .getRelationshipContext({
+              userId:
+                viewerUserId,
+
+              otherUserId:
+                targetUserId,
+            });
+      }
+
+      /*
+       * Blocking takes priority over both public
+       * profile visibility and connection state.
+       */
+      if (
+        !isOwner &&
+        relationshipContext.is_blocked ===
+          true
+      ) {
         return {
           posts: [],
+
           pagination: {
-            hasMore: false,
-            nextCursor: null,
+            hasMore:
+              false,
+
+            nextCursor:
+              null,
+          },
+        };
+      }
+
+      /*
+       * A private profile is available to its owner
+       * and currently connected authenticated users.
+       *
+       * PostsRepository still limits non-owners to
+       * PUBLIC posts, so PRIVATE posts remain
+       * owner-only.
+       */
+      if (
+        profile.is_private &&
+        !isOwner &&
+        relationshipContext.is_connected !==
+          true
+      ) {
+        return {
+          posts: [],
+
+          pagination: {
+            hasMore:
+              false,
+
+            nextCursor:
+              null,
           },
         };
       }
