@@ -8,6 +8,9 @@ import profilePhotoUploadMiddleware
 import optionalAuthMiddleware from "../../middleware/optional-auth.middleware.js";
 import SavedContentController from "./controllers/saved-content.controller.js";
 import MemoriesController from "./controllers/memories.controller.js";
+import ConnectionsController
+  from "./controllers/connections.controller.js";
+
 
 import {
   updateMyProfileSchema,
@@ -25,6 +28,16 @@ import {
   getMyMemoriesSchema,
   saveMemorySchema,
 } from "./validations/memories.validation.js";
+
+import {
+  cancelConnectionRequestSchema,
+  getIncomingConnectionRequestsSchema,
+  getMyConnectionsSchema,
+  getOutgoingConnectionRequestsSchema,
+  removeConnectionSchema,
+  respondToConnectionRequestSchema,
+  sendConnectionRequestSchema,
+} from "./validations/connections.validation.js";
 
 const router = Router();
 
@@ -71,6 +84,85 @@ router.get(
   validate(getMySavedPostsSchema),
   SavedContentController
     .getMySavedPosts,
+);
+
+// List pending requests received by the current user.
+router.get(
+  "/me/connection-requests/incoming",
+  AuthMiddleware.authenticate,
+  validate(
+    getIncomingConnectionRequestsSchema,
+  ),
+  ConnectionsController
+    .getIncomingConnectionRequests,
+);
+
+
+// List the current user's accepted connections.
+router.get(
+  "/me/connections",
+  AuthMiddleware.authenticate,
+  validate(
+    getMyConnectionsSchema,
+  ),
+  ConnectionsController
+    .getMyConnections,
+);
+
+// Remove an accepted connection.
+router.delete(
+  "/me/connections/:userId",
+  AuthMiddleware.authenticate,
+  validate(
+    removeConnectionSchema,
+  ),
+  ConnectionsController
+    .removeConnection,
+);
+
+
+// List pending requests sent by the current user.
+router.get(
+  "/me/connection-requests/outgoing",
+  AuthMiddleware.authenticate,
+  validate(
+    getOutgoingConnectionRequestsSchema,
+  ),
+  ConnectionsController
+    .getOutgoingConnectionRequests,
+);
+
+// Accept or reject a received connection request.
+router.patch(
+  "/me/connection-requests/:requestId",
+  AuthMiddleware.authenticate,
+  validate(
+    respondToConnectionRequestSchema,
+  ),
+  ConnectionsController
+    .respondToConnectionRequest,
+);
+
+// Cancel a pending request sent by the current user.
+router.delete(
+  "/me/connection-requests/:requestId",
+  AuthMiddleware.authenticate,
+  validate(
+    cancelConnectionRequestSchema,
+  ),
+  ConnectionsController
+    .cancelConnectionRequest,
+);
+
+// Send a connection request to another user.
+router.post(
+  "/:userId/connection-requests",
+  AuthMiddleware.authenticate,
+  validate(
+    sendConnectionRequestSchema,
+  ),
+  ConnectionsController
+    .sendConnectionRequest,
 );
 
 router.get(
