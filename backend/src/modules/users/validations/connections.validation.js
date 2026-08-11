@@ -107,6 +107,16 @@ const getOutgoingConnectionRequestsSchema =
 const getMyConnectionsSchema =
   getIncomingConnectionRequestsSchema;
 
+  /*
+ * Connection suggestions use the same request-level
+ * pagination contract as connection lists.
+ *
+ * The service will decode a suggestion-specific cursor
+ * containing score and candidate user ID.
+ */
+const getConnectionSuggestionsSchema =
+  getIncomingConnectionRequestsSchema;
+
   const respondToConnectionRequestSchema =
   z.object({
     params: z
@@ -203,6 +213,8 @@ export {
   getIncomingConnectionRequestsSchema,
   getOutgoingConnectionRequestsSchema,
     getMyConnectionsSchema,
+      getConnectionSuggestionsSchema,
+
   respondToConnectionRequestSchema,
     cancelConnectionRequestSchema,
       removeConnectionSchema,

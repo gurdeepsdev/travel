@@ -5,6 +5,7 @@ import {
 
 const repositoryMock = {
   upsertReaction: jest.fn(),
+  upsertReactionWithSummary: jest.fn(),
   deleteReaction: jest.fn(),
   findUserReaction: jest.fn(),
   getReactionSummary: jest.fn(),
@@ -83,21 +84,22 @@ describe("PostReactionsService", () => {
           .mockResolvedValue(createPost());
 
         repositoryMock
-          .upsertReaction
-          .mockResolvedValue(createReaction());
+          .upsertReactionWithSummary
+          .mockResolvedValue({
+            reaction:
+              createReaction(),
 
-        repositoryMock
-          .getReactionSummary
-          .mockResolvedValue([
-            {
-              reaction_type: "LIKE",
-              reaction_count: "3",
-            },
-            {
-              reaction_type: "LOVE",
-              reaction_count: "2",
-            },
-          ]);
+            summaryRows: [
+              {
+                reaction_type: "LIKE",
+                reaction_count: "3",
+              },
+              {
+                reaction_type: "LOVE",
+                reaction_count: "2",
+              },
+            ],
+          });
 
         const result =
           await PostReactionsService.setReaction({
@@ -107,7 +109,8 @@ describe("PostReactionsService", () => {
           });
 
         expect(
-          repositoryMock.upsertReaction,
+          repositoryMock
+            .upsertReactionWithSummary,
         ).toHaveBeenCalledWith({
           postId: POST_ID,
           userId: VIEWER_ID,
@@ -139,22 +142,21 @@ describe("PostReactionsService", () => {
           );
 
         repositoryMock
-          .upsertReaction
-          .mockResolvedValue(
-            createReaction({
-              user_id: OWNER_ID,
-              reaction_type: "LIKE",
-            }),
-          );
+          .upsertReactionWithSummary
+          .mockResolvedValue({
+            reaction:
+              createReaction({
+                user_id: OWNER_ID,
+                reaction_type: "LIKE",
+              }),
 
-        repositoryMock
-          .getReactionSummary
-          .mockResolvedValue([
-            {
-              reaction_type: "LIKE",
-              reaction_count: "1",
-            },
-          ]);
+            summaryRows: [
+              {
+                reaction_type: "LIKE",
+                reaction_count: "1",
+              },
+            ],
+          });
 
         const result =
           await PostReactionsService.setReaction({
@@ -192,7 +194,8 @@ describe("PostReactionsService", () => {
         });
 
         expect(
-          repositoryMock.upsertReaction,
+          repositoryMock
+            .upsertReactionWithSummary,
         ).not.toHaveBeenCalled();
       },
     );
@@ -220,10 +223,109 @@ describe("PostReactionsService", () => {
         });
 
         expect(
-          repositoryMock.upsertReaction,
+          repositoryMock
+            .upsertReactionWithSummary,
         ).not.toHaveBeenCalled();
       },
     );
+
+test(
+      "replaces LIKE with LOVE without increasing the total count",
+      async () => {
+        postsRepositoryMock
+          .findAccessContext
+          .mockResolvedValue(
+            createPost(),
+          );
+
+        repositoryMock
+          .upsertReactionWithSummary
+          .mockResolvedValue({
+            reaction:
+              createReaction({
+                reaction_type:
+                  "LOVE",
+              }),
+
+            summaryRows: [
+              {
+                reaction_type:
+                  "LOVE",
+
+                reaction_count:
+                  "1",
+              },
+            ],
+          });
+
+        const result =
+          await PostReactionsService
+            .setReaction({
+              postId:
+                POST_ID,
+
+              userId:
+                VIEWER_ID,
+
+              reactionType:
+                "LOVE",
+            });
+
+        expect(
+          repositoryMock
+            .upsertReactionWithSummary,
+        ).toHaveBeenCalledWith({
+          postId:
+            POST_ID,
+
+          userId:
+            VIEWER_ID,
+
+          reactionType:
+            "LOVE",
+        });
+
+        expect(
+          repositoryMock
+            .getReactionSummary,
+        ).not.toHaveBeenCalled();
+
+        expect(result)
+          .toMatchObject({
+            postId:
+              POST_ID,
+
+            viewerReaction:
+              "LOVE",
+
+            reaction: {
+              type:
+                "LOVE",
+            },
+
+            reactionCount:
+              1,
+
+            reactionSummary: {
+              LIKE:
+                0,
+
+              LOVE:
+                1,
+
+              CELEBRATE:
+                0,
+
+              INSIGHTFUL:
+                0,
+
+              FUNNY:
+                0,
+            },
+          });
+      },
+    );
+
   });
 
   describe("removeReaction", () => {

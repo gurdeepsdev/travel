@@ -110,6 +110,162 @@ class ConnectionsMapper {
     };
   }
 
+
+/**
+   * Selects the strongest user-facing explanation
+   * for one connection suggestion.
+   */
+  static toSuggestionReason({
+    outgoingReactionCount,
+    incomingReactionCount,
+    mutualConnectionCount,
+    sharedCityCount,
+  }) {
+    if (
+      outgoingReactionCount > 0
+    ) {
+      return {
+        type:
+          "CONTENT_INTERACTION",
+
+        label:
+          "You reacted to their posts.",
+      };
+    }
+
+    if (
+      incomingReactionCount > 0
+    ) {
+      return {
+        type:
+          "THEY_INTERACTED_WITH_YOU",
+
+        label:
+          "They reacted to your posts.",
+      };
+    }
+
+    if (
+      mutualConnectionCount > 0
+    ) {
+      return {
+        type:
+          "MUTUAL_CONNECTIONS",
+
+        label:
+          mutualConnectionCount === 1
+            ? "You have 1 mutual connection."
+            : `You have ${mutualConnectionCount} mutual connections.`,
+      };
+    }
+
+    return {
+      type:
+        "SHARED_VERIFIED_CITIES",
+
+      label:
+        sharedCityCount === 1
+          ? "You both visited the same city."
+          : `You both visited ${sharedCityCount} of the same cities.`,
+    };
+  }
+
+  /**
+   * Maps one ranked connection suggestion without
+   * exposing its internal ranking score.
+   */
+  static toSuggestionItem(row) {
+    if (
+      !row?.suggestion_user_id
+    ) {
+      return null;
+    }
+
+    const outgoingReactionCount =
+      Number(
+        row.outgoing_reaction_count ??
+        0,
+      );
+
+    const incomingReactionCount =
+      Number(
+        row.incoming_reaction_count ??
+        0,
+      );
+
+    const mutualConnectionCount =
+      Number(
+        row.mutual_connection_count ??
+        0,
+      );
+
+    const sharedCityCount =
+      Number(
+        row.shared_city_count ??
+        0,
+      );
+
+    return {
+      user:
+        this.toUser(
+          row,
+          "suggestion",
+        ),
+
+      reason:
+        this.toSuggestionReason({
+          outgoingReactionCount,
+          incomingReactionCount,
+          mutualConnectionCount,
+          sharedCityCount,
+        }),
+
+      signals: {
+        contentInteractions:
+          outgoingReactionCount,
+
+        receivedContentInteractions:
+          incomingReactionCount,
+
+        mutualConnections:
+          mutualConnectionCount,
+
+        sharedVerifiedCities:
+          sharedCityCount,
+      },
+    };
+  }
+
+  /**
+   * Maps a paginated connection-suggestion list.
+   */
+  static toSuggestionsListResponse({
+    rows,
+    hasMore,
+    nextCursor,
+  }) {
+    return {
+      suggestions:
+        (rows ?? [])
+          .map((row) =>
+            this.toSuggestionItem(
+              row,
+            ),
+          )
+          .filter(Boolean),
+
+      pagination: {
+        hasMore:
+          hasMore === true,
+
+        nextCursor:
+          nextCursor ??
+          null,
+      },
+    };
+  }
+
+
   /**
    * Maps a paginated incoming-request list.
    */
@@ -392,7 +548,7 @@ class ConnectionsMapper {
       },
     };
   }
-  
+
     /**
    * Maps a newly or previously cancelled request.
    */

@@ -18,6 +18,11 @@ import ConnectionsRepository
   encodeCursor,
 } from "../../../shared/utils/cursor.js";
 
+import {
+  decodeConnectionSuggestionCursor,
+  encodeConnectionSuggestionCursor,
+} from "../utils/connection-suggestions-cursor.util.js";
+
 class ConnectionsService {
   /**
    * Sends a connection request.
@@ -335,6 +340,58 @@ class ConnectionsService {
       });
   }
 
+
+  /**
+   * Returns ranked connection suggestions for the
+   * authenticated user.
+   */
+  async getConnectionSuggestions({
+    userId,
+    limit = 20,
+    cursor = null,
+  }) {
+    const decodedCursor =
+      decodeConnectionSuggestionCursor(
+        cursor,
+      );
+
+    const listResult =
+      await ConnectionsRepository
+        .listConnectionSuggestions({
+          userId,
+          limit,
+
+          cursor:
+            decodedCursor,
+        });
+
+    const nextCursor =
+      listResult.hasMore &&
+      listResult.lastRow
+        ? encodeConnectionSuggestionCursor({
+            score:
+              Number(
+                listResult.lastRow
+                  .suggestion_score,
+              ),
+
+            userId:
+              listResult.lastRow
+                .suggestion_user_id,
+          })
+        : null;
+
+    return ConnectionsMapper
+      .toSuggestionsListResponse({
+        rows:
+          listResult.rows,
+
+        hasMore:
+          listResult.hasMore,
+
+        nextCursor,
+      });
+  }
 
     /**
    * Removes an accepted connection belonging to

@@ -164,6 +164,44 @@ class ConnectionsController {
 
 
   /**
+   * Lists ranked connection suggestions for the
+   * authenticated user.
+   *
+   * Route:
+   * GET /api/v1/users/me/connection-suggestions
+   */
+  async getConnectionSuggestions(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const {
+        limit,
+        cursor = null,
+      } = req.validated.query;
+
+      const result =
+        await ConnectionsService
+          .getConnectionSuggestions({
+            userId:
+              req.user.id,
+
+            limit,
+            cursor,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Connection suggestions fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  /**
    * Removes an accepted connection belonging to
    * the authenticated user.
    *

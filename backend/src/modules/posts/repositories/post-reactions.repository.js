@@ -48,6 +48,167 @@ class PostReactionsRepository {
     return rows[0];
   }
 
+/**
+   * Creates or replaces the viewer reaction and
+   * calculates the resulting summary atomically.
+   *
+   * The current viewer's previous row is excluded
+   * from the summary source and replaced with the
+   * row returned by the upsert.
+   */
+  async upsertReactionWithSummary({
+    postId,
+    userId,
+    reactionType,
+  }) {
+    const sql = `
+      WITH upserted_reaction
+        AS MATERIALIZED (
+        INSERT INTO explore.post_likes (
+          post_id,
+          user_id,
+          reaction_type
+        )
+        VALUES (
+          $1::uuid,
+          $2::uuid,
+          $3::varchar
+        )
+
+        ON CONFLICT (
+          post_id,
+          user_id
+        )
+        DO UPDATE SET
+          reaction_type =
+            EXCLUDED.reaction_type,
+
+          updated_at =
+            CURRENT_TIMESTAMP
+
+        RETURNING
+          id,
+          post_id,
+          user_id,
+          reaction_type,
+          created_at,
+          updated_at
+      ),
+
+      summary_source AS (
+        SELECT
+          existing_reaction
+            .reaction_type
+
+        FROM explore.post_likes
+          AS existing_reaction
+
+        WHERE existing_reaction.post_id =
+            $1::uuid
+
+          AND existing_reaction.user_id <>
+            $2::uuid
+
+        UNION ALL
+
+        SELECT
+          upserted_reaction
+            .reaction_type
+
+        FROM upserted_reaction
+      ),
+
+      reaction_summary AS (
+        SELECT
+          summary_source.reaction_type,
+
+          COUNT(*)::bigint
+            AS reaction_count
+
+        FROM summary_source
+
+        GROUP BY
+          summary_source.reaction_type
+      )
+
+      SELECT
+        upserted_reaction.id,
+        upserted_reaction.post_id,
+        upserted_reaction.user_id,
+        upserted_reaction.reaction_type,
+        upserted_reaction.created_at,
+        upserted_reaction.updated_at,
+
+        reaction_summary.reaction_type
+          AS summary_reaction_type,
+
+        reaction_summary.reaction_count
+          AS summary_reaction_count
+
+      FROM upserted_reaction
+
+      CROSS JOIN reaction_summary
+
+      ORDER BY
+        reaction_summary.reaction_type
+          ASC
+    `;
+
+    const {
+      rows,
+    } = await Database.query(
+      sql,
+      [
+        postId,
+        userId,
+        reactionType,
+      ],
+    );
+
+    if (
+      rows.length === 0
+    ) {
+      return null;
+    }
+
+    const firstRow =
+      rows[0];
+
+    return {
+      reaction: {
+        id:
+          firstRow.id,
+
+        post_id:
+          firstRow.post_id,
+
+        user_id:
+          firstRow.user_id,
+
+        reaction_type:
+          firstRow.reaction_type,
+
+        created_at:
+          firstRow.created_at,
+
+        updated_at:
+          firstRow.updated_at,
+      },
+
+      summaryRows:
+        rows.map(
+          (row) => ({
+            reaction_type:
+              row.summary_reaction_type,
+
+            reaction_count:
+              row.summary_reaction_count,
+          }),
+        ),
+    };
+  }
+
+
   /**
    * Removes only the authenticated user's reaction.
    *

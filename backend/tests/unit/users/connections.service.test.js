@@ -6,6 +6,10 @@ import {
   decodeCursor,
 } from "../../../src/shared/utils/cursor.js";
 
+import {
+  decodeConnectionSuggestionCursor,
+} from "../../../src/modules/users/utils/connection-suggestions-cursor.util.js";
+
 const SENDER_USER_ID =
   "63aae149-8f8f-4b30-b30d-211da764c080";
 
@@ -38,6 +42,9 @@ const repositoryMock = {
     jest.fn(),
 
       removeConnection:
+    jest.fn(),
+
+     listConnectionSuggestions:
     jest.fn(),
     
 };
@@ -480,6 +487,63 @@ function createConnectionRow(
 
     connection_profile_photo_is_public:
       false,
+
+    ...overrides,
+  };
+}
+
+
+function createSuggestionRow(
+  overrides = {},
+) {
+  return {
+    suggestion_user_id:
+      RECEIVER_USER_ID,
+
+    suggestion_username:
+      "user_8199818957",
+
+    suggestion_display_name:
+      null,
+
+    suggestion_is_verified:
+      false,
+
+    suggestion_is_private:
+      false,
+
+    suggestion_profile_photo_id:
+      null,
+
+    suggestion_profile_photo_storage_provider:
+      null,
+
+    suggestion_profile_photo_bucket:
+      null,
+
+    suggestion_profile_photo_storage_key:
+      null,
+
+    suggestion_profile_photo_mime_type:
+      null,
+
+    suggestion_profile_photo_is_public:
+      false,
+
+    outgoing_reaction_count:
+      2,
+
+    incoming_reaction_count:
+      1,
+
+    mutual_connection_count:
+      3,
+
+    shared_city_count:
+      1,
+
+    suggestion_score:
+      "17",
 
     ...overrides,
   };
@@ -2087,5 +2151,269 @@ describe(
       },
     );
 
+    describe(
+      "getConnectionSuggestions",
+      () => {
+        test(
+          "returns ranked connection suggestions",
+          async () => {
+            const row =
+              createSuggestionRow();
+
+            repositoryMock
+              .listConnectionSuggestions
+              .mockResolvedValue({
+                rows: [
+                  row,
+                ],
+
+                hasMore:
+                  false,
+
+                lastRow:
+                  row,
+              });
+
+            const result =
+              await ConnectionsService
+                .getConnectionSuggestions({
+                  userId:
+                    SENDER_USER_ID,
+
+                  limit:
+                    20,
+
+                  cursor:
+                    null,
+                });
+
+            expect(
+              repositoryMock
+                .listConnectionSuggestions,
+            ).toHaveBeenCalledWith({
+              userId:
+                SENDER_USER_ID,
+
+              limit:
+                20,
+
+              cursor:
+                null,
+            });
+
+            expect(result)
+              .toMatchObject({
+                suggestions: [
+                  {
+                    user: {
+                      id:
+                        RECEIVER_USER_ID,
+
+                      username:
+                        "user_8199818957",
+                    },
+
+                    reason: {
+                      type:
+                        "CONTENT_INTERACTION",
+                    },
+
+                    signals: {
+                      contentInteractions:
+                        2,
+
+                      receivedContentInteractions:
+                        1,
+
+                      mutualConnections:
+                        3,
+
+                      sharedVerifiedCities:
+                        1,
+                    },
+                  },
+                ],
+
+                pagination: {
+                  hasMore:
+                    false,
+
+                  nextCursor:
+                    null,
+                },
+              });
+
+            expect(
+              result.suggestions[0],
+            ).not.toHaveProperty(
+              "score",
+            );
+
+            expect(
+              JSON.stringify(
+                result,
+              ),
+            ).not.toContain(
+              "suggestion_score",
+            );
+          },
+        );
+
+        test(
+          "creates a score-safe suggestion cursor",
+          async () => {
+            const lastRow =
+              createSuggestionRow({
+                suggestion_score:
+                  "17",
+              });
+
+            repositoryMock
+              .listConnectionSuggestions
+              .mockResolvedValue({
+                rows: [
+                  createSuggestionRow(),
+                ],
+
+                hasMore:
+                  true,
+
+                lastRow,
+              });
+
+            const result =
+              await ConnectionsService
+                .getConnectionSuggestions({
+                  userId:
+                    SENDER_USER_ID,
+
+                  limit:
+                    1,
+
+                  cursor:
+                    null,
+                });
+
+            expect(
+              result.pagination.hasMore,
+            ).toBe(true);
+
+            const decoded =
+              decodeConnectionSuggestionCursor(
+                result.pagination
+                  .nextCursor,
+              );
+
+            expect(decoded)
+              .toEqual({
+                score:
+                  17,
+
+                userId:
+                  RECEIVER_USER_ID,
+              });
+          },
+        );
+
+        test(
+          "returns an empty suggestion list",
+          async () => {
+            repositoryMock
+              .listConnectionSuggestions
+              .mockResolvedValue({
+                rows: [],
+
+                hasMore:
+                  false,
+
+                lastRow:
+                  null,
+              });
+
+            const result =
+              await ConnectionsService
+                .getConnectionSuggestions({
+                  userId:
+                    SENDER_USER_ID,
+
+                  limit:
+                    20,
+
+                  cursor:
+                    null,
+                });
+
+            expect(result)
+              .toEqual({
+                suggestions: [],
+
+                pagination: {
+                  hasMore:
+                    false,
+
+                  nextCursor:
+                    null,
+                },
+              });
+          },
+        );
+
+        test(
+          "rejects an invalid suggestion cursor before querying",
+          async () => {
+            await expect(
+              ConnectionsService
+                .getConnectionSuggestions({
+                  userId:
+                    SENDER_USER_ID,
+
+                  cursor:
+                    "invalid",
+                }),
+            ).rejects.toMatchObject({
+              code:
+                "COMMON.INVALID_CURSOR",
+
+              statusCode:
+                400,
+            });
+
+            expect(
+              repositoryMock
+                .listConnectionSuggestions,
+            ).not.toHaveBeenCalled();
+          },
+        );
+
+        test(
+          "does not hide suggestion database errors",
+          async () => {
+            const databaseError =
+              new Error(
+                "Database unavailable",
+              );
+
+            repositoryMock
+              .listConnectionSuggestions
+              .mockRejectedValue(
+                databaseError,
+              );
+
+            await expect(
+              ConnectionsService
+                .getConnectionSuggestions({
+                  userId:
+                    SENDER_USER_ID,
+                }),
+            ).rejects.toBe(
+              databaseError,
+            );
+          },
+        );
+      },
+    );
+    
   },
 );
+
+

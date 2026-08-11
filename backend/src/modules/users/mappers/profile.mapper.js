@@ -203,66 +203,157 @@ class ProfileMapper {
     };
   }
 
-  #mapPreferredVisitedCollections(collections) {
+ #mapPreferredVisitedCollections(
+    collections,
+  ) {
     if (!Array.isArray(collections)) {
       return [];
     }
 
     return collections
       .filter((collection) =>
-        this.#isPlainObject(collection),
-      )
-      .map((collection) => ({
-        id: collection.id ?? null,
-        name: collection.name ?? null,
-        visitedAt: collection.visitedAt ?? null,
-
-        verificationStatus: Boolean(
-          collection.verificationStatus,
+        this.#isPlainObject(
+          collection,
         ),
+      )
+      .map((collection) => {
+        const icon =
+          this.#isPlainObject(
+            collection.icon,
+          )
+            ? collection.icon
+            : null;
 
-        iconAssetId: collection.iconAssetId ?? null,
+        const iconIsPublic =
+          icon?.isPublic ===
+            true;
 
-        verificationAssetId:
-          collection.verificationAssetId ?? null,
+        return {
+          id:
+            collection.id ??
+            null,
 
-          places: Array.isArray(collection.places)
-          ? collection.places
-              .filter((place) =>
-                this.#isPlainObject(place),
-              )
-              .map((place) => ({
-                id: place.id ?? null,
-        
-                name: place.name ?? null,
-        
-                latitude: this.#toNullableNumber(
-                  place.latitude,
-                ),
-        
-                longitude: this.#toNullableNumber(
-                  place.longitude,
-                ),
-        
-                mediaAssetId:
-                  place.mediaAssetId ?? null,
-        
-                visitedAt:
-                  place.visitedAt ?? null,
-        
-                verificationStatus:
-                  place.verificationStatus ?? null,
-        
-                verificationAssetId:
-                  place.verificationAssetId ?? null,
-        
-                visitSource:
-                  place.visitSource ?? null,
-              }))
-          
-          
-          : [],
-      }));
+          cityId:
+            collection.cityId ??
+            null,
+
+          name:
+            collection.name ??
+            null,
+
+          officialName:
+            collection.officialName ??
+            null,
+
+          country:
+            this.#isPlainObject(
+              collection.country,
+            )
+              ? {
+                  id:
+                    collection
+                      .country.id ??
+                    null,
+
+                  name:
+                    collection
+                      .country.name ??
+                    null,
+                }
+              : null,
+
+          visitedAt:
+            collection.visitedAt ??
+            null,
+
+          verificationStatus:
+            Boolean(
+              collection
+                .verificationStatus,
+            ),
+
+          icon:
+            icon?.id
+              ? {
+                  id:
+                    icon.id,
+
+                  url:
+                    buildAssetUrl({
+                      assetId:
+                        icon.id,
+
+                      storageProvider:
+                        icon
+                          .storageProvider ??
+                        null,
+
+                      storageKey:
+                        icon.storageKey ??
+                        null,
+
+                      isPublic:
+                        iconIsPublic,
+                    }),
+
+                  mimeType:
+                    icon.mimeType ??
+                    null,
+                }
+              : null,
+
+          places:
+            Array.isArray(
+              collection.places,
+            )
+              ? collection.places
+                  .filter((place) =>
+                    this.#isPlainObject(
+                      place,
+                    ),
+                  )
+                  .map((place) => ({
+                    id:
+                      place.id ??
+                      null,
+
+                    name:
+                      place.name ??
+                      null,
+
+                    latitude:
+                      this
+                        .#toNullableNumber(
+                          place.latitude,
+                        ),
+
+                    longitude:
+                      this
+                        .#toNullableNumber(
+                          place.longitude,
+                        ),
+
+                    mediaAssetId:
+                      place
+                        .mediaAssetId ??
+                      null,
+
+                    visitedAt:
+                      place.visitedAt ??
+                      null,
+
+                    verificationStatus:
+                      place
+                        .verificationStatus ??
+                      null,
+
+                    visitSource:
+                      place.visitSource ??
+                      null,
+                  }))
+              : [],
+        };
+      });
   }
 
   #mapSocialLinks(socialLinks) {
