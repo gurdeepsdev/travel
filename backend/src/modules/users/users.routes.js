@@ -10,7 +10,11 @@ import SavedContentController from "./controllers/saved-content.controller.js";
 import MemoriesController from "./controllers/memories.controller.js";
 import ConnectionsController
   from "./controllers/connections.controller.js";
+import VisitedPlacesController
+  from "./controllers/visited-places.controller.js";
 
+import visitedPlaceVerificationUploadMiddleware
+  from "./middleware/visited-place-verification-upload.middleware.js";
 
 import {
   updateMyProfileSchema,
@@ -31,6 +35,7 @@ import {
 
 import {
   cancelConnectionRequestSchema,
+  getConnectionSuggestionsSchema,
   getIncomingConnectionRequestsSchema,
   getMyConnectionsSchema,
   getOutgoingConnectionRequestsSchema,
@@ -38,6 +43,14 @@ import {
   respondToConnectionRequestSchema,
   sendConnectionRequestSchema,
 } from "./validations/connections.validation.js";
+
+
+import {
+  getMyVisitedPlacesSchema,
+  submitVisitedPlaceVerificationSchema,
+  updateVisitedCollectionPreferenceSchema,
+} from "./validations/visited-places.validation.js";
+
 
 const router = Router();
 
@@ -107,6 +120,52 @@ router.get(
   ),
   ConnectionsController
     .getMyConnections,
+);
+
+// List ranked connection suggestions.
+router.get(
+  "/me/connection-suggestions",
+  AuthMiddleware.authenticate,
+  validate(
+    getConnectionSuggestionsSchema,
+  ),
+  ConnectionsController
+    .getConnectionSuggestions,
+);
+
+// Verify an attraction and its city using a historical photo.
+router.post(
+  "/me/visited-place-verifications",
+  AuthMiddleware.authenticate,
+  visitedPlaceVerificationUploadMiddleware,
+  validate(
+    submitVisitedPlaceVerificationSchema,
+  ),
+  VisitedPlacesController
+    .submitVerification,
+);
+
+// Select or deselect a verified city for profile display.
+router.patch(
+  "/me/visited-collections/:collectionId/preference",
+  AuthMiddleware.authenticate,
+  validate(
+    updateVisitedCollectionPreferenceSchema,
+  ),
+  VisitedPlacesController
+    .updateCollectionPreference,
+);
+
+
+// List verified places visited by the current user.
+router.get(
+  "/me/visited-places",
+  AuthMiddleware.authenticate,
+  validate(
+    getMyVisitedPlacesSchema,
+  ),
+  VisitedPlacesController
+    .getMyVisitedPlaces,
 );
 
 // Remove an accepted connection.

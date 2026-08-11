@@ -726,6 +726,528 @@ request.sender_user_id
   }
 
 
+  /**
+   * Lists ranked connection suggestions.
+   *
+   * Ranking signals:
+   * - reactions made by the viewer on candidate content
+   * - reactions made by the candidate on viewer content
+   * - mutual accepted connections
+   * - shared verified cities
+   */
+  async listConnectionSuggestions({
+    userId,
+    limit = 20,
+    cursor = null,
+  }) {
+    const safeLimit =
+      Math.min(
+        Math.max(
+          Number(limit) || 20,
+          1,
+        ),
+        50,
+      );
+
+    const params = [
+      userId,
+    ];
+
+    let cursorWhere = "";
+
+    if (cursor) {
+      params.push(
+        cursor.score,
+      );
+
+      params.push(
+        cursor.userId,
+      );
+
+      cursorWhere = `
+        WHERE (
+          ranked_candidate
+            .suggestion_score,
+          ranked_candidate
+            .suggestion_user_id
+        ) < (
+          $2::bigint,
+          $3::uuid
+        )
+      `;
+    }
+
+    params.push(
+      safeLimit + 1,
+    );
+
+    const limitParameterIndex =
+      params.length;
+
+    const sql = `
+      WITH viewer_connections
+        AS MATERIALIZED (
+        SELECT
+          CASE
+            WHEN connection.user_low_id =
+              $1::uuid
+            THEN connection.user_high_id
+            ELSE connection.user_low_id
+          END AS connected_user_id
+
+        FROM users.connections
+          AS connection
+
+        WHERE connection.user_low_id =
+            $1::uuid
+
+          OR connection.user_high_id =
+            $1::uuid
+      ),
+
+      candidate_pool
+        AS MATERIALIZED (
+        -- The viewer reacted to candidate content.
+        SELECT
+          post.user_id
+            AS candidate_user_id
+
+        FROM explore.post_likes
+          AS post_like
+
+        INNER JOIN explore.posts
+          AS post
+          ON post.id =
+            post_like.post_id
+
+        WHERE post_like.user_id =
+            $1::uuid
+
+          AND post.user_id <>
+            $1::uuid
+
+        UNION
+
+        -- The candidate reacted to viewer content.
+        SELECT
+          post_like.user_id
+            AS candidate_user_id
+
+        FROM explore.posts
+          AS post
+
+        INNER JOIN explore.post_likes
+          AS post_like
+          ON post_like.post_id =
+            post.id
+
+        WHERE post.user_id =
+            $1::uuid
+
+          AND post_like.user_id <>
+            $1::uuid
+
+        UNION
+
+        -- A connection of the viewer is also connected
+        -- to the candidate.
+        SELECT
+          CASE
+            WHEN candidate_connection
+              .user_low_id =
+              viewer_connection
+                .connected_user_id
+            THEN candidate_connection
+              .user_high_id
+            ELSE candidate_connection
+              .user_low_id
+          END AS candidate_user_id
+
+        FROM viewer_connections
+          AS viewer_connection
+
+        INNER JOIN users.connections
+          AS candidate_connection
+          ON candidate_connection
+              .user_low_id =
+                viewer_connection
+                  .connected_user_id
+
+          OR candidate_connection
+              .user_high_id =
+                viewer_connection
+                  .connected_user_id
+
+        WHERE CASE
+            WHEN candidate_connection
+              .user_low_id =
+              viewer_connection
+                .connected_user_id
+            THEN candidate_connection
+              .user_high_id
+            ELSE candidate_connection
+              .user_low_id
+          END <> $1::uuid
+
+        UNION
+
+        -- Viewer and candidate verified the same city.
+        SELECT
+          candidate_collection.user_id
+            AS candidate_user_id
+
+        FROM users.collection
+          AS viewer_collection
+
+        INNER JOIN users.collection
+          AS candidate_collection
+          ON candidate_collection.city_id =
+            viewer_collection.city_id
+
+         AND candidate_collection.user_id <>
+            viewer_collection.user_id
+
+         AND candidate_collection
+              .verification_status
+            IS TRUE
+
+        WHERE viewer_collection.user_id =
+            $1::uuid
+
+          AND viewer_collection
+              .verification_status
+            IS TRUE
+      ),
+
+      candidate_metrics
+        AS MATERIALIZED (
+        SELECT
+          candidate_pool.candidate_user_id
+            AS suggestion_user_id,
+
+          candidate_profile.username
+            AS suggestion_username,
+
+          candidate_profile.display_name
+            AS suggestion_display_name,
+
+          candidate_profile.is_verified
+            AS suggestion_is_verified,
+
+          candidate_profile.is_private
+            AS suggestion_is_private,
+
+          profile_photo.id
+            AS suggestion_profile_photo_id,
+
+          profile_photo.storage_provider
+            AS suggestion_profile_photo_storage_provider,
+
+          profile_photo.bucket
+            AS suggestion_profile_photo_bucket,
+
+          profile_photo.storage_key
+            AS suggestion_profile_photo_storage_key,
+
+          profile_photo.mime_type
+            AS suggestion_profile_photo_mime_type,
+
+          profile_photo.is_public
+            AS suggestion_profile_photo_is_public,
+
+          (
+            SELECT
+              COUNT(*)::integer
+
+            FROM explore.post_likes
+              AS outgoing_like
+
+            INNER JOIN explore.posts
+              AS liked_post
+              ON liked_post.id =
+                outgoing_like.post_id
+
+            WHERE outgoing_like.user_id =
+                $1::uuid
+
+              AND liked_post.user_id =
+                candidate_pool
+                  .candidate_user_id
+          ) AS outgoing_reaction_count,
+
+          (
+            SELECT
+              COUNT(*)::integer
+
+            FROM explore.posts
+              AS viewer_post
+
+            INNER JOIN explore.post_likes
+              AS incoming_like
+              ON incoming_like.post_id =
+                viewer_post.id
+
+            WHERE viewer_post.user_id =
+                $1::uuid
+
+              AND incoming_like.user_id =
+                candidate_pool
+                  .candidate_user_id
+          ) AS incoming_reaction_count,
+
+          (
+            SELECT
+              COUNT(*)::integer
+
+            FROM viewer_connections
+              AS viewer_connection
+
+            WHERE EXISTS (
+              SELECT 1
+
+              FROM users.connections
+                AS mutual_connection
+
+              WHERE mutual_connection
+                  .user_low_id =
+                    LEAST(
+                      viewer_connection
+                        .connected_user_id,
+                      candidate_pool
+                        .candidate_user_id
+                    )
+
+                AND mutual_connection
+                  .user_high_id =
+                    GREATEST(
+                      viewer_connection
+                        .connected_user_id,
+                      candidate_pool
+                        .candidate_user_id
+                    )
+            )
+          ) AS mutual_connection_count,
+
+          (
+            SELECT
+              COUNT(
+                DISTINCT viewer_collection
+                  .city_id
+              )::integer
+
+            FROM users.collection
+              AS viewer_collection
+
+            INNER JOIN users.collection
+              AS candidate_collection
+              ON candidate_collection.city_id =
+                viewer_collection.city_id
+
+             AND candidate_collection.user_id =
+                candidate_pool
+                  .candidate_user_id
+
+             AND candidate_collection
+                  .verification_status
+                IS TRUE
+
+            WHERE viewer_collection.user_id =
+                $1::uuid
+
+              AND viewer_collection
+                  .verification_status
+                IS TRUE
+          ) AS shared_city_count
+
+        FROM candidate_pool
+
+        INNER JOIN auth.users
+          AS candidate_user
+          ON candidate_user.id =
+            candidate_pool
+              .candidate_user_id
+
+         AND candidate_user.status =
+            'ACTIVE'
+
+        INNER JOIN users.profiles
+          AS candidate_profile
+          ON candidate_profile.user_id =
+            candidate_user.id
+
+         AND candidate_profile.deleted_at
+            IS NULL
+
+        LEFT JOIN media.assets
+          AS profile_photo
+          ON profile_photo.id =
+            candidate_profile
+              .profile_photo_asset_id
+
+         AND profile_photo.deleted_at
+            IS NULL
+
+        WHERE candidate_pool
+            .candidate_user_id <>
+            $1::uuid
+
+          AND NOT EXISTS (
+            SELECT 1
+
+            FROM users.connections
+              AS existing_connection
+
+            WHERE existing_connection
+                .user_low_id =
+                  LEAST(
+                    $1::uuid,
+                    candidate_pool
+                      .candidate_user_id
+                  )
+
+              AND existing_connection
+                .user_high_id =
+                  GREATEST(
+                    $1::uuid,
+                    candidate_pool
+                      .candidate_user_id
+                  )
+          )
+
+          AND NOT EXISTS (
+            SELECT 1
+
+            FROM users.connection_requests
+              AS pending_request
+
+            WHERE pending_request.status =
+                'PENDING'
+
+              AND (
+                (
+                  pending_request
+                    .sender_user_id =
+                      $1::uuid
+
+                  AND pending_request
+                    .receiver_user_id =
+                      candidate_pool
+                        .candidate_user_id
+                )
+                OR (
+                  pending_request
+                    .sender_user_id =
+                      candidate_pool
+                        .candidate_user_id
+
+                  AND pending_request
+                    .receiver_user_id =
+                      $1::uuid
+                )
+              )
+          )
+
+          AND NOT EXISTS (
+            SELECT 1
+
+            FROM users.blocked_users
+              AS blocked
+
+            WHERE (
+              blocked.user_id =
+                $1::uuid
+
+              AND blocked.blocked_user_id =
+                candidate_pool
+                  .candidate_user_id
+            )
+            OR (
+              blocked.user_id =
+                candidate_pool
+                  .candidate_user_id
+
+              AND blocked.blocked_user_id =
+                $1::uuid
+            )
+          )
+      ),
+
+      ranked_candidates
+        AS MATERIALIZED (
+        SELECT
+          candidate_metric.*,
+
+          (
+            candidate_metric
+              .outgoing_reaction_count
+              * 5
+
+            + candidate_metric
+              .incoming_reaction_count
+              * 4
+
+            + candidate_metric
+              .mutual_connection_count
+              * 3
+
+            + candidate_metric
+              .shared_city_count
+              * 2
+          )::bigint
+            AS suggestion_score
+
+        FROM candidate_metrics
+          AS candidate_metric
+      )
+
+      SELECT
+        ranked_candidate.*
+
+      FROM ranked_candidates
+        AS ranked_candidate
+
+      ${cursorWhere}
+
+      ORDER BY
+        ranked_candidate
+          .suggestion_score DESC,
+
+        ranked_candidate
+          .suggestion_user_id DESC
+
+      LIMIT $${limitParameterIndex}
+    `;
+
+    const { rows } =
+      await Database.query(
+        sql,
+        params,
+      );
+
+    const hasMore =
+      rows.length >
+      safeLimit;
+
+    const paginatedRows =
+      hasMore
+        ? rows.slice(
+            0,
+            safeLimit,
+          )
+        : rows;
+
+    return {
+      rows:
+        paginatedRows,
+
+      hasMore,
+
+      lastRow:
+        paginatedRows.at(-1) ??
+        null,
+    };
+  }
+
     /**
    * Removes an accepted symmetric connection.
    *

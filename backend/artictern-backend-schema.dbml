@@ -1,0 +1,1334 @@
+// Artictern backend schema
+// Generated from Pasted text(7).txt
+// Import directly at https://dbdiagram.io using New Diagram -> DBML.
+//
+// Important:
+// - 'default' in is_mandatory is preserved in notes because default and nullability are separate concepts.
+// - Targetless FK fields are documented but do not receive false Ref definitions.
+// - profile.users_reports.item_id is polymorphic and cannot be enforced as one normal SQL FK.
+
+Project artictern_backend {
+  database_type: 'PostgreSQL'
+  Note: 'Artictern backend schema with nine bounded schemas and explicit foreign-key relationships.'
+}
+
+TableGroup auth_domain [color: #7257F5] {
+  auth.users
+  auth.identities
+  auth.sessions
+  auth.otp_requests
+  auth.login_history
+}
+
+TableGroup profile_domain [color: #00A884] {
+  profile.profiles
+  profile.saved_items
+  users.visited_places
+  users.collection
+  profile.blocked_users
+  profile.user_settings
+  profile.users_reports
+    profile.connection_requests
+  profile.connections
+}
+
+TableGroup media_domain [color: #F59E0B] {
+  media.assets
+  media.asset_usage
+}
+
+TableGroup itinerary_domain [color: #E14D8D] {
+  itinerary.itineraries
+  itinerary.itinerary_change_request
+  itinerary.itinerary_shares
+}
+
+TableGroup trip_domain [color: #1597D4] {
+  trip.trips
+  trip.documents
+  trip.essentials
+  trip.expenses
+  trip.trip_expense_splits
+}
+
+TableGroup group_domain [color: #8D52D9] {
+  group.groups
+  group.group_members
+  group.group_invitations
+}
+
+TableGroup chat_domain [color: #E05A47] {
+  chat.conversations
+  chat.conversation_participants
+  chat.chat_messages
+  chat.message_mentions
+  chat.message_assets
+  chat.message_reactions
+}
+
+TableGroup community_domain [color: #128A9E] {
+  community.community_members
+  community.communities
+  community.community_member_request
+  community.community_bans
+}
+
+TableGroup explore_domain [color: #5F6FD7] {
+  explore.posts
+  explore.post_assets
+  explore.post_itineraries
+  explore.comments
+    explore.comment_likes
+  explore.post_likes
+  explore.post_reshare
+  explore.post_been_there
+}
+
+TableGroup poi_domain [color: #2E9D68] {
+  poi.countries
+    poi.currencies
+  poi.regions
+  poi.cities
+  poi.categories
+  poi.places_tags
+  poi.places
+}
+
+
+
+
+
+Table auth.users {
+  Note: 'Stable account identity referenced by all user-owned domains.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table auth.identities {
+  Note: 'Maps an account to login identifiers such as email, phone, or device identity.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  provider varchar(50) [not null, note: 'Authentication or identity channel used to interpret provider_identifier. Source note: [phone_no, email, unique_id(device_id)] same as auth.otp_requests.provider Filled by: api.']
+  provider_identifier varchar(100) [not null, note: 'Channel-specific identity such as normalized email, phone, or device ID. Source note: actual number/email id or unique device id same as auth.otp_requests.provider_identifier Filled by: api.']
+  is_verified bool [note: 'Whether ownership of the identity has been proven. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table auth.sessions {
+  Note: 'Tracks refreshable login sessions and their device and network context.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  refresh_token_hash varchar(120) [not null, note: 'Non-reversible digest used to validate or revoke a refresh token. Filled by: api.']
+  device_name varchar(50) [not null, note: 'Human-readable label for this session. Filled by: api.']
+  device_type varchar(100) [not null, note: 'Selects the supported device variant. Filled by: api.']
+  ip_address varchar(50) [not null, note: 'Originating network address for audit and anomaly detection. Filled by: api.']
+  user_agent varchar(100) [not null, note: 'Client identity used for device recognition and security review. Filled by: api.']
+  expiry_at timestamptztz [not null, note: 'Cutoff after which the session, token, request, or invitation is invalid. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table auth.otp_requests {
+  Note: 'Controls OTP challenges, retry counts, verification, and expiry.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  provider varchar(100) [not null, note: 'Authentication or identity channel used to interpret provider_identifier. Filled by: api.']
+  provider_identifier varchar(100) [not null, note: 'Channel-specific identity such as normalized email, phone, or device ID. Filled by: api.']
+  otp_hash varchar(120) [not null, note: 'Non-reversible digest of the OTP; the raw code must not be persisted. Filled by: api.']
+  attempt_count int [note: 'Number of verification attempts used for abuse and retry controls. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  expiry_at timestamptztz [not null, note: 'Cutoff after which the session, token, request, or invitation is invalid. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  verified_at timestamptztz [note: 'When the OTP challenge was completed; null means unverified. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table auth.login_history {
+  Note: 'Security audit trail for successful and failed authentication attempts.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  provider varchar(100) [not null, note: 'Authentication or identity channel used to interpret provider_identifier. Source note: same as auth.otp_requests.provider Filled by: api.']
+  provider_identifier varchar(100) [not null, note: 'Channel-specific identity such as normalized email, phone, or device ID. Source note: same as auth.otp_requests.provider_identifier Filled by: api.']
+  ip_address varchar(50) [not null, note: 'Originating network address for audit and anomaly detection. Filled by: api.']
+  user_agent varchar(200) [not null, note: 'Client identity used for device recognition and security review. Filled by: api.']
+  status varchar(100) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  failure_reason varchar(250) [note: 'Reason an operation failed for support and security analysis. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table profile.connection_requests {
+  Note: '''
+  Stores the complete lifecycle and history of user connection requests.
+
+  Allowed status values:
+  - PENDING
+  - ACCEPTED
+  - REJECTED
+  - CANCELLED
+
+  Only one pending request may exist for an unordered user pair.
+  This partial expression index is enforced in PostgreSQL but cannot
+  be represented completely in DBML.
+  '''
+
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+
+  sender_user_id uuid [not null, note: 'User who sent the connection request.']
+
+  receiver_user_id uuid [not null, note: 'User who received the connection request.']
+
+  status varchar(20) [not null, default: 'PENDING', note: 'PENDING, ACCEPTED, REJECTED, or CANCELLED.']
+
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  resolved_at timestamp [note: 'Set when the request is accepted, rejected, or cancelled. Null while pending.']
+
+  indexes {
+    (receiver_user_id, created_at, id) [name: 'idx_connection_requests_incoming']
+
+    (sender_user_id, created_at, id) [name: 'idx_connection_requests_outgoing']
+  }
+}
+
+
+Table profile.connections {
+  Note: '''
+  Stores accepted symmetric user connections.
+
+  Each relationship is stored once as a canonical UUID pair:
+  user_low_id < user_high_id.
+
+  Blocking either user automatically removes the connection.
+  '''
+
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+
+  user_low_id uuid [not null, note: 'Lexicographically smaller user UUID.']
+
+  user_high_id uuid [not null, note: 'Lexicographically larger user UUID.']
+
+  connected_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (user_low_id, user_high_id) [unique, name: 'uq_connections_pair']
+
+    (user_low_id, connected_at, id) [name: 'idx_connections_user_low']
+
+    (user_high_id, connected_at, id) [name: 'idx_connections_user_high']
+  }
+}
+
+Table profile.profiles {
+  Note: 'Public and preference-facing representation of an authenticated user.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  user_name varchar(100) [not null, note: 'Human-readable label for this profiles. Filled by: api.']
+  display_name varchar(100) [note: 'Human-readable label for this profiles. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  bio varchar(250) [note: 'Bio used by the profiles workflow. Filled by: api.']
+  profile_photo_asset_id uuid [not null, note: 'Links this profiles record to media.assets.id. Filled by: api.']
+  country_id uuid [not null, note: 'Links this profiles record to country. Filled by: api. FK target is missing in the source and must be resolved.']
+  city_id uuid [not null, note: 'Links this profiles record to city. Filled by: api. FK target is missing in the source and must be resolved.']
+  is_private bool [note: 'Whether \'private\' behavior applies. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  is_verified bool [note: 'Whether ownership of the identity has been proven. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  profile_completed_at timestamptztz [note: 'timestamptztz when profile completed occurred. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptztz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table profile.saved_items {
+  Note: 'Items bookmarked by a user for later access.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  item_type varchar(50) [not null, note: 'Selects the supported item variant. Source note: [specific values to be decided] Filled by: api.']
+  item_id uuid [not null, note: 'Links this saved_items record to item. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  is_active bool [note: 'Whether \'active\' behavior applies. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+}
+
+Table users.visited_places {
+  Note: '''
+  Verified user visits to canonical places. Historical gallery photos are retained as private verification evidence.
+
+  verification_status: PENDING, VERIFIED, or REJECTED.
+  visit_source: MANUAL, TRIP_COMPLETION, PHOTO_VERIFICATION, or ADMIN.
+  Exact evidence reuse is prevented by a partial unique SHA-256 index.
+  '''
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [not null, note: 'User whose visit was recorded.']
+  place_id uuid [not null, note: 'Canonical verified POI.']
+  trip_id uuid [note: 'Optional trip associated with the visit.']
+  verification_asset_id uuid [note: 'Private uploaded photo used only as verification evidence.']
+  verification_status varchar(20) [not null, default: 'PENDING', note: 'PENDING, VERIFIED, or REJECTED.']
+  visit_source varchar(30) [not null, default: 'MANUAL', note: 'MANUAL, TRIP_COMPLETION, PHOTO_VERIFICATION, or ADMIN.']
+  visited_at timestamptz [not null, default: `CURRENT_TIMESTAMP`, note: 'Verified visit time stored as an absolute timestamp.']
+  created_at timestamptz [not null, default: `CURRENT_TIMESTAMP`, note: 'Creation time stored as an absolute timestamp.']
+  updated_at timestamptz [not null, default: `CURRENT_TIMESTAMP`, note: 'Most recent update time stored as an absolute timestamp.']
+  collections_id uuid [not null, note: 'Verified city collection created or reused for this visit.']
+  claimed_visited_at timestamptz [note: 'Optional historical visit time claimed by the user.']
+  evidence_captured_at timestamptz [note: 'Capture time extracted from image EXIF metadata.']
+  evidence_latitude double [note: 'EXIF latitude; when present it must be between -90 and 90.']
+  evidence_longitude double [note: 'EXIF longitude; when present it must be between -180 and 180.']
+  evidence_sha256 varchar(64) [note: 'Lowercase SHA-256 digest used for exact duplicate detection.']
+  evidence_perceptual_hash varchar(128) [note: 'Perceptual image hash reserved for near-duplicate detection.']
+  verification_details jsonb [not null, default: `'{}'::jsonb`, note: 'Internal verification result details stored as a JSON object.']
+
+  indexes {
+    (user_id, place_id) [unique, name: 'uq_user_place_visit']
+    (user_id, place_id, collections_id) [unique, name: 'uq_users_visited_places_user_place_collection', note: 'PostgreSQL index is partial where collections_id IS NOT NULL.']
+    (evidence_sha256) [unique, name: 'uq_visited_places_evidence_sha256', note: 'PostgreSQL index is partial where evidence_sha256 IS NOT NULL.']
+    (evidence_perceptual_hash) [name: 'idx_visited_places_evidence_perceptual_hash', note: 'PostgreSQL index is partial where evidence_perceptual_hash IS NOT NULL.']
+    (user_id, visited_at, id) [name: 'idx_visited_places_user_visited_id', note: 'PostgreSQL uses visited_at DESC and id DESC.']
+  }
+}
+
+Table users.collection {
+  Note: '''
+  One verified-city collection per user and city. A verified place verifies its containing city.
+
+  Only verified collections can be preferred, and a trigger limits each user to five preferred cities.
+  The canonical display icon comes from poi.cities.icon_asset_id; verification evidence is never used as the city icon.
+  '''
+  id uuid [pk, not null, default: `gen_random_uuid()`]
+  user_id uuid [not null, note: 'User who owns the verified-city collection.']
+  collections_name varchar(50) [not null, note: 'Presentation name, normally the canonical city name.']
+  icon_asset_id uuid [note: 'Legacy collection icon field; profile display uses poi.cities.icon_asset_id.']
+  verification_asset_id uuid [note: 'Private evidence asset associated with verification; never exposed as the city icon.']
+  verification_status bool [not null, default: false]
+  visited_at timestamptz [note: 'Verified city visit time.']
+  is_preference bool [not null, default: false, note: 'Whether this verified city is one of the maximum five shown on the profile.']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  city_id uuid [not null, note: 'Canonical city verified for this collection.']
+
+  indexes {
+    (user_id, city_id) [unique, name: 'uq_users_collection_user_city']
+    (city_id) [name: 'idx_users_collection_city']
+    (user_id, is_preference) [name: 'idx_users_collection_user_preference']
+    (visited_at) [name: 'idx_users_collection_visited_at', note: 'PostgreSQL uses visited_at DESC.']
+  }
+}
+
+Table profile.blocked_users {
+  Note: 'One-way user blocking relationships.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  blocked_user_id uuid [not null, note: 'Links this blocked_users record to auth.users.id. Filled by: api.']
+  reason varchar(250) [note: 'Human-readable reason explaining this blocked users. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table profile.user_settings {
+  Note: 'Account-level product, privacy, and notification preferences.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  settings_json jsonb [note: 'Settings json used by the user settings workflow. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table profile.users_reports {
+  Note: 'Moderation reports submitted by users about another user or content item.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  item_type varchar(50) [not null, note: 'Selects the supported item variant. Source note: [specific values to be decided] Filled by: api.']
+  item_id uuid [not null, note: 'Links this users_reports record to [media.assets.id, itinerary.itineraries.id]. Source note: relation will depend on item_type Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Source note: [specific actions and values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+}
+
+Table media.assets {
+  Note: 'Reusable media metadata independent of the feature displaying it.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  type varchar(50) [not null, note: 'Type used by the assets workflow. Source note: [specific values to be decided] Filled by: api.']
+  storage_key varchar(120) [not null, note: 'Storage key used by the assets workflow. Filled by: api.']
+  original_file_name varchar(100) [not null, note: 'Human-readable label for this assets. Filled by: api.']
+  extension varchar(50) [not null, note: 'Extension used by the assets workflow. Filled by: api.']
+  file_size bigint [not null, note: 'File size used by the assets workflow. Filled by: api.']
+  original_width int [note: 'Original width used by the assets workflow. Filled by: api.']
+  original_height int [note: 'Original height used by the assets workflow. Filled by: api.']
+  duration_in_sec int [note: 'Duration in sec used by the assets workflow. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  checksum varchar(64) [note: 'Checksum used by the assets workflow. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptztz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table media.asset_usage {
+  Note: 'Associates a reusable asset with the entity currently using it.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  asset_id uuid [not null, note: 'Reusable media asset attached to this record. Filled by: api.']
+  entity_type varchar(50) [not null, note: 'Selects the supported entity variant. Source note: [specific values to be decided] Filled by: api.']
+  entity_id uuid [not null, note: 'Links this asset_usage record to entity. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table itinerary.itineraries {
+  Note: 'Owner-managed travel plan that can be shared or receive proposed changes.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  title varchar(50) [note: 'Human-readable label for this itineraries. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  description varchar(100) [note: 'Human-readable description explaining this itineraries. Filled by: api.']
+  cover_asset_id uuid [not null, note: 'Links this itineraries record to media.assets.id. Filled by: api.']
+  start_datetime timestamptztz [not null, note: 'Start datetime used by the itineraries workflow. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  end_datetime timestamptztz [not null, note: 'End datetime used by the itineraries workflow. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  duration_days int [not null, note: 'Duration days used by the itineraries workflow. Filled by: api.']
+  currency_id uuid [not null, note: 'Links this itineraries record to currency. Filled by: api.']
+  budget_amount int [note: 'Monetary value used by itineraries calculations. Filled by: api.']
+  trip_status varchar(50) [note: 'Trip status used by the itineraries workflow. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  visibility varchar(50) [note: 'Audience permitted to discover or view the record. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  itinerary_json jsonb [note: 'Itinerary json used by the itineraries workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptztz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table itinerary.itinerary_change_request {
+  Note: 'Proposed itinerary edits awaiting the owner\'s decision.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  itinerary_id uuid [not null, note: 'Reusable itinerary attached to this record. Filled by: api.']
+  requested_by uuid [not null, note: 'Requested by used by the itinerary change request workflow. Filled by: api.']
+  request_type varchar(50) [not null, note: 'Selects the supported request variant. Source note: [specific values to be decided] Filled by: api.']
+  proposed_data jsonb [note: 'Proposed data used by the itinerary change request workflow. Filled by: api.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  reviewed_by uuid [note: 'Reviewed by used by the itinerary change request workflow. Source note: same as itinerary.itineraries.user_id Filled by: api.']
+  reviewed_at timestamptztz [note: 'timestamptztz when reviewed occurred. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table itinerary.itinerary_shares {
+  Note: 'Tracks who shared an itinerary, its recipient, and access state.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  itinerary_id uuid [not null, note: 'Reusable itinerary attached to this record. Filled by: api.']
+  share_token varchar(250) [not null, note: 'Share token used by the itinerary shares workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  expiry_at timestamptztz [note: 'Cutoff after which the session, token, request, or invitation is invalid. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table trip.trips {
+  Note: 'Planned or active journey with ownership and travel dates.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  itinerary_id uuid [not null, note: 'Reusable itinerary attached to this record. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  started_at timestamptztz [not null, note: 'timestamptztz when started occurred. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  completed_at timestamptztz [note: 'timestamptztz when completed occurred. Filled by: api. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  metadata jsonb [note: 'Metadata used by the trips workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table trip.documents {
+  Note: 'Trip-related document metadata.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  trip_id uuid [not null, note: 'Links this documents record to trip.trips.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  document_type varchar(50) [not null, note: 'Selects the supported documnet variant. Source note: [specific values to be decided] Filled by: api.']
+  docs_asset_id uuid [not null, note: 'Reusable media asset attached to this record. Filled by: api. FK target is missing in the source and must be resolved.']
+  document_title varchar(100) [note: 'Document title used by the documents workflow. Filled by: api.']
+  visibility varchar(50) [note: 'Audience permitted to discover or view the record. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  notes varchar(250) [note: 'Notes used by the documents workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table trip.essentials {
+  Note: 'Checklist items or requirements needed for a trip.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  trip_id uuid [not null, note: 'Links this essentials record to trip.trips.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  title varchar(50) [not null, note: 'Human-readable label for this essentials. Filled by: api.']
+  category varchar(50) [note: 'Category used by the essentials workflow. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  icon_asset_id uuid [not null, note: 'Links this essentials record to media.assets.id. Filled by: api.']
+  is_marked bool [note: 'Whether \'marked\' behavior applies. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  is_user_generated bool [note: 'Whether \'user generated\' behavior applies. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table trip.expenses {
+  Note: 'Trip expenses including payer, category, amount, and settlement context.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  trip_id uuid [not null, note: 'Links this expenses record to trip.trips.id. Filled by: api.']
+  paid_by uuid [not null, note: 'Paid by used by the expenses workflow. Filled by: api.']
+  expense_category varchar(50) [note: 'Expense category used by the expenses workflow. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  title varchar(100) [note: 'Human-readable label for this expenses. Filled by: api.']
+  description varchar(250) [note: 'Human-readable description explaining this expenses. Filled by: api.']
+  amount numeric [not null, note: 'Monetary value used by expenses calculations. Filled by: api. Recommendation: use numeric(precision,scale) if exact arithmetic is required.']
+  currency_id uuid [not null, note: 'Links this expenses record to currency. Filled by: api. FK target is missing in the source and must be resolved.']
+  payment_method varchar(50) [note: 'Payment method used by the expenses workflow. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  receipt_asset_id uuid [not null, note: 'Links this expenses record to media.assets.id. Filled by: api.']
+  meta_data jsonb [note: 'Meta data used by the expenses workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptztz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table trip.trip_expense_splits {
+  Note: 'Allocates an expense across trip participants.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  expense_id uuid [not null, note: 'Links this trip_expense_splits record to trip.expenses.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  amount numeric [not null, note: 'Monetary value used by trip expense splits calculations. Filled by: api. Recommendation: use numeric(precision,scale) if exact arithmetic is required.']
+  percentage float [note: 'Percentage used by the trip expense splits workflow. Filled by: api. Source says mandatory=default; define nullability and the actual default separately. Recommendation: use numeric(precision,scale) if exact arithmetic is required.']
+  settlement_status varchar(50) [note: 'Settlement status used by the trip expense splits workflow. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  reminder varchar(100) [note: 'Reminder used by the trip expense splits workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table group.groups {
+  Note: 'Collaboration group and its ownership and lifecycle metadata.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  owner_id uuid [not null, note: 'Links this groups record to auth.users.id. Filled by: api.']
+  name varchar(50) [not null, note: 'Human-readable label for this groups. Filled by: api.']
+  description varchar(250) [note: 'Human-readable description explaining this groups. Filled by: api.']
+  cover_asset_id uuid [not null, note: 'Links this groups record to media.assets.id. Filled by: api.']
+  primary_itinerary_id uuid [ null, note: 'Links this groups record to itinerary.itineraries.id. Filled by: api.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptztz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table group.group_members {
+  Note: 'Connects users to groups and assigns membership roles.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  group_id uuid [not null, note: 'Links this group_members record to group.groups.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  role varchar(50) [note: 'Permissions assigned within the parent group or community. Source note: [specific values to be decided] Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table group.group_invitations {
+  Note: 'Invitations to join groups, including issuer, recipient, status, token, and expiry.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  group_id uuid [not null, note: 'Links this group_invitations record to group.groups.id. Filled by: api.']
+  invited_user_id uuid [not null, note: 'Links this group_invitations record to auth.users.id. Filled by: api.']
+  invited_by uuid [not null, note: 'Invited by used by the group invitations workflow. Filled by: api.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  invitation_token varchar(120) [not null, note: 'Unguessable credential required to accept an invitation. Filled by: api.']
+  expiry_at timestamptztz [not null, note: 'Cutoff after which the session, token, request, or invitation is invalid. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table chat.conversations {
+  Note: 'Message thread supporting both direct one-to-one conversations and group conversations.'
+
+  id uuid [
+    pk,
+    not null,
+    note: 'Primary identifier. Filled by: server-generated UUID.'
+  ]
+
+  group_id uuid [
+    null,
+    note: 'Group associated with the conversation. Required for group conversations and null for direct conversations.'
+  ]
+
+  last_message_id uuid [
+    null,
+    note: 'Cached reference to the newest message for conversation-list previews.'
+  ]
+
+  conversation_type varchar(20) [
+    not null,
+    default: 'group',
+    note: 'Conversation type. Allowed values: direct, group.'
+  ]
+
+  direct_key varchar(100) [
+    null,
+    unique,
+    note: 'Stable sorted combination of the two user UUIDs for direct conversations. Null for group conversations. Example: smaller_user_uuid:larger_user_uuid.'
+  ]
+
+  created_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Creation timestamp.'
+  ]
+
+  updated_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Most recent update timestamp.'
+  ]
+
+  deleted_at timestamp [
+    null,
+    note: 'Soft-delete timestamp. Null while active.'
+  ]
+
+  indexes {
+    conversation_type [name: 'idx_conversations_type']
+    created_at [name: 'idx_conversations_created_at']
+    updated_at [name: 'idx_conversations_updated_at']
+    deleted_at [name: 'idx_conversations_deleted_at']
+    last_message_id [name: 'idx_conversations_last_message']
+    group_id [name: 'idx_conversations_group']
+  }
+}
+
+Table chat.conversation_participants {
+  Note: 'Users participating in direct or group conversations, including read, mute, archive, join and leave state.'
+
+  id uuid [
+    pk,
+    not null,
+    note: 'Primary identifier. Filled by: server-generated UUID.'
+  ]
+
+  conversation_id uuid [
+    not null,
+    note: 'Conversation in which the user participates.'
+  ]
+
+  user_id uuid [
+    not null,
+    note: 'User participating in the conversation.'
+  ]
+
+  role varchar(20) [
+    not null,
+    default: 'member',
+    note: 'Participant role. Allowed values: owner, admin, member.'
+  ]
+
+  joined_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Timestamp when the user joined the conversation.'
+  ]
+
+  left_at timestamp [
+    null,
+    note: 'Timestamp when the user left the conversation. Null while actively participating.'
+  ]
+
+  last_read_message_id uuid [
+    null,
+    note: 'Latest message read by this participant.'
+  ]
+
+  last_read_at timestamp [
+    null,
+    note: 'Timestamp when the participant last read the conversation.'
+  ]
+
+  is_muted bool [
+    not null,
+    default: false,
+    note: 'Whether notifications are muted for this participant.'
+  ]
+
+  is_archived bool [
+    not null,
+    default: false,
+    note: 'Whether this participant archived the conversation.'
+  ]
+
+  created_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Creation timestamp.'
+  ]
+
+  updated_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Most recent update timestamp.'
+  ]
+
+  indexes {
+    (conversation_id, user_id) [
+      unique,
+      name: 'uq_conversation_participants_user'
+    ]
+
+    conversation_id [
+      name: 'idx_conversation_participants_conversation'
+    ]
+
+    user_id [
+      name: 'idx_conversation_participants_user'
+    ]
+
+    (user_id, conversation_id) [
+      name: 'idx_conversation_participants_active_user',
+      note: 'PostgreSQL implementation uses a partial index where left_at IS NULL.'
+    ]
+
+    last_read_message_id [
+      name: 'idx_conversation_participants_last_read'
+    ]
+  }
+}
+Table chat.chat_messages {
+  Note: 'Messages belonging to direct or group conversations, including replies, edits and itinerary attachments.'
+
+  id uuid [
+    pk,
+    not null,
+    note: 'Primary identifier. Filled by: server-generated UUID.'
+  ]
+
+  conversation_id uuid [
+    not null,
+    note: 'Conversation containing this message.'
+  ]
+
+  sent_by uuid [
+    not null,
+    note: 'User who sent the message.'
+  ]
+
+  message_type varchar(50) [
+    not null,
+    note: 'Message type such as text, image, video, file, voice, itinerary or system.'
+  ]
+
+  message_content varchar(512) [
+    null,
+    note: 'Textual content or caption. May be null for media-only messages.'
+  ]
+
+  itinerary_id uuid [
+    null,
+    note: 'Optional itinerary attached to the message.'
+  ]
+
+  edited_at timestamp [
+    null,
+    note: 'Timestamp when the message was last edited.'
+  ]
+
+  created_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Timestamp when the message was sent.'
+  ]
+
+  reply_to_message_id uuid [
+    null,
+    note: 'Earlier message to which this message replies.'
+  ]
+
+  indexes {
+    conversation_id [
+      name: 'idx_chat_messages_conversation'
+    ]
+
+    sent_by [
+      name: 'idx_chat_messages_sender'
+    ]
+
+    (conversation_id, created_at) [
+      name: 'idx_chat_messages_conversation_created'
+    ]
+
+    reply_to_message_id [
+      name: 'idx_chat_messages_reply'
+    ]
+  }
+}
+
+Table chat.message_mentions {
+  Note: 'Users specifically mentioned in chat messages. A mention does not mean the user is the only recipient of the message.'
+
+  id uuid [
+    pk,
+    not null,
+    note: 'Primary identifier. Filled by: server-generated UUID.'
+  ]
+
+  message_id uuid [
+    not null,
+    note: 'Message containing the mention.'
+  ]
+
+  mentioned_user_id uuid [
+    not null,
+    note: 'User specifically mentioned in the message.'
+  ]
+
+  created_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Timestamp when the mention was created.'
+  ]
+
+  indexes {
+    (message_id, mentioned_user_id) [
+      unique,
+      name: 'uq_message_mentions_user'
+    ]
+
+    message_id [
+      name: 'idx_message_mentions_message'
+    ]
+
+    mentioned_user_id [
+      name: 'idx_message_mentions_user'
+    ]
+  }
+}
+
+Table chat.message_assets {
+  Note: 'Media assets attached to chat messages.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  message_id uuid [not null, note: 'Links this message_assets record to chat.chat_messages.id. Filled by: api.']
+  asset_id uuid [not null, note: 'Reusable media asset attached to this record. Filled by: api.']
+  display_order int [note: 'Deterministic presentation position among sibling records. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table chat.message_reactions {
+  Note: 'User reactions to chat messages.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  message_id uuid [not null, note: 'Links this message_reactions record to chat.chat_messages.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  reaction varchar [not null, note: 'Reaction used by the message reactions workflow. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table community.community_members {
+  Note: 'Community membership, role, and state.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  community_id uuid [ not null, note: 'Links this community_members record to community.communities.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  role varchar(50) [note: 'Permissions assigned within the parent group or community. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table community.communities {
+  Note: 'Discoverable community with owner, visibility, and lifecycle.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  owner_id uuid [not null, note: 'Links this communities record to auth.users.id. Filled by: api.']
+  name varchar(100) [not null, note: 'Human-readable label for this communities. Filled by: api.']
+  description varchar(250) [note: 'Human-readable description explaining this communities. Filled by: api.']
+  icon_asset_id uuid [not null, note: 'Links this communities record to media.assets.id. Filled by: api.']
+  join_type varchar(50) [note: 'Selects the supported join variant. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  member_count int [note: 'Cached count of member records or events. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  deleted_at timestamptztz [note: 'Soft-delete timestamptztz; null while active. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table community.community_member_request {
+  Note: 'Requests to join a community and their decisions.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  community_id uuid [not null, note: 'Links this community_member_request record to community.communities.id. Filled by: api.']
+  request_type varchar(50) [note: 'Selects the supported request variant. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  request_by uuid [not null, note: 'Request by used by the community member request workflow. Filled by: api.']
+  target_user_id uuid [not null, note: 'Links this community_member_request record to auth.users.id. Filled by: api.']
+  status varchar(50) [note: 'Current workflow or lifecycle state; define allowed values with a CHECK or enum. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  reviewed_by uuid [not null, note: 'Reviewed by used by the community member request workflow. Filled by: api.']
+  reviewed_at timestamptztz [note: 'timestamptztz when reviewed occurred. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table community.community_bans {
+  Note: 'Community participation bans and their moderation context.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  community_id uuid [not null, note: 'Links this community_bans record to community.communities.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  banned_user_id uuid [not null, note: 'Links this community_bans record to auth.users.id. Filled by: api.']
+  reason varchar(250) [note: 'Human-readable reason explaining this community bans. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table explore.posts {
+  Note: 'User-created explore/feed content with visibility and place context.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  caption varchar(250) [note: 'Human-readable caption explaining this posts. Filled by: api.']
+  post_type varchar(50) [note: 'Selects the supported post variant. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  visibility varchar(50) [note: 'Audience permitted to discover or view the record. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  place_id uuid [not null, note: 'Canonical place or POI supplied by the place-data subsystem. Filled by: api. FK target is missing in the source and must be resolved.']
+  comment_count bigint [note: 'Cached comment aggregate for fast feed rendering. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  share_count bigint [note: 'Cached share aggregate for engagement display. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  view_count bigint [note: 'Cached view aggregate for reach and ranking. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table explore.post_tagged_users {
+  Note: 'Stores users tagged in a post. A user can be tagged only once per post.'
+
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+
+  post_id uuid [not null, note: 'Reference to the post in which the user is tagged.']
+
+  tagged_user_id uuid [not null, note: 'User who has been tagged in the post.']
+
+  tagged_by uuid [not null, note: 'User who performed the tagging, typically the post owner or an authorized collaborator.']
+
+  created_at timestamp [not null, note: 'Timestamp when the user was tagged. Filled automatically.']
+
+  indexes {
+    (post_id) [name: 'idx_post_tagged_users_post']
+    (tagged_user_id) [name: 'idx_post_tagged_users_user']
+    (post_id, tagged_user_id) [unique, name: 'uq_post_tagged_user']
+  }
+}
+
+Table explore.post_assets {
+  Note: 'Ordered media assets attached to an explore post.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  post_id uuid [not null, note: 'Links this post_assets record to explore.posts.id. Filled by: api.']
+  asset_id uuid [not null, note: 'Reusable media asset attached to this record. Filled by: api.']
+  display_order bigint [not null, note: 'Deterministic presentation position among sibling records. Filled by: api/auto.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table explore.post_itineraries {
+  Note: 'Reusable itineraries attached to an explore post.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  post_id uuid [not null, note: 'Links this post_itineraries record to explore.posts.id. Filled by: api.']
+  itinerary_id uuid [not null, note: 'Reusable itinerary attached to this record. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table explore.comments {
+  Note: 'Threaded discussion beneath an explore post.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  post_id uuid [not null, note: 'Links this comments record to explore.posts.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  comment varchar(250) [not null, note: 'Comment used by the comments workflow. Filled by: api.']
+  parent_comment_id uuid [ null, note: 'Links this comments record to explore.comments.id. Filled by: api.']
+  like_count bigint [note: 'Cached count of like records or events. Filled by: api. Source says mandatory=default; define nullability and the actual default separately.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+  updated_at timestamptztz [note: 'Most recent update audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+Table explore.comment_likes {
+  Note: 'Stores one like per user on a comment. The associated comment like_count is maintained by a PostgreSQL trigger.'
+
+  id uuid [
+    pk,
+    not null,
+    default: `gen_random_uuid()`,
+    note: 'Primary identifier generated by PostgreSQL.'
+  ]
+
+  comment_id uuid [
+    not null,
+    note: 'Comment that received the like.'
+  ]
+
+  user_id uuid [
+    not null,
+    note: 'Authenticated user who liked the comment.'
+  ]
+
+  created_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`,
+    note: 'Timestamp when the comment was liked.'
+  ]
+
+  indexes {
+    (comment_id, user_id) [
+      unique,
+      name: 'uq_comment_likes_comment_user'
+    ]
+
+    (comment_id, created_at, id) [
+      name: 'idx_comment_likes_comment_created_id',
+      note: 'Physical PostgreSQL index uses created_at DESC and id DESC.'
+    ]
+
+    (user_id) [
+      name: 'idx_comment_likes_user'
+    ]
+  }
+}
+
+Table explore.post_likes {
+  Note: 'Records which user liked which post.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  post_id uuid [not null, note: 'Links this post_likes record to explore.posts.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table explore.post_reshare {
+  Note: 'Records a user\'s reshare of an existing post.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  post_id uuid [not null, note: 'Links this post_reshare record to explore.posts.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  shared_post_id uuid [not null, note: 'Links this post_reshare record to explore.posts.id. Filled by: api.']
+  caption varchar(250) [note: 'Human-readable caption explaining this post reshare. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+Table explore.post_been_there {
+  Note: 'Records that a user has visited the place represented by a post.'
+  id uuid [pk, not null, note: 'Primary identifier for this record. Filled by: server-generated UUID (source called this auto-inc).']
+  post_id uuid [not null, note: 'Links this post_been_there record to explore.posts.id. Filled by: api.']
+  user_id uuid [not null, note: 'User who owns, performs, or receives the represented action. Filled by: api.']
+  created_at timestamptztz [not null, note: 'Creation audit timestamptztz. Filled by: auto. Recommendation: use timestamptztztz and ISO-8601 API values with timezone.']
+}
+
+
+Table poi.countries {
+  Note: 'Canonical list of countries available to the POI and profile domains.'
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+  name varchar(50) [not null, note: 'Country display name.']
+  code varchar(50) [not null, unique, note: 'Unique country code, preferably ISO 3166-1 alpha-2 or alpha-3.']
+  phone_prefix varchar(10) [note: 'International calling prefix, for example +91.']
+  currency_id uuid [note: 'Currency used by the country. FK target must be added when a currency table is available.']
+  timezone varchar(10) [note: 'Country timezone identifier. Consider increasing this length for IANA values such as America/Argentina/Buenos_Aires.']
+  flag_asset_id uuid [note: 'Flag image stored in media.assets.']
+  is_active bool [not null, default: true, note: 'Whether the country is selectable in the application.']
+  description varchar(500) [note: 'Country description. Source column was spelled descreption.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled by: auto.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled by: auto.']
+}
+
+Table poi.regions {
+  Note: 'Administrative regions or states belonging to a country.'
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+  country_id uuid [not null, note: 'Country containing this region.']
+  name varchar(50) [not null, note: 'Region display name.']
+  official_name varchar(100) [note: 'Official or legal name of the region.']
+  longitude float [note: 'Representative longitude coordinate.']
+  latitude float [note: 'Representative latitude coordinate. Source column was spelled lattitude.']
+  description varchar(500) [note: 'Region description.']
+  timezone varchar(10) [note: 'Region timezone identifier. Consider increasing this length for IANA timezone values.']
+  is_active bool [not null, default: true, note: 'Whether the region is selectable in the application.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled by: auto.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled by: auto.']
+}
+
+Table poi.cities {
+  Note: 'Cities belonging to a region and country.'
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+  region_id uuid [not null, note: 'Region containing this city.']
+  country_id uuid [not null, note: 'Country containing this city.']
+  name varchar(50) [not null, note: 'City display name.']
+  official_name varchar(100) [note: 'Official or legal name of the city.']
+  longitude float [note: 'Representative longitude coordinate.']
+  latitude float [note: 'Representative latitude coordinate. Source column was spelled lattitude.']
+  is_active bool [not null, default: true, note: 'Whether the city is selectable in the application.']
+  icon_asset_id uuid [note: 'Canonical public icon displayed for this city in verified-city collections and profile preferences.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled by: auto.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled by: auto.']
+
+  indexes {
+    (icon_asset_id) [name: 'idx_cities_icon_asset', note: 'PostgreSQL index is partial where icon_asset_id IS NOT NULL.']
+  }
+}
+
+Table poi.categories {
+  Note: 'Top-level classifications for points of interest.'
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+  name varchar(50) [not null, unique, note: 'Unique category name.']
+  icon_asset_id uuid [note: 'Category icon stored in media.assets.']
+  is_active bool [not null, default: true, note: 'Whether the category can be assigned to a POI.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled by: auto.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled by: auto.']
+}
+
+Table poi.places_tags {
+  Note: 'Reusable tags grouped under POI categories. This is a tag catalogue, not a POI-to-tag junction table.'
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+  icon_asset_id uuid [note: 'Tag icon stored in media.assets.']
+  tag_name varchar(50) [not null, note: 'Tag display name.']
+  category_id uuid [not null, note: 'Category that owns or groups this tag.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled by: auto.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled by: auto.']
+
+  indexes {
+    (category_id, tag_name) [unique]
+  }
+}
+
+Table poi.places {
+  Note: 'Canonical points of interest used across profiles, itineraries, trips, and explore content.'
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+  city_id uuid [not null, note: 'City containing this POI.']
+  region_id uuid [not null, note: 'Region containing this POI.']
+  country_id uuid [not null, note: 'Country containing this POI.']
+  category_id uuid [not null, note: 'Primary classification for this POI.']
+  name varchar(50) [not null, note: 'POI display name.']
+  description varchar(500) [note: 'POI description.']
+  address varchar(300) [note: 'Street or locality address.']
+  postal_code varchar(50) [note: 'Postal or ZIP code.']
+  longitude float [note: 'Longitude coordinate.']
+  latitude float [note: 'Latitude coordinate. Source column was spelled lattitude.']
+  opening_hour rjson [note: 'Opening rjson supplied by the source. Consider time or a separate weekly-hours table for recurring schedules.']
+  closing_hour rjson [note: 'Closing rjson supplied by the source. Consider time or a separate weekly-hours table for recurring schedules.']
+  recommended_duration varchar(50) [note: 'Human-readable recommended visit duration.']
+  booking_type varchar(50) [note: 'Booking mode or requirement. Define supported values with a CHECK or enum.']
+  is_verified bool [not null, default: false, note: 'Whether this POI has been verified.']
+  require_ticket bool [not null, default: false, note: 'Whether entry normally requires a ticket.']
+  review_count bigint [not null, default: 0, note: 'Number of reviews used to calculate rating.']
+  rating float [note: 'Aggregate rating. Add an application or database constraint for the supported range.']
+  provider varchar(50) [note: 'External data provider name.']
+  provider_id varchar(100) [note: 'Identifier assigned by the external provider.']
+  is_closed bool [not null, default: false, note: 'Whether the POI is permanently or currently marked closed.']
+  media_id uuid [note: 'Primary media asset for this POI.']
+  itinerary_worthiness bool [not null, default: false, note: 'Whether the POI is considered suitable for itinerary recommendations. Source column was spelled itinery_worthiness.']
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled by: auto.']
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled by: auto.']
+
+  indexes {
+    (provider, provider_id) [unique]
+  }
+}
+
+Table poi.currencies {
+  Note: 'Currencies supported by countries, expenses, and other financial workflows.'
+
+  id uuid [pk, not null, note: 'Primary identifier. Filled by: server-generated UUID.']
+
+  name varchar(50) [not null, note: 'Currency name, for example Indian Rupee.']
+
+  symbol varchar(10) [not null, note: 'Currency symbol, for example ₹, $, or €.']
+
+  exchange_rate float [not null, note: 'Exchange rate relative to the application base currency.']
+
+  created_at timestamptz [not null, note: 'Creation audit timestamptz. Filled automatically.']
+
+  updated_at timestamptz [note: 'Most recent update audit timestamptz. Filled automatically.']
+}
+
+Table users.memories {
+  Note: 'Private image, video, and boomerang memories saved by an authenticated user.'
+
+  id uuid [
+    pk,
+    not null,
+    default: `gen_random_uuid()`
+  ]
+
+  user_id uuid [
+    not null,
+    note: 'Owner of the private memory.'
+  ]
+
+  asset_id uuid [
+    not null,
+    note: 'Owned image or video stored in media.assets.'
+  ]
+
+  memory_type varchar(20) [
+    not null,
+    note: 'IMAGE, VIDEO, or BOOMERANG.'
+  ]
+
+  created_at timestamp [
+    not null,
+    default: `CURRENT_TIMESTAMP`
+  ]
+
+  indexes {
+    (user_id, asset_id) [
+      unique,
+      name: 'uq_memories_user_asset'
+    ]
+
+    (user_id, created_at, id) [
+      name: 'idx_memories_user_created_id',
+      note: 'PostgreSQL uses created_at DESC and id DESC.'
+    ]
+
+    (asset_id) [
+      name: 'idx_memories_asset'
+    ]
+  }
+}
+
+Ref: users.memories.user_id > auth.users.id [
+  delete: cascade
+]
+
+Ref: users.memories.asset_id > media.assets.id [
+  delete: cascade
+]
+
+// Explicit foreign-key relationships
+Ref: auth.identities.user_id > auth.users.id
+Ref: auth.sessions.user_id > auth.users.id
+Ref: auth.login_history.user_id > auth.users.id
+Ref: profile.profiles.user_id > auth.users.id
+Ref: profile.profiles.profile_photo_asset_id > media.assets.id
+Ref: profile.saved_items.user_id > auth.users.id
+Ref: users.visited_places.user_id > auth.users.id [delete: cascade]
+Ref: users.visited_places.place_id > poi.places.id [delete: cascade]
+Ref: users.visited_places.trip_id > trip.trips.id [delete: set null]
+Ref: users.visited_places.verification_asset_id > media.assets.id [delete: set null]
+Ref: users.visited_places.collections_id > users.collection.id [delete: cascade]
+Ref: users.collection.user_id > auth.users.id [delete: cascade]
+Ref: users.collection.city_id > poi.cities.id [delete: restrict]
+Ref: users.collection.icon_asset_id > media.assets.id [delete: set null]
+Ref: users.collection.verification_asset_id > media.assets.id [delete: set null]
+Ref: profile.blocked_users.user_id > auth.users.id
+Ref: profile.blocked_users.blocked_user_id > auth.users.id
+Ref: profile.user_settings.user_id > auth.users.id
+Ref: profile.users_reports.user_id > auth.users.id
+// POLYMORPHIC, NOT ENFORCEABLE AS ONE FK: profile.users_reports.item_id -> media.assets.id, itinerary.itineraries.id
+Ref: media.assets.user_id > auth.users.id
+Ref: media.asset_usage.asset_id > media.assets.id
+Ref: itinerary.itineraries.user_id > auth.users.id
+Ref: itinerary.itineraries.cover_asset_id > media.assets.id
+Ref: itinerary.itinerary_change_request.itinerary_id > itinerary.itineraries.id
+Ref: itinerary.itinerary_change_request.requested_by > auth.users.id
+Ref: itinerary.itinerary_change_request.reviewed_by > auth.users.id
+Ref: itinerary.itinerary_shares.itinerary_id > itinerary.itineraries.id
+Ref: trip.trips.itinerary_id > itinerary.itineraries.id
+Ref: trip.trips.user_id > auth.users.id
+Ref: trip.documents.trip_id > trip.trips.id
+Ref: trip.documents.user_id > auth.users.id
+Ref: trip.documents.docs_asset_id > media.assets.id
+
+
+Ref: trip.essentials.trip_id > trip.trips.id
+Ref: trip.essentials.user_id > auth.users.id
+Ref: trip.essentials.icon_asset_id > media.assets.id
+
+Ref: trip.expenses.trip_id > trip.trips.id
+Ref: trip.expenses.paid_by > auth.users.id
+Ref: trip.expenses.receipt_asset_id > media.assets.id
+Ref: trip.trip_expense_splits.expense_id > trip.expenses.id
+Ref: trip.trip_expense_splits.user_id > auth.users.id
+Ref: group.groups.owner_id > auth.users.id
+Ref: group.groups.cover_asset_id > media.assets.id
+Ref: group.groups.primary_itinerary_id > itinerary.itineraries.id
+Ref: group.group_members.group_id > group.groups.id
+Ref: group.group_members.user_id > auth.users.id
+Ref: group.group_invitations.group_id > group.groups.id
+Ref: group.group_invitations.invited_user_id > auth.users.id
+Ref: group.group_invitations.invited_by > auth.users.id
+Ref: chat.conversations.group_id > group.groups.id
+Ref: chat.conversations.last_message_id > chat.chat_messages.id
+Ref: chat.chat_messages.conversation_id > chat.conversations.id
+Ref: chat.chat_messages.sent_by > auth.users.id
+Ref: chat.chat_messages.itinerary_id > itinerary.itineraries.id
+Ref: chat.chat_messages.reply_to_message_id > chat.chat_messages.id
+Ref: chat.message_assets.message_id > chat.chat_messages.id
+Ref: chat.message_assets.asset_id > media.assets.id
+Ref: chat.message_reactions.message_id > chat.chat_messages.id
+Ref: chat.message_reactions.user_id > auth.users.id
+Ref: community.community_members.community_id > community.communities.id
+Ref: community.community_members.user_id > auth.users.id
+Ref: community.communities.owner_id > auth.users.id
+Ref: community.communities.icon_asset_id > media.assets.id
+Ref: community.community_member_request.community_id > community.communities.id
+Ref: community.community_member_request.request_by > auth.users.id
+Ref: community.community_member_request.target_user_id > auth.users.id
+Ref: community.community_member_request.reviewed_by > auth.users.id
+Ref: community.community_bans.community_id > community.communities.id
+Ref: community.community_bans.user_id > auth.users.id
+Ref: community.community_bans.banned_user_id > auth.users.id
+Ref: explore.posts.user_id > auth.users.id
+Ref: explore.post_assets.post_id > explore.posts.id
+Ref: explore.post_assets.asset_id > media.assets.id
+Ref: explore.post_itineraries.post_id > explore.posts.id
+Ref: explore.post_itineraries.itinerary_id > itinerary.itineraries.id
+Ref: explore.comments.post_id > explore.posts.id
+Ref: explore.comments.user_id > auth.users.id
+Ref: explore.comments.parent_comment_id > explore.comments.id
+Ref: explore.post_likes.post_id > explore.posts.id
+Ref: explore.post_likes.user_id > auth.users.id
+Ref: explore.post_reshare.post_id > explore.posts.id
+Ref: explore.post_reshare.user_id > auth.users.id
+Ref: explore.post_reshare.shared_post_id > explore.posts.id
+Ref: explore.post_been_there.post_id > explore.posts.id
+Ref: explore.post_been_there.user_id > auth.users.id
+
+// POIS
+Ref: poi.countries.flag_asset_id > media.assets.id
+Ref: poi.regions.country_id > poi.countries.id
+Ref: poi.cities.region_id > poi.regions.id
+Ref: poi.cities.country_id > poi.countries.id
+Ref: poi.cities.icon_asset_id > media.assets.id [delete: set null]
+Ref: poi.categories.icon_asset_id > media.assets.id
+Ref: poi.places_tags.icon_asset_id > media.assets.id
+Ref: poi.places_tags.category_id > poi.categories.id
+Ref: poi.places.city_id > poi.cities.id
+Ref: poi.places.region_id > poi.regions.id
+Ref: poi.places.country_id > poi.countries.id
+Ref: poi.places.category_id > poi.categories.id
+Ref: poi.places.media_id > media.assets.id
+Ref: poi.countries.currency_id > poi.currencies.id
+
+Ref: profile.profiles.country_id > poi.countries.id
+Ref: profile.profiles.city_id > poi.cities.id
+Ref: trip.expenses.currency_id > poi.currencies.id
+Ref: explore.posts.place_id > poi.places.id
+
+
+
+
+// Conversation participant relationships
+
+Ref: chat.conversation_participants.conversation_id > chat.conversations.id [
+  delete: cascade
+]
+
+Ref: chat.conversation_participants.user_id > auth.users.id [
+  delete: cascade
+]
+
+Ref: chat.conversation_participants.last_read_message_id > chat.chat_messages.id [
+  delete: set null
+]
+
+
+
+
+
+// Mention relationships
+
+Ref: chat.message_mentions.message_id > chat.chat_messages.id [
+  delete: cascade
+]
+
+Ref: chat.message_mentions.mentioned_user_id > auth.users.id [
+  delete: cascade
+]
+
+Ref: explore.comment_likes.comment_id > explore.comments.id [delete: cascade]
+
+Ref: explore.comment_likes.user_id > auth.users.id [delete: cascade]
+
+
+// Foreign-key relationships
+Ref: explore.post_tagged_users.post_id > explore.posts.id
+Ref: explore.post_tagged_users.tagged_user_id > auth.users.id
+Ref: explore.post_tagged_users.tagged_by > auth.users.id
+
+
+//for users connections 
+Ref fk_connection_requests_sender {
+  auth.users.id <
+  profile.connection_requests.sender_user_id
+}
+
+Ref fk_connection_requests_receiver {
+  auth.users.id <
+  profile.connection_requests.receiver_user_id
+}
+
+Ref fk_connections_user_low {
+  auth.users.id <
+  profile.connections.user_low_id
+}
+
+Ref fk_connections_user_high {
+  auth.users.id <
+  profile.connections.user_high_id
+}
+

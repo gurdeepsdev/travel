@@ -484,8 +484,8 @@ cover_photo.original_width
           connection_stats.total,
           0
         )::integer AS connections_count,
-        COALESCE(
-          preferred_collection_stats.total_places,
+              COALESCE(
+          visited_place_stats.total,
           0
         )::integer AS visited_places_count,
 
@@ -668,108 +668,230 @@ cover_photo.original_width
         ON TRUE
    
 
-    LEFT JOIN LATERAL
-(
-  SELECT
-    COALESCE(
-      SUM(collection_data.place_count),
-      0
-    )::integer AS total_places,
+   LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::integer
+            AS total
 
-    COALESCE(
-      JSONB_AGG(
-        JSONB_BUILD_OBJECT(
-          'id',
-            collection_data.id,
+        FROM users.visited_places
+          AS visited_place
 
-          'name',
-            collection_data.name,
+        WHERE visited_place.user_id =
+            profile.user_id
 
-          'visitedAt',
-            collection_data.visited_at,
+          AND visited_place
+                .verification_status =
+              'VERIFIED'
+      ) AS visited_place_stats
+        ON TRUE
 
-          'verificationStatus',
-            collection_data.verification_status,
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(
+            JSONB_AGG(
+              JSONB_BUILD_OBJECT(
+                'id',
+                  collection_data.id,
 
-          'iconAssetId',
-            collection_data.icon_asset_id,
+                'cityId',
+                  collection_data.city_id,
 
-          'verificationAssetId',
-            collection_data.verification_asset_id,
+                'name',
+                  collection_data.city_name,
 
-          'places',
-            collection_data.places
-        )
-        ORDER BY
-          collection_data.visited_at DESC NULLS LAST,
-          collection_data.id
-      ),
-      '[]'::jsonb
-    ) AS collections
+                'officialName',
+                  collection_data
+                    .city_official_name,
 
-  FROM
-  (
-    SELECT
-      user_collection.id,
-      user_collection.collections_name AS name,
-      user_collection.visited_at,
-      user_collection.verification_status,
-      user_collection.icon_asset_id,
-      user_collection.verification_asset_id,
+                'country',
+                  JSONB_BUILD_OBJECT(
+                    'id',
+                      collection_data.country_id,
 
-      COUNT(
-        DISTINCT visited_place.place_id
-      )::integer AS place_count,
+                    'name',
+                      collection_data.country_name
+                  ),
 
-      COALESCE(
-        JSONB_AGG(
-          JSONB_BUILD_OBJECT(
-            'id',
-              place.id,
+                'visitedAt',
+                  collection_data.visited_at,
 
-            'name',
-              place.name,
+                'verificationStatus',
+                  collection_data
+                    .verification_status,
 
-            'latitude',
-              place.latitude,
+                'icon',
+                  collection_data.icon,
 
-            'longitude',
-              place.longitude,
+                'places',
+                  collection_data.places
+              )
+              ORDER BY
+                collection_data.visited_at
+                  DESC NULLS LAST,
 
-            'mediaAssetId',
-              place.media_id
-          )
-          ORDER BY
-            place.name,
-            place.id
-        ) FILTER (
-          WHERE place.id IS NOT NULL
-        ),
-        '[]'::jsonb
-      ) AS places
+                collection_data.id
+            ),
+            '[]'::jsonb
+          ) AS collections
 
-    FROM users.collection AS user_collection
+        FROM (
+          SELECT
+            user_collection.id,
 
-    LEFT JOIN users.visited_places AS visited_place
-      ON visited_place.collections_id = user_collection.id
-     AND visited_place.user_id = profile.user_id
+            city.id
+              AS city_id,
 
-    LEFT JOIN poi.places AS place
-      ON place.id = visited_place.place_id
+            city.name
+              AS city_name,
 
-    WHERE user_collection.user_id = profile.user_id
-      AND user_collection.is_preference IS TRUE
+            city.official_name
+              AS city_official_name,
 
-    GROUP BY
-      user_collection.id,
-      user_collection.collections_name,
-      user_collection.visited_at,
-      user_collection.verification_status,
-      user_collection.icon_asset_id,
-      user_collection.verification_asset_id
-  ) AS collection_data
-) AS preferred_collection_stats
-  ON TRUE
+            country.id
+              AS country_id,
+
+            country.name
+              AS country_name,
+
+            user_collection.visited_at,
+
+            user_collection
+              .verification_status,
+
+            CASE
+              WHEN icon_asset.id IS NULL
+                THEN NULL
+
+              ELSE JSONB_BUILD_OBJECT(
+                'id',
+                  icon_asset.id,
+
+                'storageProvider',
+                  icon_asset
+                    .storage_provider,
+
+                'bucket',
+                  icon_asset.bucket,
+
+                'storageKey',
+                  icon_asset.storage_key,
+
+                'mimeType',
+                  icon_asset.mime_type,
+
+                'isPublic',
+                  icon_asset.is_public
+              )
+            END AS icon,
+
+            COALESCE(
+              JSONB_AGG(
+                JSONB_BUILD_OBJECT(
+                  'id',
+                    place.id,
+
+                  'name',
+                    place.name,
+
+                  'latitude',
+                    place.latitude,
+
+                  'longitude',
+                    place.longitude,
+
+                  'mediaAssetId',
+                    place.media_id,
+
+                  'visitedAt',
+                    visited_place
+                      .visited_at,
+
+                  'verificationStatus',
+                    visited_place
+                      .verification_status,
+
+                  'visitSource',
+                    visited_place
+                      .visit_source
+                )
+                ORDER BY
+                  place.name,
+                  place.id
+              ) FILTER (
+                WHERE place.id IS NOT NULL
+              ),
+              '[]'::jsonb
+            ) AS places
+
+          FROM users.collection
+            AS user_collection
+
+          INNER JOIN poi.cities
+            AS city
+            ON city.id =
+              user_collection.city_id
+
+          INNER JOIN poi.countries
+            AS country
+            ON country.id =
+              city.country_id
+
+          LEFT JOIN media.assets
+            AS icon_asset
+            ON icon_asset.id =
+              city.icon_asset_id
+
+           AND icon_asset.deleted_at
+             IS NULL
+
+          LEFT JOIN users.visited_places
+            AS visited_place
+            ON visited_place
+                 .collections_id =
+               user_collection.id
+
+           AND visited_place.user_id =
+              profile.user_id
+
+           AND visited_place
+                 .verification_status =
+               'VERIFIED'
+
+          LEFT JOIN poi.places
+            AS place
+            ON place.id =
+              visited_place.place_id
+
+          WHERE user_collection.user_id =
+              profile.user_id
+
+            AND user_collection
+                  .verification_status
+                IS TRUE
+
+            AND user_collection
+                  .is_preference
+                IS TRUE
+
+          GROUP BY
+            user_collection.id,
+            city.id,
+            city.name,
+            city.official_name,
+            country.id,
+            country.name,
+            user_collection.visited_at,
+            user_collection
+              .verification_status,
+            icon_asset.id,
+            icon_asset.storage_provider,
+            icon_asset.bucket,
+            icon_asset.storage_key,
+            icon_asset.mime_type,
+            icon_asset.is_public
+        ) AS collection_data
+      ) AS preferred_collection_stats
+        ON TRUE
 
       WHERE profile.user_id = $1
         AND profile.deleted_at IS NULL

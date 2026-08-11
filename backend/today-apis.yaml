@@ -20,6 +20,10 @@ tags:
   - name: Memories
   - name: Post Creation
   - name: Media Delivery
+  - name: Visited Places
+  - name: Connections
+  - name: Connection Requests
+  - name: Connection Suggestions
 
 paths:
   /posts:
@@ -366,6 +370,36 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /users/me/visited-place-verifications:
+    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-place-verifications"
+
+  /users/me/visited-collections/{collectionId}/preference:
+    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-collections~1{collectionId}~1preference"
+
+  /users/me/visited-places:
+    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-places"
+
+  /users/{userId}/connection-requests:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1{userId}~1connection-requests"
+
+  /users/me/connection-requests/incoming:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1incoming"
+
+  /users/me/connection-requests/outgoing:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1outgoing"
+
+  /users/me/connection-requests/{requestId}:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1{requestId}"
+
+  /users/me/connections:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connections"
+
+  /users/me/connection-suggestions:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-suggestions"
+
+  /users/me/connections/{userId}:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connections~1{userId}"
 
 components:
   securitySchemes:

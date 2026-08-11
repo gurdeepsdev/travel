@@ -75,12 +75,12 @@ async getPostReactions({
       userId,
     });
 
-    let reaction;
+   let mutationResult;
 
     try {
-      reaction =
+      mutationResult =
         await PostReactionsRepository
-          .upsertReaction({
+          .upsertReactionWithSummary({
             postId,
             userId,
             reactionType,
@@ -90,7 +90,10 @@ async getPostReactions({
        * The post may have been deleted after authorization
        * but before PostgreSQL processes the insert.
        */
-      if (error.code === "23503") {
+      if (
+        error.code ===
+          "23503"
+      ) {
         throw PostAccessService
           .createNotFoundError();
       }
@@ -98,9 +101,10 @@ async getPostReactions({
       throw error;
     }
 
-    const summaryRows =
-      await PostReactionsRepository
-        .getReactionSummary(postId);
+    const {
+      reaction,
+      summaryRows,
+    } = mutationResult;
 
     return PostReactionsMapper
       .toMutationResponse({
