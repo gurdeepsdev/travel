@@ -25,6 +25,36 @@ class UsersController {
     }
   }
 
+  async getUserProfile(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const profile =
+        await ProfileService
+          .getUserProfile({
+            username:
+              req.validated.params
+                .username,
+
+            viewerUserId:
+              req.user?.id ??
+              null,
+          });
+
+      return Response.success(
+        res,
+        {
+          profile,
+        },
+        "Profile fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   /**
  * Partially updates the authenticated user's
  * profile.

@@ -3,6 +3,11 @@ import { jest } from "@jest/globals";
 const USER_ID =
   "63aae149-8f8f-4b30-b30d-211da764c080";
 
+const OTHER_USER_ID =
+  "b3fe5214-e569-4300-8509-589785ad86f2";
+
+const OTHER_USERNAME =
+  "user_98ef01e9";
 const COUNTRY_ID =
   "060de7c3-9c68-4507-aff7-62a5411bf60a";
 
@@ -68,10 +73,16 @@ const profilesRepositoryMock = {
 
   updatePartial:
     jest.fn(),
+
+      findDetailedByUsername:
+    jest.fn(),
 };
 
 const profileMapperMock = {
   toResponse:
+    jest.fn(),
+
+      toPublicResponse:
     jest.fn(),
 };
 
@@ -120,6 +131,19 @@ jest.unstable_mockModule(
   () => ({
     default:
       profileMapperMock,
+  }),
+);
+
+const connectionsRepositoryMock = {
+  getRelationshipContext:
+    jest.fn(),
+};
+
+jest.unstable_mockModule(
+  "../../../src/modules/users/repositories/connections.repository.js",
+  () => ({
+    default:
+      connectionsRepositoryMock,
   }),
 );
 
@@ -278,6 +302,254 @@ databaseMock
         username: "current_user",
         bio: "Updated bio",
       });
+  });
+
+  describe("getUserProfile", () => {
+    const publicProfileRow = {
+      user_id:
+        OTHER_USER_ID,
+
+      username:
+        OTHER_USERNAME,
+
+      is_private:
+        false,
+
+      saved_items_count:
+        4,
+    };
+
+    const mappedPublicProfile = {
+      username:
+        OTHER_USERNAME,
+
+      stats: {
+        savedItems:
+          4,
+      },
+    };
+
+    beforeEach(() => {
+      profilesRepositoryMock
+        .findDetailedByUsername
+        .mockResolvedValue(
+          publicProfileRow,
+        );
+
+      profileMapperMock
+        .toPublicResponse
+        .mockReturnValue(
+          mappedPublicProfile,
+        );
+
+      connectionsRepositoryMock
+        .getRelationshipContext
+        .mockResolvedValue({
+          is_connected:
+            false,
+
+          is_blocked:
+            false,
+        });
+    });
+
+    test(
+      "returns a public profile anonymously",
+      async () => {
+        await expect(
+          ProfileService
+            .getUserProfile({
+              username:
+                OTHER_USERNAME,
+
+              viewerUserId:
+                null,
+            }),
+        ).resolves.toEqual(
+          mappedPublicProfile,
+        );
+
+        expect(
+          connectionsRepositoryMock
+            .getRelationshipContext,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "allows the owner without a relationship lookup",
+      async () => {
+        await ProfileService
+          .getUserProfile({
+            username:
+              OTHER_USERNAME,
+
+            viewerUserId:
+              OTHER_USER_ID,
+          });
+
+        expect(
+          connectionsRepositoryMock
+            .getRelationshipContext,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "hides a private profile anonymously",
+      async () => {
+        profilesRepositoryMock
+          .findDetailedByUsername
+          .mockResolvedValue({
+            ...publicProfileRow,
+
+            is_private:
+              true,
+          });
+
+        await expect(
+          ProfileService
+            .getUserProfile({
+              username:
+                OTHER_USERNAME,
+
+              viewerUserId:
+                null,
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "USER.NOT_FOUND",
+
+          statusCode:
+            404,
+        });
+      },
+    );
+
+    test(
+      "allows a connected viewer to see a private profile",
+      async () => {
+        profilesRepositoryMock
+          .findDetailedByUsername
+          .mockResolvedValue({
+            ...publicProfileRow,
+
+            is_private:
+              true,
+          });
+
+        connectionsRepositoryMock
+          .getRelationshipContext
+          .mockResolvedValue({
+            is_connected:
+              true,
+
+            is_blocked:
+              false,
+          });
+
+        await expect(
+          ProfileService
+            .getUserProfile({
+              username:
+                OTHER_USERNAME,
+
+              viewerUserId:
+                USER_ID,
+            }),
+        ).resolves.toEqual(
+          mappedPublicProfile,
+        );
+      },
+    );
+
+    test(
+      "hides a private profile from an unconnected viewer",
+      async () => {
+        profilesRepositoryMock
+          .findDetailedByUsername
+          .mockResolvedValue({
+            ...publicProfileRow,
+
+            is_private:
+              true,
+          });
+
+        await expect(
+          ProfileService
+            .getUserProfile({
+              username:
+                OTHER_USERNAME,
+
+              viewerUserId:
+                USER_ID,
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "USER.NOT_FOUND",
+        });
+      },
+    );
+
+    test(
+      "hides a profile across a block relationship",
+      async () => {
+        connectionsRepositoryMock
+          .getRelationshipContext
+          .mockResolvedValue({
+            is_connected:
+              true,
+
+            is_blocked:
+              true,
+          });
+
+        await expect(
+          ProfileService
+            .getUserProfile({
+              username:
+                OTHER_USERNAME,
+
+              viewerUserId:
+                USER_ID,
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "USER.NOT_FOUND",
+        });
+      },
+    );
+
+    test(
+      "returns not found for a missing profile",
+      async () => {
+        profilesRepositoryMock
+          .findDetailedByUsername
+          .mockResolvedValue(null);
+
+        await expect(
+          ProfileService
+            .getUserProfile({
+              username:
+                "missing_user",
+
+              viewerUserId:
+                USER_ID,
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "USER.NOT_FOUND",
+
+          statusCode:
+            404,
+        });
+
+        expect(
+          profileMapperMock
+            .toPublicResponse,
+        ).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe("updateMyProfile", () => {
