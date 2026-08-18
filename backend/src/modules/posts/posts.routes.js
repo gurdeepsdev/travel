@@ -9,6 +9,13 @@ import PostCommentsController from "./controllers/post-comments.controller.js";
 import PostSavesController from "./controllers/post-saves.controller.js";
 import PostCreateController from "./controllers/post-create.controller.js";
 
+import ReportsController
+  from "../reports/controllers/reports.controller.js";
+
+import {
+  reportPostSchema,
+} from "../reports/validations/reports.validation.js";
+
 import postMediaUploadMiddleware from "./middleware/post-media-upload.middleware.js";
 import {
   getPostBeenThereSchema,
@@ -135,8 +142,6 @@ router.delete(
   PostSavesController.removeSavedPost,
 );
 
-
-<<<<<<< feature/user-post-reporting
 // Report an accessible post.
 router.post(
   "/:postId/reports",
@@ -147,6 +152,4 @@ router.post(
   ReportsController.reportPost,
 );
 
-=======
->>>>>>> main
 export default router;
