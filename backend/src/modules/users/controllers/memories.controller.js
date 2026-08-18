@@ -25,12 +25,6 @@ class MemoriesController {
 
             assetId,
             memoryType,
-
-            memoryFile:
-              req.file ?? null,
-
-            logger:
-              req.logger ?? null,
           });
 
       return Response.created(

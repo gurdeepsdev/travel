@@ -15,21 +15,11 @@ class MemoriesRepository {
    * If the classification changes between VIDEO and
    * BOOMERANG, the existing row is updated.
    */
-   async save({
+  async save({
     userId,
     assetId,
     memoryType,
-    client = null,
   }) {
-
-        const executeQuery =
-      client
-        ? client.query.bind(
-            client,
-          )
-        : Database.query.bind(
-            Database,
-          );
     const sql = `
       WITH eligible_asset AS (
         SELECT
@@ -132,7 +122,8 @@ class MemoriesRepository {
           saved_memory.asset_id
     `;
 
-    const { rows } = await executeQuery(      sql,
+    const { rows } = await Database.query(
+      sql,
       [
         userId,
         assetId,

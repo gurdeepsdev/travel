@@ -63,9 +63,8 @@ class ProfileMapper {
     }
 
     return {
-      userId: profile.user_id,
       username: profile.username ?? null,
-      displayName: profile.display_name ?? null,
+            displayName: profile.display_name ?? null,
       bio: profile.bio ?? null,
 
       profilePhoto: this.#mapMedia(profile, "profile_photo"),

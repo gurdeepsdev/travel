@@ -1,0 +1,76 @@
+import { AuthContextService } from "../modules/auth/services/index.js";
+
+class AuthMiddleware {
+
+    async authenticate(req, res, next) {
+
+        try {
+
+            const header = req.headers.authorization;
+
+            if (!header) {
+
+                return res.status(401).json({
+
+                    success: false,
+
+                    message: "Authorization header missing."
+
+                });
+
+            }
+
+            const [scheme, token] = header.split(" ");
+
+            if (scheme !== "Bearer" || !token) {
+
+                return res.status(401).json({
+
+                    success: false,
+
+                    message: "Invalid authorization header."
+
+                });
+
+            }
+
+            const context = await AuthContextService.authenticate(token);
+
+            req.context = {
+
+                ...(req.context ?? {}),
+
+                ...context
+
+            };
+
+            req.user = context.user;
+
+            req.session = context.session;
+
+            req.identity = context.identity;
+
+            req.profile = context.profile;
+
+            next();
+
+        } 
+        catch (error) {
+
+            console.error("AUTH ERROR:", error);
+        
+            return res.status(401).json({
+        
+                success: false,
+        
+                message: error.message
+        
+            });
+        
+        }
+
+    }
+
+}
+
+export default new AuthMiddleware();
