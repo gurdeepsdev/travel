@@ -10,6 +10,8 @@ import MediaRepository from "../../media/media.repository.js";
 
 import profileMapper from "../mappers/profile.mapper.js";
 import { profilesRepository } from "../repositories/index.js";
+import ConnectionsRepository
+  from "../repositories/connections.repository.js";
 
 import {
   inspectProfilePhotoFile,
@@ -143,6 +145,68 @@ class ProfileService {
     }
 
     return profileMapper.toResponse(profile);
+  }
+
+  async getUserProfile({
+    username,
+    viewerUserId = null,
+  }) {
+    const profile =
+      await profilesRepository
+        .findDetailedByUsername(
+          username,
+        );
+
+    if (!profile) {
+      throw new UserNotFoundError();
+    }
+
+    const isOwner =
+      viewerUserId ===
+      profile.user_id;
+
+    if (isOwner) {
+      return profileMapper
+        .toPublicResponse(
+          profile,
+        );
+    }
+
+    if (!viewerUserId) {
+      if (profile.is_private) {
+        throw new UserNotFoundError();
+      }
+
+      return profileMapper
+        .toPublicResponse(
+          profile,
+        );
+    }
+
+    const relationship =
+      await ConnectionsRepository
+        .getRelationshipContext({
+          userId:
+            viewerUserId,
+
+          otherUserId:
+            profile.user_id,
+        });
+
+    if (
+      relationship.is_blocked ||
+      (
+        profile.is_private &&
+        !relationship.is_connected
+      )
+    ) {
+      throw new UserNotFoundError();
+    }
+
+    return profileMapper
+      .toPublicResponse(
+        profile,
+      );
   }
 
   /**

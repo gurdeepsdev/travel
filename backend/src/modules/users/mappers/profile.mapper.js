@@ -77,12 +77,23 @@ class ProfileMapper {
 
       isVerified: Boolean(profile.is_verified),
 
-      stats: {
+           stats: {
         connections: this.#toNonNegativeInteger(
           profile.connections_count,
         ),
-        posts: this.#toNonNegativeInteger(profile.posts_count),
-        groups: this.#toNonNegativeInteger(profile.groups_count),
+
+        posts: this.#toNonNegativeInteger(
+          profile.posts_count,
+        ),
+
+        groups: this.#toNonNegativeInteger(
+          profile.groups_count,
+        ),
+
+        savedItems: this.#toNonNegativeInteger(
+          profile.saved_items_count,
+        ),
+
         visitedPlaces: this.#toNonNegativeInteger(
           profile.visited_places_count,
         ),

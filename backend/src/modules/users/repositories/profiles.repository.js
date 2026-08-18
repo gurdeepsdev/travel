@@ -904,6 +904,30 @@ cover_photo.original_width
     return rows[0] ?? null;
   }
 
+
+  /**
+   * Fetches the complete active profile for a username.
+   *
+   * @param {string} username
+   * @returns {Promise<object|null>}
+   */
+  async findDetailedByUsername(
+    username,
+  ) {
+    const profile =
+      await this.findByUsername(
+        username,
+      );
+
+    if (!profile) {
+      return null;
+    }
+
+    return this.findByUserId(
+      profile.user_id,
+    );
+  }
+
   /**
  * Finds an active user profile by username.
  *

@@ -17,9 +17,9 @@ import visitedPlaceVerificationUploadMiddleware
   from "./middleware/visited-place-verification-upload.middleware.js";
 
 import {
+  getUserProfileSchema,
   updateMyProfileSchema,
 } from "./validations/profile.validation.js";
-
 import {
     getMyPostsSchema,
     getUserPostsSchema,
@@ -222,6 +222,16 @@ router.post(
   ),
   ConnectionsController
     .sendConnectionRequest,
+);
+
+// Get another user's profile.
+router.get(
+  "/:username",
+  optionalAuthMiddleware,
+  validate(
+    getUserProfileSchema,
+  ),
+  UsersController.getUserProfile,
 );
 
 router.get(

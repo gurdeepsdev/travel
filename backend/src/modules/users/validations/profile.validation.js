@@ -151,10 +151,30 @@ const updateMyProfileSchema = z.object({
     .strict(),
 });
 
+
+
+const getUserProfileSchema = z.object({
+  params: z
+    .object({
+      username:
+        usernameSchema,
+    })
+    .strict(),
+
+  body:
+    z.unknown().optional(),
+
+  query: z
+    .object({})
+    .strict(),
+});
+
+
 export {
   MAX_BIO_LENGTH,
   MAX_DISPLAY_NAME_LENGTH,
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
+  getUserProfileSchema,
   updateMyProfileSchema,
 };
