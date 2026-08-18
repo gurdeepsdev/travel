@@ -3,6 +3,8 @@ import { Router } from "express";
 import UsersController from "./users.controller.js";
 import AuthMiddleware from "../../middleware/auth.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
+import memoryMediaUploadMiddleware
+  from "./middleware/memory-media-upload.middleware.js";
 import profilePhotoUploadMiddleware
   from "./middleware/profile-photo-upload.middleware.js";
 import optionalAuthMiddleware from "../../middleware/optional-auth.middleware.js";
@@ -12,6 +14,13 @@ import ConnectionsController
   from "./controllers/connections.controller.js";
 import VisitedPlacesController
   from "./controllers/visited-places.controller.js";
+
+  import ReportsController
+  from "../reports/controllers/reports.controller.js";
+
+import {
+  reportUserSchema,
+} from "../reports/validations/reports.validation.js";
 
 import visitedPlaceVerificationUploadMiddleware
   from "./middleware/visited-place-verification-upload.middleware.js";
@@ -73,6 +82,7 @@ router.patch(
 router.post(
   "/me/memories",
   AuthMiddleware.authenticate,
+  memoryMediaUploadMiddleware,
   validate(saveMemorySchema),
   MemoriesController.saveMemory,
 );
@@ -222,6 +232,17 @@ router.post(
   ),
   ConnectionsController
     .sendConnectionRequest,
+);
+
+
+// Report another user's profile.
+router.post(
+  "/:userId/reports",
+  AuthMiddleware.authenticate,
+  validate(
+    reportUserSchema,
+  ),
+  ReportsController.reportUser,
 );
 
 // Get another user's profile.

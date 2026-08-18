@@ -75,6 +75,7 @@ class ProfileMapper {
 
       socialLinks: this.#mapSocialLinks(profile.social_links),
 
+      isPrivate: Boolean(profile.is_private),
       isVerified: Boolean(profile.is_verified),
 
            stats: {

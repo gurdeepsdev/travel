@@ -74,7 +74,7 @@ class OtpService {
             throw new InvalidOtpError();
         }
 
-        let isValid = false;
+        let isValid;
 
         if (OtpManager.name() === "twilio") {
 

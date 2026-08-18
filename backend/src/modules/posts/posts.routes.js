@@ -136,4 +136,17 @@ router.delete(
 );
 
 
+<<<<<<< feature/user-post-reporting
+// Report an accessible post.
+router.post(
+  "/:postId/reports",
+  AuthMiddleware.authenticate,
+  validate(
+    reportPostSchema,
+  ),
+  ReportsController.reportPost,
+);
+
+=======
+>>>>>>> main
 export default router;

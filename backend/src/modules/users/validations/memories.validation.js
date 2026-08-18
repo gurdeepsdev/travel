@@ -33,12 +33,13 @@ const saveMemorySchema = z.object({
 
   body: z
     .object({
-      assetId: z
+           assetId: z
         .string()
         .trim()
         .uuid(
           "Asset ID must be a valid UUID.",
-        ),
+        )
+        .optional(),
 
       memoryType: z.enum(
         MEMORY_TYPES,

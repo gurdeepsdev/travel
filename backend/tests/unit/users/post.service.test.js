@@ -8,6 +8,12 @@ const OWNER_USER_ID =
 const VIEWER_USER_ID =
   "a4bfc312-1065-4377-adf7-98792cd212a3";
 
+const POST_ID =
+  "44444444-4444-4444-8444-444444444444";
+
+const POST_CREATED_AT =
+  "2026-08-10T05:12:40.140Z";
+
 const profilesRepositoryMock = {
   findByUsername:
     jest.fn(),
@@ -87,6 +93,88 @@ function createPostResult() {
       null,
   };
 }
+
+describe("PostService getMyPosts pagination", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("returns an opaque cursor and decodes it on the next request", async () => {
+    postsRepositoryMock
+      .getMyPosts
+      .mockResolvedValueOnce({
+        rows: [],
+        hasMore: true,
+        nextCursor: {
+          createdAt:
+            POST_CREATED_AT,
+          id:
+            POST_ID,
+        },
+      })
+      .mockResolvedValueOnce(
+        createPostResult(),
+      );
+
+    const firstPage =
+      await PostService.getMyPosts({
+        userId:
+          OWNER_USER_ID,
+        limit:
+          20,
+      });
+
+    expect(
+      typeof firstPage.pagination
+        .nextCursor,
+    ).toBe("string");
+
+    await PostService.getMyPosts({
+      userId:
+        OWNER_USER_ID,
+      limit:
+        20,
+      cursor:
+        firstPage.pagination
+          .nextCursor,
+    });
+
+    expect(
+      postsRepositoryMock.getMyPosts,
+    ).toHaveBeenLastCalledWith({
+      userId:
+        OWNER_USER_ID,
+      limit:
+        20,
+      cursor: {
+        createdAt:
+          POST_CREATED_AT,
+        id:
+          POST_ID,
+      },
+    });
+  });
+
+  test("rejects an invalid cursor before querying", async () => {
+    await expect(
+      PostService.getMyPosts({
+        userId:
+          OWNER_USER_ID,
+        limit:
+          20,
+        cursor:
+          "invalid",
+      }),
+    ).rejects.toMatchObject({
+      code:
+        "COMMON.INVALID_CURSOR",
+    });
+
+    expect(
+      postsRepositoryMock.getMyPosts,
+    ).not.toHaveBeenCalled();
+  });
+});
 
 describe(
   "PostService getUserPosts authorization",
@@ -212,6 +300,44 @@ describe(
 
         expect(result.posts)
           .toHaveLength(1);
+      },
+    );
+
+    test(
+      "uses an opaque cursor for another user's posts",
+      async () => {
+        profilesRepositoryMock
+          .findByUsername
+          .mockResolvedValue(
+            createProfile(),
+          );
+
+        postsRepositoryMock
+          .getUserPosts
+          .mockResolvedValue({
+            rows: [],
+            hasMore: true,
+            nextCursor: {
+              createdAt:
+                POST_CREATED_AT,
+              id:
+                POST_ID,
+            },
+          });
+
+        const firstPage =
+          await PostService
+            .getUserPosts({
+              username:
+                "user_94567b08",
+              viewerUserId:
+                null,
+            });
+
+        expect(
+          typeof firstPage.pagination
+            .nextCursor,
+        ).toBe("string");
       },
     );
 
