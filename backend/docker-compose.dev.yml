@@ -1,0 +1,64 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: artictern-dev-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: artictern_dev
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+
+    ports:
+      - "15432:5432"
+
+    volumes:
+      - ./data/dev/postgres:/var/lib/postgresql/data
+
+    networks:
+      - artictern-dev-network
+
+  redis:
+    image: redis:7-alpine
+
+    container_name: artictern-dev-redis
+
+    restart: unless-stopped
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - ./data/dev/redis:/data
+
+    networks:
+      - artictern-dev-network
+
+  minio:
+    image: minio/minio
+
+    container_name: artictern-dev-minio
+
+    restart: unless-stopped
+
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin12345
+
+    command: server /data --console-address ":9001"
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    volumes:
+      - ./data/dev/minio:/data
+
+    networks:
+      - artictern-dev-network
+
+networks:
+  artictern-dev-network:
+    driver: bridge
