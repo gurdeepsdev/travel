@@ -46,7 +46,23 @@ const envSchema = z.object({
 
   TIMEZONE: z.string(),
 
-  OTP_PROVIDER: z.string(),
+  // OTP_PROVIDER: z.string(),
+
+  // TWILIO_ACCOUNT_SID: z.string().optional(),
+
+    OTP_PROVIDER: z.string(),
+
+  FIXED_TEST_OTP_ENABLED:
+    z.enum(["true", "false"])
+      .default("false"),
+
+  FIXED_TEST_OTP:
+    z.string()
+      .regex(
+        /^\d{6}$/,
+        "FIXED_TEST_OTP must contain exactly six digits.",
+      )
+      .optional(),
 
   TWILIO_ACCOUNT_SID: z.string().optional(),
 
@@ -57,11 +73,53 @@ const envSchema = z.object({
   
 });
 
+
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error(parsed.error.format());
   process.exit(1);
+}
+
+const fixedTestOtpEnabled =
+  parsed.data
+    .FIXED_TEST_OTP_ENABLED ===
+  "true";
+
+if (fixedTestOtpEnabled) {
+  const allowedEnvironment =
+    parsed.data.NODE_ENV ===
+      "development" ||
+    parsed.data.NODE_ENV ===
+      "test" || parsed.data.NODE_ENV ==="uat";
+
+
+  const usesFakeProvider =
+    parsed.data.OTP_PROVIDER ===
+    "fake";
+
+  const fixedOtpIsConfigured =
+    typeof parsed.data
+      .FIXED_TEST_OTP ===
+      "string";
+
+  if (
+    !allowedEnvironment ||
+    !usesFakeProvider ||
+    !fixedOtpIsConfigured
+  ) {
+    console.error(
+      [
+        "Unsafe fixed OTP configuration.",
+        "FIXED_TEST_OTP_ENABLED=true requires:",
+"- NODE_ENV=development, test, or uat",
+        "- OTP_PROVIDER=fake",
+        "- FIXED_TEST_OTP containing exactly six digits",
+      ].join("\n"),
+    );
+
+    process.exit(1);
+  }
 }
 
 export default parsed.data;

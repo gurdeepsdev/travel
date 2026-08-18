@@ -1,0 +1,743 @@
+openapi: 3.0.3
+
+info:
+  title: Artictern Visited Places API
+  version: 1.0.0
+  description: >
+    APIs for verifying historical visits using photo evidence,
+    selecting verified cities for profile display, and listing
+    verified places visited by the authenticated user.
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+
+tags:
+  - name: Visited Places
+    description: Visited-place verification and verified-city management
+
+paths:
+  /users/me/visited-place-verifications:
+    post:
+      tags:
+        - Visited Places
+      summary: Verify a visited place
+      operationId: submitVisitedPlaceVerification
+      description: >
+        Verifies a historical gallery photo using EXIF GPS and capture
+        time. When an attraction is verified, its city becomes verified
+        for the authenticated user. The uploaded photo remains private.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - placeId
+                - verificationPhoto
+              properties:
+                placeId:
+                  type: string
+                  format: uuid
+                  description: Canonical POI place identifier
+                claimedVisitedAt:
+                  type: string
+                  format: date-time
+                  description: Optional claimed visit time with timezone
+                verificationPhoto:
+                  type: string
+                  format: binary
+                  description: >
+                    JPEG, PNG, WebP, HEIC, or HEIF image with a maximum
+                    size of 15 MB.
+      responses:
+        "201":
+          description: Visited place verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PlaceNotAvailable"
+        "409":
+          $ref: "#/components/responses/VerificationConflict"
+        "413":
+          $ref: "#/components/responses/EvidenceTooLarge"
+        "415":
+          $ref: "#/components/responses/EvidenceInvalidType"
+        "422":
+          $ref: "#/components/responses/EvidenceRejected"
+        "500":
+          $ref: "#/components/responses/EvidenceUploadFailed"
+
+  /users/me/visited-collections/{collectionId}/preference:
+    patch:
+      tags:
+        - Visited Places
+      summary: Select or deselect a verified city
+      operationId: updateVisitedCollectionPreference
+      description: >
+        Selects or deselects an owned verified city for profile display.
+        A user may select no more than five verified cities.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CollectionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - isPreference
+              properties:
+                isPreference:
+                  type: boolean
+            examples:
+              select:
+                summary: Select the city
+                value:
+                  isPreference: true
+              deselect:
+                summary: Deselect the city
+                value:
+                  isPreference: false
+      responses:
+        "200":
+          description: Verified-city preference updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreferenceResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/CollectionNotFound"
+        "409":
+          $ref: "#/components/responses/PreferenceLimitReached"
+
+  /users/me/visited-places:
+    get:
+      tags:
+        - Visited Places
+      summary: List my verified visited places
+      operationId: getMyVisitedPlaces
+      description: >
+        Lists the authenticated user's verified visited places using
+        stable visited-time and UUID cursor pagination. Private
+        verification evidence is not returned.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Visited places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisitedPlacesResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CollectionId:
+      name: collectionId
+      in: path
+      required: true
+      description: Owned verified-city collection identifier
+      schema:
+        type: string
+        format: uuid
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of visited places to return
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque Base64URL pagination cursor
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: "^[A-Za-z0-9_-]+$"
+
+  schemas:
+    Country:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          nullable: true
+
+    VerificationCity:
+      type: object
+      required:
+        - id
+        - name
+        - officialName
+        - country
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        officialName:
+          type: string
+          nullable: true
+        country:
+          $ref: "#/components/schemas/Country"
+
+    CityIcon:
+      type: object
+      nullable: true
+      required:
+        - id
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+
+    City:
+      type: object
+      required:
+        - id
+        - name
+        - officialName
+        - country
+        - icon
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        officialName:
+          type: string
+          nullable: true
+        country:
+          $ref: "#/components/schemas/Country"
+        icon:
+          $ref: "#/components/schemas/CityIcon"
+
+    PlaceSummary:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+
+    PlaceLocation:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+
+    VisitedPlaceSummary:
+      type: object
+      required:
+        - id
+        - name
+        - location
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        location:
+          $ref: "#/components/schemas/PlaceLocation"
+
+    VerificationResult:
+      type: object
+      required:
+        - status
+        - confidence
+        - method
+        - distanceMeters
+        - radiusMeters
+      properties:
+        status:
+          type: string
+          enum:
+            - VERIFIED
+        confidence:
+          type: string
+          nullable: true
+          example: MEDIUM
+        method:
+          type: string
+          nullable: true
+          example: EXIF_GPS_AND_CAPTURE_TIME
+        distanceMeters:
+          type: number
+          format: double
+          nullable: true
+        radiusMeters:
+          type: number
+          format: double
+          nullable: true
+          example: 500
+
+    VerificationEvidence:
+      type: object
+      required:
+        - assetId
+        - originalFilename
+        - mimeType
+        - extension
+        - fileSize
+        - isPublic
+        - url
+      properties:
+        assetId:
+          type: string
+          format: uuid
+          nullable: true
+        originalFilename:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        extension:
+          type: string
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        isPublic:
+          type: boolean
+          example: false
+        url:
+          type: string
+          nullable: true
+          description: Authenticated media-content endpoint
+
+    VerificationVisitedPlace:
+      type: object
+      required:
+        - id
+        - visitedAt
+        - claimedVisitedAt
+        - evidenceCapturedAt
+        - visitSource
+        - place
+        - city
+        - evidence
+      properties:
+        id:
+          type: string
+          format: uuid
+        visitedAt:
+          type: string
+          format: date-time
+        claimedVisitedAt:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceCapturedAt:
+          type: string
+          format: date-time
+          nullable: true
+        visitSource:
+          type: string
+          example: PHOTO_VERIFICATION
+        place:
+          $ref: "#/components/schemas/PlaceSummary"
+        city:
+          $ref: "#/components/schemas/VerificationCity"
+        evidence:
+          $ref: "#/components/schemas/VerificationEvidence"
+
+    VerificationCityCollection:
+      type: object
+      required:
+        - id
+        - cityId
+        - name
+        - verificationStatus
+        - visitedAt
+        - isPreference
+        - iconAssetId
+      properties:
+        id:
+          type: string
+          format: uuid
+        cityId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        verificationStatus:
+          type: boolean
+        visitedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isPreference:
+          type: boolean
+        iconAssetId:
+          type: string
+          format: uuid
+          nullable: true
+
+    VerificationData:
+      type: object
+      required:
+        - visitCreated
+        - verification
+        - visitedPlace
+        - cityCollection
+      properties:
+        visitCreated:
+          type: boolean
+        verification:
+          $ref: "#/components/schemas/VerificationResult"
+        visitedPlace:
+          $ref: "#/components/schemas/VerificationVisitedPlace"
+        cityCollection:
+          $ref: "#/components/schemas/VerificationCityCollection"
+
+    PreferenceCollection:
+      type: object
+      required:
+        - id
+        - verificationStatus
+        - visitedAt
+        - isPreference
+        - city
+      properties:
+        id:
+          type: string
+          format: uuid
+        verificationStatus:
+          type: boolean
+        visitedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isPreference:
+          type: boolean
+        city:
+          $ref: "#/components/schemas/City"
+
+    VisitedCityCollection:
+      type: object
+      required:
+        - id
+        - verificationStatus
+        - isPreference
+      properties:
+        id:
+          type: string
+          format: uuid
+        verificationStatus:
+          type: boolean
+        isPreference:
+          type: boolean
+
+    VisitedPlace:
+      type: object
+      required:
+        - id
+        - visitedAt
+        - claimedVisitedAt
+        - evidenceCapturedAt
+        - verificationStatus
+        - visitSource
+        - place
+        - cityCollection
+        - city
+      properties:
+        id:
+          type: string
+          format: uuid
+        visitedAt:
+          type: string
+          format: date-time
+        claimedVisitedAt:
+          type: string
+          format: date-time
+          nullable: true
+        evidenceCapturedAt:
+          type: string
+          format: date-time
+          nullable: true
+        verificationStatus:
+          type: string
+          enum:
+            - VERIFIED
+        visitSource:
+          type: string
+          example: PHOTO_VERIFICATION
+        place:
+          $ref: "#/components/schemas/VisitedPlaceSummary"
+        cityCollection:
+          $ref: "#/components/schemas/VisitedCityCollection"
+        city:
+          $ref: "#/components/schemas/City"
+
+    Pagination:
+      type: object
+      required:
+        - hasMore
+        - nextCursor
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
+
+    VerificationResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/VerificationData"
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    PreferenceResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+        data:
+          type: object
+          required:
+            - collection
+          properties:
+            collection:
+              $ref: "#/components/schemas/PreferenceCollection"
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    VisitedPlacesResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+        data:
+          type: object
+          required:
+            - visitedPlaces
+            - pagination
+          properties:
+            visitedPlaces:
+              type: array
+              items:
+                $ref: "#/components/schemas/VisitedPlace"
+            pagination:
+              $ref: "#/components/schemas/Pagination"
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    ValidationFailed:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InvalidCursor:
+      description: Pagination cursor or query parameters are invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: Access token is missing, invalid, or expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    PlaceNotAvailable:
+      description: Place is unavailable for verification
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    VerificationConflict:
+      description: Place is already verified or evidence was already used
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    EvidenceTooLarge:
+      description: Verification photo exceeds 15 MB
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    EvidenceInvalidType:
+      description: Verification photo is not a supported image type
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    EvidenceRejected:
+      description: Photo evidence could not verify the visit
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    EvidenceUploadFailed:
+      description: Verification evidence could not be processed or stored
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    CollectionNotFound:
+      description: Verified city collection was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    PreferenceLimitReached:
+      description: Maximum of five preferred verified cities reached
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

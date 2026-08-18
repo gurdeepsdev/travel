@@ -41,8 +41,45 @@ const getMyPostsSchema = z.object({
     .strict(),
 });
 
+const getUserPostsSchema = z.object({
+    body: z.unknown().optional(),
+  
+    params: z.object({
+      username: z
+        .string()
+        .trim()
+        .min(
+          3,
+          "Username must contain at least 3 characters.",
+        )
+        .max(
+          50,
+          "Username cannot exceed 50 characters.",
+        ),
+    }),
+  
+    query: z
+      .object({
+        limit: z.coerce
+          .number({
+            error: "Limit must be a number.",
+          })
+          .int("Limit must be an integer.")
+          .min(1, "Limit must be at least 1.")
+          .max(
+            MAX_POSTS_LIMIT,
+            `Limit cannot exceed ${MAX_POSTS_LIMIT}.`,
+          )
+          .default(DEFAULT_POSTS_LIMIT),
+  
+        cursor: cursorSchema.optional(),
+      })
+      .strict(),
+  });
+
 export {
   DEFAULT_POSTS_LIMIT,
   MAX_POSTS_LIMIT,
   getMyPostsSchema,
+  getUserPostsSchema,
 };

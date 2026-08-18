@@ -1,0 +1,1380 @@
+openapi: 3.0.3
+
+info:
+  title: Artictern Recently Implemented APIs
+  version: 1.1.0
+  description: >
+    APIs implemented for saved content, partial profile updates,
+    comment deletion, comment liker visibility, private memories,
+    multipart post creation, and access-controlled local media delivery.
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+
+tags:
+  - name: Saved Content
+  - name: Profile
+  - name: Comments
+  - name: Comment Likes
+  - name: Memories
+  - name: Post Creation
+  - name: Media Delivery
+  - name: Visited Places
+  - name: Connections
+  - name: Connection Requests
+  - name: Connection Suggestions
+
+paths:
+  /posts:
+    post:
+      tags:
+        - Post Creation
+      summary: Create a place post
+      description: >
+        Creates a PLACE post for the authenticated user. The request
+        may contain newly uploaded media, existing media assets owned
+        by the user, owned itineraries, or a combination of these.
+        At least one media asset or itinerary is required. When newly
+        uploaded files and existing assets are combined, mediaOrder
+        must reference every file and existing asset exactly once.
+        The first ordered asset becomes the cover asset.
+      operationId: createPost
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreatePostMultipartRequest"
+            encoding:
+              files:
+                contentType: >
+                  image/jpeg, image/png, image/webp, image/gif,
+                  image/heic, image/heif, video/mp4,
+                  video/quicktime, video/webm
+      responses:
+        "201":
+          description: Post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PostReferenceNotAllowed"
+        "413":
+          $ref: "#/components/responses/PostMediaTooLarge"
+        "415":
+          $ref: "#/components/responses/PostMediaInvalidType"
+        "500":
+          $ref: "#/components/responses/PostCreateFailed"
+
+
+
+  /users/me/saved-posts:
+    get:
+      tags:
+        - Saved Content
+      summary: Get my saved posts
+      operationId: getMySavedPosts
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Saved posts fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./saved-content.openapi.yaml#/components/schemas/MySavedPostsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /media/assets/{assetId}/content:
+    get:
+      tags:
+        - Media Delivery
+      summary: Get local media content
+      description: >
+        Delivers the binary content of a local media asset.
+        Authentication is optional for public assets. A private local
+        asset is delivered only when the authenticated viewer owns it.
+        Missing, unauthorized, and non-local assets are returned as
+        not found.
+      operationId: getMediaAssetContent
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: Media content
+          headers:
+            Cache-Control:
+              description: >
+                Public assets use public caching. Private assets use
+                private, no-store.
+              schema:
+                type: string
+            Content-Disposition:
+              description: Content is delivered inline
+              schema:
+                type: string
+                example: inline
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/heic:
+              schema:
+                type: string
+                format: binary
+            image/heif:
+              schema:
+                type: string
+                format: binary
+            video/mp4:
+              schema:
+                type: string
+                format: binary
+            video/quicktime:
+              schema:
+                type: string
+                format: binary
+            video/webm:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/MediaAssetNotFound"
+        "503":
+          $ref: "#/components/responses/MediaContentUnavailable"
+          
+  /users/{username}/saved-places:
+    get:
+      tags:
+        - Saved Content
+      summary: Get public saved places for a user
+      description: >
+        Returns canonical POI cards derived from accessible saved
+        posts. Authentication is optional. Private or blocked profile
+        relationships return an empty place list.
+      operationId: getUserSavedPlaces
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Saved places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./saved-content.openapi.yaml#/components/schemas/UserSavedPlacesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: User profile was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/me/profile:
+    patch:
+      tags:
+        - Profile
+      summary: Partially update my profile
+      description: >
+        Updates only fields supplied by the authenticated user.
+        Email, mobile, verification state, cover photo, and social
+        links are not accepted by this endpoint.
+      operationId: updateMyProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileUpdateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: >
+            Profile, profile photo, country, or city was not found
+            or was not allowed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Username is already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{username}:
+    get:
+      tags:
+        - Profile
+      summary: Get a user profile by username
+      description: >
+        Returns another user's public profile. Authentication is optional.
+        Private profiles are available only to the profile owner or an
+        accepted connection. Profiles across a block relationship are hidden.
+        The response includes savedItems but does not expose userId or private
+        verification evidence.
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+            pattern: "^[a-z0-9_]+$"
+      responses:
+        "200":
+          description: Profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicProfileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: >
+            Profile was not found or is hidden by privacy or block rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /comments/{commentId}:
+    delete:
+      tags:
+        - Comments
+      summary: Delete a comment
+      description: >
+        The comment author may delete their own comment. The owner
+        of the containing post may delete any comment on that post.
+        Deleting a parent comment cascades to replies and comment likes.
+      operationId: deleteComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+      responses:
+        "200":
+          description: Comment deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteCommentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/CommentNotFound"
+
+  /comments/{commentId}/likes:
+    get:
+      tags:
+        - Comment Likes
+      summary: List users who liked a comment
+      description: >
+        Returns a cursor-paginated list of users who liked the
+        comment. Only the owner of the containing post may access it.
+      operationId: getCommentLikes
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Comment likes fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentLikesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/CommentNotFound"
+
+  /users/me/memories:
+    post:
+      tags:
+        - Memories
+      summary: Save a private memory
+      description: >
+        Saves either an existing owned media asset or one newly uploaded
+        memoryFile as an IMAGE, VIDEO, or BOOMERANG memory. IMAGE requires
+        image MIME media. VIDEO and BOOMERANG require video MIME media.
+        Provide exactly one of assetId or memoryFile. Repeated saves are
+        idempotent.
+      operationId: saveMemory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMemoryRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SaveMemoryMultipartRequest"
+      responses:
+        "201":
+          description: Memory saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveMemoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/MemoryAssetNotAllowed"
+        "413":
+          $ref: "#/components/responses/MemoryMediaTooLarge"
+        "415":
+          $ref: "#/components/responses/MemoryMediaInvalidType"
+
+    get:
+      tags:
+        - Memories
+      summary: Get my private memories
+      description: >
+        Returns only the authenticated user's active memory assets,
+        ordered newest first using cursor pagination.
+      operationId: getMyMemories
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Memories fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetMemoriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/visited-place-verifications:
+    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-place-verifications"
+
+  /users/me/visited-collections/{collectionId}/preference:
+    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-collections~1{collectionId}~1preference"
+
+  /users/me/visited-places:
+    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-places"
+
+  /users/{userId}/connection-requests:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1{userId}~1connection-requests"
+
+  /users/me/connection-requests/incoming:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1incoming"
+
+  /users/me/connection-requests/outgoing:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1outgoing"
+
+  /users/me/connection-requests/{requestId}:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1{requestId}"
+
+  /users/me/connections:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connections"
+
+  /users/me/connection-suggestions:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-suggestions"
+
+  /users/me/connections/{userId}:
+    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connections~1{userId}"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: "^[A-Za-z0-9_-]+$"
+
+  responses:
+    BadRequest:
+      description: Validation failed or pagination cursor is invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: Access token is missing, invalid, or expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    PostReferenceNotAllowed:
+      description: >
+        The place, existing asset, itinerary, or tagged user was not
+        found or is not allowed for the authenticated user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            placeNotAllowed:
+              value:
+                success: false
+                code: POST.PLACE_NOT_ALLOWED
+                message: Post place was not found or is not available.
+                details: null
+                requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+                timestamp: "2026-08-05T07:22:58.846Z"
+            assetNotAllowed:
+              value:
+                success: false
+                code: POST.ASSET_NOT_ALLOWED
+                message: A post asset was not found or is not allowed.
+                details: null
+                requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+                timestamp: "2026-08-05T07:22:58.846Z"
+
+    PostMediaTooLarge:
+      description: Uploaded media exceeds its permitted size
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: POST.MEDIA_TOO_LARGE
+            message: A post media file is too large.
+            details:
+              field: files
+              maximumBytes: 262144000
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    PostMediaInvalidType:
+      description: >
+        Uploaded media has an unsupported type or its declared MIME
+        type does not match its binary file signature.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: POST.MEDIA_INVALID_TYPE
+            message: Post media type is not supported.
+            details:
+              field: files
+              mimeType: application/pdf
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    PostCreateFailed:
+      description: Post creation or media storage failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    MediaAssetNotFound:
+      description: >
+        The asset is missing, unauthorized, or is not stored by the
+        local storage provider.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEDIA.ASSET_NOT_FOUND
+            message: Media asset not found.
+            details: null
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    MediaContentUnavailable:
+      description: >
+        The local asset metadata exists, but its physical content
+        cannot currently be read.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEDIA.CONTENT_UNAVAILABLE
+            message: Media content is temporarily unavailable.
+            details: null
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: "2026-08-05T07:22:58.846Z"
+
+    CommentNotFound:
+      description: >
+        Comment was not found or the authenticated user is not
+        authorized to perform the requested operation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: COMMENT.NOT_FOUND
+            message: Comment not found.
+            details: null
+            requestId: a7112179-a2f5-43de-8606-1d177130b691
+            timestamp: "2026-08-04T10:28:38.130Z"
+
+    MemoryAssetNotAllowed:
+      description: >
+        Asset was missing, unowned, soft-deleted, or incompatible
+        with the requested memory type.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEMORY.ASSET_NOT_ALLOWED
+            message: Memory asset was not found or is not allowed.
+            details: null
+            requestId: 1e573acd-0633-4c84-b478-634055f390bb
+            timestamp: "2026-08-04T11:22:08.691Z"
+
+    MemoryMediaTooLarge:
+      description: Uploaded memory media exceeds its permitted size
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEMORY.MEDIA_TOO_LARGE
+            message: Memory media is too large.
+            details:
+              field: memoryFile
+              maximumBytes: 262144000
+            requestId: 1e573acd-0633-4c84-b478-634055f390bb
+            timestamp: "2026-08-17T05:33:36.636Z"
+
+    MemoryMediaInvalidType:
+      description: >
+        Uploaded media is unsupported, has a mismatched signature,
+        or does not match memoryType.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEMORY.MEDIA_INVALID_TYPE
+            message: Memory type does not match the uploaded media.
+            details:
+              memoryType: VIDEO
+              detectedMediaType: IMAGE
+            requestId: 1e573acd-0633-4c84-b478-634055f390bb
+            timestamp: "2026-08-17T05:33:44.704Z"
+
+  schemas:
+    SuccessBase:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+        data:
+          nullable: true
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - details
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          nullable: true
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      required:
+        - hasMore
+        - nextCursor
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
+
+    UpdateProfileRequest:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: "^[a-z0-9_]+$"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          nullable: true
+        bio:
+          type: string
+          maxLength: 250
+          nullable: true
+        profilePhotoAssetId:
+          type: string
+          format: uuid
+          nullable: true
+        countryId:
+          type: string
+          format: uuid
+          nullable: true
+        cityId:
+          type: string
+          format: uuid
+          nullable: true
+        isPrivate:
+          type: boolean
+
+    ProfileMediaVariant:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        format:
+          type: string
+          nullable: true
+        quality:
+          type: number
+          nullable: true
+        width:
+          type: number
+          nullable: true
+        height:
+          type: number
+          nullable: true
+
+    ProfileMedia:
+      type: object
+      nullable: true
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          nullable: true
+        storageKey:
+          type: string
+          nullable: true
+        originalFileName:
+          type: string
+          nullable: true
+        extension:
+          type: string
+          nullable: true
+        fileSize:
+          type: number
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        width:
+          type: number
+          nullable: true
+        height:
+          type: number
+          nullable: true
+        variant:
+          $ref: "#/components/schemas/ProfileMediaVariant"
+
+    ProfileCountry:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        code:
+          type: string
+          nullable: true
+
+    ProfileCity:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          nullable: true
+        officialName:
+          type: string
+          nullable: true
+        countryId:
+          type: string
+          format: uuid
+          nullable: true
+
+    ProfileStats:
+      type: object
+      required:
+        - connections
+        - posts
+        - groups
+        - savedItems
+        - visitedPlaces
+      properties:
+        connections:
+          type: integer
+          minimum: 0
+        posts:
+          type: integer
+          minimum: 0
+        groups:
+          type: integer
+          minimum: 0
+        savedItems:
+          type: integer
+          minimum: 0
+        visitedPlaces:
+          type: integer
+          minimum: 0
+
+    Profile:
+      type: object
+      required:
+        - userId
+        - username
+        - displayName
+        - bio
+        - profilePhoto
+        - coverPhoto
+        - country
+        - city
+        - socialLinks
+        - isPrivate
+        - isVerified
+        - isProfileCompleted
+        - profileCompletedAt
+        - stats
+        - preferredVisitedCollections
+        - createdAt
+        - updatedAt
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        profilePhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        coverPhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        country:
+          $ref: "#/components/schemas/ProfileCountry"
+        city:
+          $ref: "#/components/schemas/ProfileCity"
+        socialLinks:
+          type: object
+        isPrivate:
+          type: boolean
+        isVerified:
+          type: boolean
+        isProfileCompleted:
+          type: boolean
+        profileCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        stats:
+          $ref: "#/components/schemas/ProfileStats"
+        preferredVisitedCollections:
+          type: array
+          items:
+            type: object
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PublicProfile:
+      type: object
+      required:
+        - username
+        - displayName
+        - bio
+        - profilePhoto
+        - coverPhoto
+        - country
+        - city
+        - socialLinks
+        - isVerified
+        - stats
+        - preferredVisitedCollections
+      properties:
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        profilePhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        coverPhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        country:
+          $ref: "#/components/schemas/ProfileCountry"
+        city:
+          $ref: "#/components/schemas/ProfileCity"
+        socialLinks:
+          type: object
+        isVerified:
+          type: boolean
+        stats:
+          $ref: "#/components/schemas/ProfileStats"
+        preferredVisitedCollections:
+          type: array
+          items:
+            type: object
+
+    PublicProfileResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - profile
+              properties:
+                profile:
+                  $ref: "#/components/schemas/PublicProfile"
+
+    ProfileUpdateResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - profile
+              properties:
+                profile:
+                  $ref: "#/components/schemas/Profile"
+
+    DeleteCommentData:
+      type: object
+      required:
+        - commentId
+        - postId
+        - deleted
+        - commentCount
+      properties:
+        commentId:
+          type: string
+          format: uuid
+        postId:
+          type: string
+          format: uuid
+        deleted:
+          type: boolean
+          enum:
+            - true
+        commentCount:
+          type: integer
+          minimum: 0
+
+    DeleteCommentResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DeleteCommentData"
+
+    CommentLikeProfilePhoto:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+        storageProvider:
+          type: string
+          nullable: true
+        bucket:
+          type: string
+          nullable: true
+        storageKey:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+
+    CommentLiker:
+      type: object
+      required:
+        - id
+        - likedAt
+        - user
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Comment-like row ID
+        likedAt:
+          type: string
+          format: date-time
+        user:
+          type: object
+          required:
+            - id
+            - username
+            - displayName
+            - isVerified
+            - isPrivate
+            - profilePhoto
+            - viewerIsSelf
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+            displayName:
+              type: string
+              nullable: true
+            isVerified:
+              type: boolean
+            isPrivate:
+              type: boolean
+            profilePhoto:
+              $ref: "#/components/schemas/CommentLikeProfilePhoto"
+            viewerIsSelf:
+              type: boolean
+
+    CommentLikesData:
+      type: object
+      required:
+        - commentId
+        - likeCount
+        - users
+        - pagination
+      properties:
+        commentId:
+          type: string
+          format: uuid
+        likeCount:
+          type: integer
+          minimum: 0
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommentLiker"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    CommentLikesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CommentLikesData"
+
+    SaveMemoryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - assetId
+        - memoryType
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        memoryType:
+          type: string
+          enum:
+            - IMAGE
+            - VIDEO
+            - BOOMERANG
+
+    SaveMemoryMultipartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - memoryType
+        - memoryFile
+      properties:
+        memoryType:
+          type: string
+          enum:
+            - IMAGE
+            - VIDEO
+            - BOOMERANG
+        memoryFile:
+          type: string
+          format: binary
+          description: >
+            One image or video file. Images may be at most 25 MiB.
+            Videos may be at most 250 MiB. BOOMERANG uses video media.
+
+    MemoryAsset:
+      type: object
+      required:
+        - id
+        - originalFilename
+        - mimeType
+        - extension
+        - fileSize
+        - width
+        - height
+        - durationSeconds
+        - isPublic
+        - url
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        originalFilename:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+        extension:
+          type: string
+          nullable: true
+        fileSize:
+          type: integer
+          nullable: true
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        durationSeconds:
+          type: integer
+          nullable: true
+        isPublic:
+          type: boolean
+        url:
+          type: string
+          nullable: true
+          description: >
+            Public R2 URL for public remote assets, or the local
+            access-controlled media endpoint for local assets.
+            Private non-local assets may return null.
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Memory:
+      type: object
+      required:
+        - id
+        - memoryType
+        - createdAt
+        - asset
+      properties:
+        id:
+          type: string
+          format: uuid
+        memoryType:
+          type: string
+          enum:
+            - IMAGE
+            - VIDEO
+            - BOOMERANG
+        createdAt:
+          type: string
+          format: date-time
+        asset:
+          $ref: "#/components/schemas/MemoryAsset"
+
+    SaveMemoryData:
+      type: object
+      required:
+        - memory
+      properties:
+        memory:
+          $ref: "#/components/schemas/Memory"
+
+    SaveMemoryResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SaveMemoryData"
+
+    GetMemoriesData:
+      type: object
+      required:
+        - memories
+        - pagination
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Memory"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    GetMemoriesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/GetMemoriesData"
+
+    CreatePostMultipartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - placeId
+      properties:
+        caption:
+          type: string
+          minLength: 1
+          maxLength: 250
+        visibility:
+          type: string
+          enum:
+            - PUBLIC
+            - PRIVATE
+          default: PUBLIC
+        placeId:
+          type: string
+          format: uuid
+        files:
+          type: array
+          maxItems: 10
+          description: >
+            New image or video files. Images may be at most 25 MiB
+            each. Videos may be at most 250 MiB each.
+          items:
+            type: string
+            format: binary
+        existingAssetIds:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array containing at most 10 unique UUIDs of
+            active media assets owned by the authenticated user.
+          example: >
+            ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"]
+        mediaOrder:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array defining final media order. UPLOAD
+            entries reference the zero-based position in files.
+            EXISTING entries reference an ID included in
+            existingAssetIds. Required when uploads and existing
+            assets are combined.
+          example: >
+            [{"source":"UPLOAD","fileIndex":0},{"source":"EXISTING","assetId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"}]
+        itineraryIds:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array containing at most 5 unique UUIDs of
+            eligible itineraries owned by the authenticated user.
+          example: >
+            ["11111111-1111-4111-8111-111111111111"]
+        taggedUserIds:
+          type: string
+          maxLength: 65536
+          description: >
+            JSON-encoded array containing at most 20 unique user UUIDs.
+            The author cannot tag themselves, unavailable users, or
+            users across a block relationship.
+          example: "[]"
+
+    CreatePostData:
+      type: object
+      required:
+        - post
+      properties:
+        post:
+          $ref: "./saved-content.openapi.yaml#/components/schemas/FullPost"
+
+    CreatePostResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreatePostData"

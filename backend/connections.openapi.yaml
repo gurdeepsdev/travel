@@ -1,0 +1,802 @@
+openapi: 3.0.3
+
+info:
+  title: Artictern Connections API
+  version: 1.0.0
+  description: >
+    APIs for sending, listing, accepting, rejecting, and cancelling
+    connection requests, as well as listing and removing accepted
+    symmetric user connections.
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+
+tags:
+  - name: Connections
+    description: Accepted user connections
+  - name: Connection Requests
+    description: Connection-request lifecycle
+  - name: Connection Suggestions
+    description: Ranked people recommendations for the authenticated user
+
+paths:
+  /users/{userId}/connection-requests:
+    post:
+      tags:
+        - Connection Requests
+      summary: Send a connection request
+      operationId: sendConnectionRequest
+      description: >
+        Sends a connection request from the authenticated user to the
+        specified user. Repeating an existing outgoing pending request
+        is idempotent. A reverse pending request must be explicitly
+        accepted or rejected.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "201":
+          description: New connection request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendConnectionRequestResponse"
+        "200":
+          description: Existing outgoing pending request returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendConnectionRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionTargetNotAvailable"
+        "409":
+          $ref: "#/components/responses/ConnectionRequestConflict"
+
+  /users/me/connection-requests/incoming:
+    get:
+      tags:
+        - Connection Requests
+      summary: List incoming connection requests
+      operationId: getIncomingConnectionRequests
+      description: >
+        Returns pending requests received by the authenticated user
+        using stable cursor pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Incoming requests fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomingConnectionRequestsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connection-requests/outgoing:
+    get:
+      tags:
+        - Connection Requests
+      summary: List outgoing connection requests
+      operationId: getOutgoingConnectionRequests
+      description: >
+        Returns pending requests sent by the authenticated user
+        using stable cursor pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Outgoing requests fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutgoingConnectionRequestsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connection-requests/{requestId}:
+    patch:
+      tags:
+        - Connection Requests
+      summary: Accept or reject a connection request
+      operationId: respondToConnectionRequest
+      description: >
+        Allows only the stored receiver to accept or reject a pending
+        request. Repeating the same action is idempotent. Accepting
+        creates one canonical symmetric connection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RespondToConnectionRequest"
+            examples:
+              accept:
+                value:
+                  action: ACCEPT
+              reject:
+                value:
+                  action: REJECT
+      responses:
+        "200":
+          description: Request accepted, rejected, or already resolved with the same action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RespondToConnectionRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionRequestNotFound"
+
+    delete:
+      tags:
+        - Connection Requests
+      summary: Cancel an outgoing connection request
+      operationId: cancelConnectionRequest
+      description: >
+        Allows only the stored sender to cancel a pending request.
+        Repeating cancellation is idempotent. Request history is
+        preserved with status CANCELLED.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Request cancelled or already cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CancelConnectionRequestResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionRequestNotFound"
+
+  /users/me/connections:
+    get:
+      tags:
+        - Connections
+      summary: List my accepted connections
+      operationId: getMyConnections
+      description: >
+        Returns current accepted connections using stable cursor
+        pagination. Each item contains the other user relative to the
+        authenticated user. Internal user_low_id and user_high_id
+        fields are not exposed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Connections fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connection-suggestions:
+    get:
+      tags:
+        - Connection Suggestions
+      summary: List connection suggestions
+      operationId: getConnectionSuggestions
+      description: >
+        Returns ranked users based on content reactions, reactions received,
+        mutual connections, and shared verified cities. The authenticated
+        user, blocked users, existing connections, users with pending requests
+        in either direction, inactive accounts, and deleted profiles are
+        excluded. Internal ranking scores are not exposed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Connection suggestions fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionSuggestionsResponse"
+        "400":
+          $ref: "#/components/responses/InvalidCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users/me/connections/{userId}:
+    delete:
+      tags:
+        - Connections
+      summary: Remove an accepted connection
+      operationId: removeConnection
+      description: >
+        Removes the current symmetric connection between the
+        authenticated user and the specified user. Historical
+        connection requests remain unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Connection removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoveConnectionResponse"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/ConnectionNotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque Base64 URL-safe pagination cursor.
+      schema:
+        type: string
+        maxLength: 1024
+        pattern: "^[A-Za-z0-9_-]+$"
+
+  responses:
+    ValidationFailed:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InvalidCursor:
+      description: Pagination cursor is invalid or request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: Access token is missing, invalid, or expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ConnectionTargetNotAvailable:
+      description: Target user is missing, inactive, deleted, or blocked
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ConnectionRequestConflict:
+      description: Users are already connected or the request conflicts with current state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ConnectionRequestNotFound:
+      description: Connection request is missing or unavailable to this user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    ConnectionNotFound:
+      description: Accepted connection does not exist
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        code:
+          type: string
+          example: COMMON.VALIDATION_FAILED
+        message:
+          type: string
+        details:
+          nullable: true
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      required:
+        - hasMore
+        - nextCursor
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          type: string
+          nullable: true
+
+    ProfilePhoto:
+      type: object
+      required:
+        - id
+        - storageProvider
+        - storageKey
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+        storageProvider:
+          type: string
+        bucket:
+          type: string
+          nullable: true
+        storageKey:
+          type: string
+        url:
+          type: string
+        mimeType:
+          type: string
+
+    ConnectionUser:
+      type: object
+      required:
+        - id
+        - username
+        - displayName
+        - isVerified
+        - isPrivate
+        - profilePhoto
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        isPrivate:
+          type: boolean
+        profilePhoto:
+          allOf:
+            - $ref: "#/components/schemas/ProfilePhoto"
+          nullable: true
+
+    ConnectionRequest:
+      type: object
+      required:
+        - id
+        - senderUserId
+        - receiverUserId
+        - status
+        - createdAt
+        - updatedAt
+        - resolvedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        senderUserId:
+          type: string
+          format: uuid
+        receiverUserId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - PENDING
+            - ACCEPTED
+            - REJECTED
+            - CANCELLED
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    IncomingConnectionRequest:
+      allOf:
+        - $ref: "#/components/schemas/ConnectionRequest"
+        - type: object
+          required:
+            - sender
+          properties:
+            sender:
+              $ref: "#/components/schemas/ConnectionUser"
+
+    OutgoingConnectionRequest:
+      allOf:
+        - $ref: "#/components/schemas/ConnectionRequest"
+        - type: object
+          required:
+            - recipient
+          properties:
+            recipient:
+              $ref: "#/components/schemas/ConnectionUser"
+
+    AcceptedConnection:
+      type: object
+      required:
+        - id
+        - connectedAt
+        - user
+      properties:
+        id:
+          type: string
+          format: uuid
+        connectedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/ConnectionUser"
+
+    CanonicalConnection:
+      type: object
+      required:
+        - id
+        - userLowId
+        - userHighId
+        - connectedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        userLowId:
+          type: string
+          format: uuid
+        userHighId:
+          type: string
+          format: uuid
+        connectedAt:
+          type: string
+          format: date-time
+
+    RespondToConnectionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum:
+            - ACCEPT
+            - REJECT
+
+    SendConnectionRequestData:
+      type: object
+      required:
+        - requestCreated
+        - connectionRequest
+      properties:
+        requestCreated:
+          type: boolean
+        connectionRequest:
+          allOf:
+            - $ref: "#/components/schemas/ConnectionRequest"
+            - type: object
+              required:
+                - recipient
+              properties:
+                recipient:
+                  $ref: "#/components/schemas/ConnectionUser"
+
+    SendConnectionRequestResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SendConnectionRequestData"
+
+    IncomingConnectionRequestsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - connectionRequests
+                - pagination
+              properties:
+                connectionRequests:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/IncomingConnectionRequest"
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+
+    OutgoingConnectionRequestsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - connectionRequests
+                - pagination
+              properties:
+                connectionRequests:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/OutgoingConnectionRequest"
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+
+    RespondToConnectionRequestResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - actionApplied
+                - connectionRequest
+                - connection
+              properties:
+                actionApplied:
+                  type: boolean
+                connectionRequest:
+                  allOf:
+                    - $ref: "#/components/schemas/ConnectionRequest"
+                    - type: object
+                      properties:
+                        sender:
+                          $ref: "#/components/schemas/ConnectionUser"
+                connection:
+                  allOf:
+                    - $ref: "#/components/schemas/CanonicalConnection"
+                  nullable: true
+
+    CancelConnectionRequestResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - actionApplied
+                - connectionRequest
+              properties:
+                actionApplied:
+                  type: boolean
+                connectionRequest:
+                  allOf:
+                    - $ref: "#/components/schemas/ConnectionRequest"
+                    - type: object
+                      properties:
+                        recipient:
+                          $ref: "#/components/schemas/ConnectionUser"
+
+    ConnectionsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - connections
+                - pagination
+              properties:
+                connections:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/AcceptedConnection"
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+
+    RemoveConnectionResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - removed
+                - connection
+              properties:
+                removed:
+                  type: boolean
+                connection:
+                  type: object
+                  required:
+                    - id
+                    - userId
+                    - connectedAt
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    userId:
+                      type: string
+                      format: uuid
+                    connectedAt:
+                      type: string
+                      format: date-time
+
+    SuggestionReason:
+      type: object
+      required:
+        - type
+        - label
+      properties:
+        type:
+          type: string
+          enum:
+            - CONTENT_INTERACTION
+            - THEY_INTERACTED_WITH_YOU
+            - MUTUAL_CONNECTIONS
+            - SHARED_VERIFIED_CITIES
+        label:
+          type: string
+
+    SuggestionSignals:
+      type: object
+      required:
+        - contentInteractions
+        - receivedContentInteractions
+        - mutualConnections
+        - sharedVerifiedCities
+      properties:
+        contentInteractions:
+          type: integer
+          minimum: 0
+        receivedContentInteractions:
+          type: integer
+          minimum: 0
+        mutualConnections:
+          type: integer
+          minimum: 0
+        sharedVerifiedCities:
+          type: integer
+          minimum: 0
+
+    ConnectionSuggestion:
+      type: object
+      required:
+        - user
+        - reason
+        - signals
+      properties:
+        user:
+          $ref: "#/components/schemas/ConnectionUser"
+        reason:
+          $ref: "#/components/schemas/SuggestionReason"
+        signals:
+          $ref: "#/components/schemas/SuggestionSignals"
+
+    ConnectionSuggestionsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - suggestions
+                - pagination
+              properties:
+                suggestions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConnectionSuggestion"
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+
+    SuccessEnvelope:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+        data:
+          type: object
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time

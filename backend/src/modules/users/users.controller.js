@@ -25,6 +25,77 @@ class UsersController {
     }
   }
 
+  async getUserProfile(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const profile =
+        await ProfileService
+          .getUserProfile({
+            username:
+              req.validated.params
+                .username,
+
+            viewerUserId:
+              req.user?.id ??
+              null,
+          });
+
+      return Response.success(
+        res,
+        {
+          profile,
+        },
+        "Profile fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  /**
+ * Partially updates the authenticated user's
+ * profile.
+ *
+ * Route:
+ * PATCH /api/v1/users/me/profile
+ */
+async updateMyProfile(
+  req,
+  res,
+  next,
+) {
+  try {
+    const profile =
+      await ProfileService
+         .updateMyProfile({
+          userId:
+            req.user.id,
+
+          changes:
+            req.validated.body,
+
+          profilePhotoFile:
+            req.file ?? null,
+
+          logger:
+            req.logger ?? null,
+        });
+
+    return Response.success(
+      res,
+      {
+        profile,
+      },
+      "Profile updated successfully.",
+    );
+  } catch (error) {
+    return next(error);
+  }
+}
+
   /**
    * Returns posts created or reposted by the authenticated user.
    *
@@ -51,6 +122,38 @@ class UsersController {
         result,
         "Posts fetched successfully.",
       );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async getUserPosts(req, res, next) {
+    try {
+      const viewerUserId =
+        req.user?.id ??
+        req.user?.userId ??
+        req.auth?.userId ??
+        null;
+  
+      const result =
+        await PostService.getUserPosts({
+          username: req.params.username,
+          viewerUserId,
+          limit: req.query.limit,
+          cursor: req.query.cursor ?? null,
+        });
+  
+      return res.status(200).json({
+        success: true,
+        message:
+          "User posts fetched successfully.",
+        data: result,
+        requestId:
+          req.requestId ??
+          req.id ??
+          null,
+        timestamp: new Date().toISOString(),
+      });
     } catch (error) {
       return next(error);
     }

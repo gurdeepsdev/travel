@@ -1,0 +1,1210 @@
+openapi: 3.0.3
+
+info:
+  title: Artictern Post Interaction API
+  version: 1.0.0
+  description: >
+    Implemented APIs for post reactions, Been There, comments,
+    comment likes, and saving posts.
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+
+tags:
+  - name: Post Reactions
+  - name: Post Been There
+  - name: Post Comments
+  - name: Comment Likes
+  - name: Saved Posts
+
+paths:
+  /posts/{postId}/reactions:
+    get:
+      tags:
+        - Post Reactions
+      summary: Get reactions for a post
+      description: >
+        Returns a cursor-paginated list of users who reacted to a post.
+        Authentication is optional. The list can be filtered by reaction type.
+      operationId: getPostReactions
+
+      security:
+        - bearerAuth: []
+        - {}
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+        - name: reactionType
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ReactionType"
+
+        - $ref: "#/components/parameters/Limit"
+
+        - $ref: "#/components/parameters/Cursor"
+
+      responses:
+        "200":
+          description: Post reactions fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostReactionsResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+  /posts/{postId}/reaction:
+    put:
+      tags:
+        - Post Reactions
+      summary: Create or replace the viewer reaction
+      operationId: setPostReaction
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reactionType
+              properties:
+                reactionType:
+                  $ref: "#/components/schemas/ReactionType"
+
+            example:
+              reactionType: LOVE
+
+      responses:
+        "200":
+          description: Post reaction saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostReactionMutationResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+    delete:
+      tags:
+        - Post Reactions
+      summary: Remove the viewer reaction
+      operationId: removePostReaction
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      responses:
+        "200":
+          description: Post reaction removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostReactionMutationResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+  /posts/{postId}/been-there:
+    get:
+      tags:
+        - Post Been There
+      summary: Get users who marked Been There
+      operationId: getPostBeenThere
+
+      security:
+        - bearerAuth: []
+        - {}
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+
+      responses:
+        "200":
+          description: Been There users fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostBeenThereListResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+    put:
+      tags:
+        - Post Been There
+      summary: Mark a post as Been There
+      operationId: setPostBeenThere
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+            example: {}
+
+      responses:
+        "200":
+          description: Post marked as Been There
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostBeenThereMutationResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+    delete:
+      tags:
+        - Post Been There
+      summary: Remove the viewer Been There state
+      operationId: removePostBeenThere
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      responses:
+        "200":
+          description: Been There removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostBeenThereMutationResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+  /posts/{postId}/comments:
+    get:
+      tags:
+        - Post Comments
+      summary: Get top-level comments for a post
+      description: >
+        Returns cursor-paginated top-level comments. commentCount includes
+        top-level comments and replies. Each top-level comment includes
+        its replyCount.
+      operationId: getPostComments
+
+      security:
+        - bearerAuth: []
+        - {}
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+
+      responses:
+        "200":
+          description: Post comments fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostCommentsListResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+    post:
+      tags:
+        - Post Comments
+      summary: Create a comment or reply
+      operationId: createPostComment
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - comment
+              properties:
+                comment:
+                  type: string
+                  minLength: 1
+                  maxLength: 250
+
+                parentCommentId:
+                  type: string
+                  format: uuid
+                  nullable: true
+
+            examples:
+              topLevelComment:
+                value:
+                  comment: This place looks amazing!
+
+              reply:
+                value:
+                  comment: I visited it last year.
+                  parentCommentId: 0044c566-a39a-40a1-9b90-a7d256ef32f9
+
+      responses:
+        "201":
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCommentResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          description: Post or parent comment was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+              examples:
+                postNotFound:
+                  value:
+                    success: false
+                    code: POST.NOT_FOUND
+                    message: Post not found.
+                    details: null
+                    requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                    timestamp: "2026-08-03T10:00:00.000Z"
+
+                parentNotFound:
+                  value:
+                    success: false
+                    code: COMMENT.PARENT_NOT_FOUND
+                    message: Parent comment was not found on this post.
+                    details: null
+                    requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                    timestamp: "2026-08-03T10:00:00.000Z"
+
+  /comments/{commentId}/like:
+    put:
+      tags:
+        - Comment Likes
+      summary: Like a comment
+      operationId: setCommentLike
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+            example: {}
+
+      responses:
+        "200":
+          description: Comment liked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentLikeResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/CommentNotFound"
+
+    delete:
+      tags:
+        - Comment Likes
+      summary: Remove the viewer comment like
+      operationId: removeCommentLike
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/CommentId"
+
+      responses:
+        "200":
+          description: Comment like removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentLikeResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/CommentNotFound"
+
+  /posts/{postId}/saved:
+    put:
+      tags:
+        - Saved Posts
+      summary: Save or reactivate a post
+      operationId: savePost
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyObject"
+            example: {}
+
+      responses:
+        "200":
+          description: Post saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedPostResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+    delete:
+      tags:
+        - Saved Posts
+      summary: Remove a saved post
+      operationId: removeSavedPost
+
+      security:
+        - bearerAuth: []
+
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+
+      responses:
+        "200":
+          description: Saved post removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedPostResponse"
+
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PostId:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 1024
+        pattern: "^[A-Za-z0-9_-]+$"
+
+  responses:
+    BadRequest:
+      description: Validation failed or pagination cursor is invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+          examples:
+            validationFailed:
+              value:
+                success: false
+                code: COMMON.VALIDATION_FAILED
+                message: Validation failed.
+                details:
+                  formErrors: []
+                  fieldErrors:
+                    query:
+                      - Limit must be at least 1.
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: "2026-08-03T10:00:00.000Z"
+
+            invalidCursor:
+              value:
+                success: false
+                code: COMMON.INVALID_CURSOR
+                message: Pagination cursor is invalid.
+                details: null
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: "2026-08-03T10:00:00.000Z"
+
+    Unauthorized:
+      description: Access token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+          example:
+            success: false
+            code: AUTH.INVALID_ACCESS_TOKEN
+            message: Authorization header is required.
+            details: null
+            requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+            timestamp: "2026-08-03T10:00:00.000Z"
+
+    PostNotFound:
+      description: Post does not exist or is inaccessible
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+          example:
+            success: false
+            code: POST.NOT_FOUND
+            message: Post not found.
+            details: null
+            requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+            timestamp: "2026-08-03T10:00:00.000Z"
+
+    CommentNotFound:
+      description: Comment does not exist or is inaccessible
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+          example:
+            success: false
+            code: COMMENT.NOT_FOUND
+            message: Comment not found.
+            details: null
+            requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+            timestamp: "2026-08-03T10:00:00.000Z"
+
+  schemas:
+    EmptyObject:
+      type: object
+      additionalProperties: false
+
+    ReactionType:
+      type: string
+      enum:
+        - LIKE
+        - LOVE
+        - CELEBRATE
+        - INSIGHTFUL
+        - FUNNY
+
+    ProfilePhoto:
+      type: object
+      nullable: true
+      required:
+        - id
+        - storageProvider
+        - bucket
+        - storageKey
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        storageProvider:
+          type: string
+          nullable: true
+
+        bucket:
+          type: string
+          nullable: true
+
+        storageKey:
+          type: string
+          nullable: true
+
+        url:
+          type: string
+          nullable: true
+
+        mimeType:
+          type: string
+          nullable: true
+
+    UserSummary:
+      type: object
+      required:
+        - id
+        - username
+        - displayName
+        - isVerified
+        - profilePhoto
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        username:
+          type: string
+          nullable: true
+
+        displayName:
+          type: string
+          nullable: true
+
+        isVerified:
+          type: boolean
+
+        isPrivate:
+          type: boolean
+
+        profilePhoto:
+          $ref: "#/components/schemas/ProfilePhoto"
+
+        viewerIsSelf:
+          type: boolean
+
+    Pagination:
+      type: object
+      required:
+        - hasMore
+        - nextCursor
+      properties:
+        hasMore:
+          type: boolean
+
+        nextCursor:
+          type: string
+          nullable: true
+
+    ReactionSummary:
+      type: object
+      required:
+        - LIKE
+        - LOVE
+        - CELEBRATE
+        - INSIGHTFUL
+        - FUNNY
+      properties:
+        LIKE:
+          type: integer
+          minimum: 0
+
+        LOVE:
+          type: integer
+          minimum: 0
+
+        CELEBRATE:
+          type: integer
+          minimum: 0
+
+        INSIGHTFUL:
+          type: integer
+          minimum: 0
+
+        FUNNY:
+          type: integer
+          minimum: 0
+
+    ReactionRecord:
+      type: object
+      required:
+        - id
+        - type
+        - reactedAt
+        - user
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        type:
+          $ref: "#/components/schemas/ReactionType"
+
+        reactedAt:
+          type: string
+          format: date-time
+
+        user:
+          $ref: "#/components/schemas/UserSummary"
+
+    PostReactionState:
+      type: object
+      required:
+        - id
+        - postId
+        - type
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        postId:
+          type: string
+          format: uuid
+
+        type:
+          $ref: "#/components/schemas/ReactionType"
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+    PostReactionsData:
+      type: object
+      required:
+        - postId
+        - filter
+        - reactionCount
+        - reactionSummary
+        - reactions
+        - pagination
+      properties:
+        postId:
+          type: string
+          format: uuid
+
+        filter:
+          type: object
+          required:
+            - reactionType
+          properties:
+            reactionType:
+              allOf:
+                - $ref: "#/components/schemas/ReactionType"
+              nullable: true
+
+        reactionCount:
+          type: integer
+          minimum: 0
+
+        reactionSummary:
+          $ref: "#/components/schemas/ReactionSummary"
+
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReactionRecord"
+
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    PostReactionMutationData:
+      type: object
+      required:
+        - postId
+        - viewerReaction
+        - reaction
+        - reactionCount
+        - reactionSummary
+      properties:
+        postId:
+          type: string
+          format: uuid
+
+        viewerReaction:
+          allOf:
+            - $ref: "#/components/schemas/ReactionType"
+          nullable: true
+
+        reaction:
+          allOf:
+            - $ref: "#/components/schemas/PostReactionState"
+          nullable: true
+
+        reactionCount:
+          type: integer
+          minimum: 0
+
+        reactionSummary:
+          $ref: "#/components/schemas/ReactionSummary"
+
+    BeenThereVisitor:
+      type: object
+      required:
+        - id
+        - markedAt
+        - user
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        markedAt:
+          type: string
+          format: date-time
+
+        user:
+          $ref: "#/components/schemas/UserSummary"
+
+    PostBeenThereListData:
+      type: object
+      required:
+        - postId
+        - beenThereCount
+        - visitors
+        - pagination
+      properties:
+        postId:
+          type: string
+          format: uuid
+
+        beenThereCount:
+          type: integer
+          minimum: 0
+
+        visitors:
+          type: array
+          items:
+            $ref: "#/components/schemas/BeenThereVisitor"
+
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    PostBeenThereMutationData:
+      type: object
+      required:
+        - postId
+        - viewerBeenThere
+        - beenThereCount
+      properties:
+        postId:
+          type: string
+          format: uuid
+
+        viewerBeenThere:
+          type: boolean
+
+        beenThereCount:
+          type: integer
+          minimum: 0
+
+    CommentAuthor:
+      type: object
+      required:
+        - id
+        - username
+        - displayName
+        - isVerified
+        - profilePhoto
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        username:
+          type: string
+          nullable: true
+
+        displayName:
+          type: string
+          nullable: true
+
+        isVerified:
+          type: boolean
+
+        profilePhoto:
+          $ref: "#/components/schemas/ProfilePhoto"
+
+    Comment:
+      type: object
+      required:
+        - id
+        - postId
+        - comment
+        - parentCommentId
+        - isReply
+        - likeCount
+        - createdAt
+        - updatedAt
+        - author
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        postId:
+          type: string
+          format: uuid
+
+        comment:
+          type: string
+          maxLength: 250
+
+        parentCommentId:
+          type: string
+          format: uuid
+          nullable: true
+
+        isReply:
+          type: boolean
+
+        likeCount:
+          type: integer
+          minimum: 0
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+        author:
+          $ref: "#/components/schemas/CommentAuthor"
+
+    TopLevelComment:
+      allOf:
+        - $ref: "#/components/schemas/Comment"
+        - type: object
+          required:
+            - replyCount
+            - viewerIsAuthor
+          properties:
+            replyCount:
+              type: integer
+              minimum: 0
+
+            viewerIsAuthor:
+              type: boolean
+
+    PostCommentsListData:
+      type: object
+      required:
+        - postId
+        - commentCount
+        - comments
+        - pagination
+      properties:
+        postId:
+          type: string
+          format: uuid
+
+        commentCount:
+          type: integer
+          minimum: 0
+
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopLevelComment"
+
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    CreateCommentData:
+      type: object
+      required:
+        - comment
+        - commentCount
+      properties:
+        comment:
+          $ref: "#/components/schemas/Comment"
+
+        commentCount:
+          type: integer
+          minimum: 0
+
+    CommentLikeData:
+      type: object
+      required:
+        - commentId
+        - viewerHasLiked
+        - likeCount
+      properties:
+        commentId:
+          type: string
+          format: uuid
+
+        viewerHasLiked:
+          type: boolean
+
+        likeCount:
+          type: integer
+          minimum: 0
+
+    SavedItem:
+      type: object
+      nullable: true
+      required:
+        - id
+        - savedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+
+        savedAt:
+          type: string
+          format: date-time
+
+    SavedPostData:
+      type: object
+      required:
+        - postId
+        - viewerHasSaved
+        - savedItem
+      properties:
+        postId:
+          type: string
+          format: uuid
+
+        viewerHasSaved:
+          type: boolean
+
+        savedItem:
+          allOf:
+            - $ref: "#/components/schemas/SavedItem"
+          nullable: true
+
+    SuccessEnvelope:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+
+        message:
+          type: string
+
+        data:
+          type: object
+
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
+
+        timestamp:
+          type: string
+          format: date-time
+
+    PostReactionsResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PostReactionsData"
+
+    PostReactionMutationResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PostReactionMutationData"
+
+    PostBeenThereListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PostBeenThereListData"
+
+    PostBeenThereMutationResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PostBeenThereMutationData"
+
+    PostCommentsListResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PostCommentsListData"
+
+    CreateCommentResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreateCommentData"
+
+    CommentLikeResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CommentLikeData"
+
+    SavedPostResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/SavedPostData"
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - code
+        - message
+        - details
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+
+        code:
+          type: string
+
+        message:
+          type: string
+
+        details:
+          nullable: true
+
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
+
+        timestamp:
+          type: string
+          format: date-time
