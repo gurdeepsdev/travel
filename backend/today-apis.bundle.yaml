@@ -381,6 +381,46 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  "/users/{username}":
+    get:
+      tags:
+        - Profile
+      summary: Get a user profile by username
+      description: >
+        Returns another user's public profile. Authentication is optional.
+        Private profiles are available only to the profile owner or an accepted
+        connection. Profiles across a block relationship are hidden. The
+        response includes userId, isPrivate, and savedItems but does not expose
+        private verification evidence.
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+            pattern: ^[a-z0-9_]+$
+      responses:
+        "200":
+          description: Profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicProfileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: |
+            Profile was not found or is hidden by privacy or block rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   "/comments/{commentId}":
     delete:
       tags:
@@ -442,9 +482,10 @@ paths:
         - Memories
       summary: Save a private memory
       description: >
-        Saves an owned, active media asset as an IMAGE, VIDEO, or BOOMERANG
-        memory. IMAGE requires image MIME media. VIDEO and BOOMERANG require
-        video MIME media. Repeated saves are idempotent.
+        Saves either an existing owned media asset or one newly uploaded
+        memoryFile as an IMAGE, VIDEO, or BOOMERANG memory. IMAGE requires image
+        MIME media. VIDEO and BOOMERANG require video MIME media. Provide
+        exactly one of assetId or memoryFile. Repeated saves are idempotent.
       operationId: saveMemory
       security:
         - bearerAuth: []
@@ -454,6 +495,9 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/SaveMemoryRequest"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/SaveMemoryMultipartRequest"
       responses:
         "201":
           description: Memory saved successfully
@@ -467,6 +511,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/MemoryAssetNotAllowed"
+        "413":
+          $ref: "#/components/responses/MemoryMediaTooLarge"
+        "415":
+          $ref: "#/components/responses/MemoryMediaInvalidType"
     get:
       tags:
         - Memories
@@ -2002,6 +2050,38 @@ components:
             details: null
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: 2026-08-04T11:22:08.691Z
+    MemoryMediaTooLarge:
+      description: Uploaded memory media exceeds its permitted size
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEMORY.MEDIA_TOO_LARGE
+            message: Memory media is too large.
+            details:
+              field: memoryFile
+              maximumBytes: 262144000
+            requestId: 1e573acd-0633-4c84-b478-634055f390bb
+            timestamp: 2026-08-17T05:33:36.636Z
+    MemoryMediaInvalidType:
+      description: >
+        Uploaded media is unsupported, has a mismatched signature, or does not
+        match memoryType.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: MEMORY.MEDIA_INVALID_TYPE
+            message: Memory type does not match the uploaded media.
+            details:
+              memoryType: VIDEO
+              detectedMediaType: IMAGE
+            requestId: 1e573acd-0633-4c84-b478-634055f390bb
+            timestamp: 2026-08-17T05:33:44.704Z
   schemas:
     SuccessBase:
       type: object
@@ -2272,6 +2352,67 @@ components:
           type: string
           format: date-time
           nullable: true
+    PublicProfile:
+      type: object
+      required:
+        - userId
+        - username
+        - displayName
+        - bio
+        - profilePhoto
+        - coverPhoto
+        - country
+        - city
+        - socialLinks
+        - isPrivate
+        - isVerified
+        - stats
+        - preferredVisitedCollections
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        profilePhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        coverPhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        country:
+          $ref: "#/components/schemas/ProfileCountry"
+        city:
+          $ref: "#/components/schemas/ProfileCity"
+        socialLinks:
+          type: object
+        isPrivate:
+          type: boolean
+        isVerified:
+          type: boolean
+        stats:
+          $ref: "#/components/schemas/ProfileStats"
+        preferredVisitedCollections:
+          type: array
+          items:
+            type: object
+    PublicProfileResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - profile
+              properties:
+                profile:
+                  $ref: "#/components/schemas/PublicProfile"
     ProfileUpdateResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -2419,6 +2560,25 @@ components:
             - IMAGE
             - VIDEO
             - BOOMERANG
+    SaveMemoryMultipartRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - memoryType
+        - memoryFile
+      properties:
+        memoryType:
+          type: string
+          enum:
+            - IMAGE
+            - VIDEO
+            - BOOMERANG
+        memoryFile:
+          type: string
+          format: binary
+          description: >
+            One image or video file. Images may be at most 25 MiB. Videos may be
+            at most 250 MiB. BOOMERANG uses video media.
     MemoryAsset:
       type: object
       required:

@@ -266,8 +266,8 @@ paths:
         Returns another user's public profile. Authentication is optional.
         Private profiles are available only to the profile owner or an
         accepted connection. Profiles across a block relationship are hidden.
-        The response includes savedItems but does not expose userId or private
-        verification evidence.
+        The response includes userId, isPrivate, and savedItems but does not
+        expose private verification evidence.
       operationId: getUserProfile
       security:
         - bearerAuth: []
@@ -958,6 +958,7 @@ components:
     PublicProfile:
       type: object
       required:
+        - userId
         - username
         - displayName
         - bio
@@ -966,10 +967,14 @@ components:
         - country
         - city
         - socialLinks
+        - isPrivate
         - isVerified
         - stats
         - preferredVisitedCollections
       properties:
+        userId:
+          type: string
+          format: uuid
         username:
           type: string
           nullable: true
@@ -989,6 +994,8 @@ components:
           $ref: "#/components/schemas/ProfileCity"
         socialLinks:
           type: object
+        isPrivate:
+          type: boolean
         isVerified:
           type: boolean
         stats:

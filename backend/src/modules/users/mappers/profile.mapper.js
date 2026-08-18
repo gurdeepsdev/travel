@@ -63,8 +63,9 @@ class ProfileMapper {
     }
 
     return {
+      userId: profile.user_id,
       username: profile.username ?? null,
-            displayName: profile.display_name ?? null,
+      displayName: profile.display_name ?? null,
       bio: profile.bio ?? null,
 
       profilePhoto: this.#mapMedia(profile, "profile_photo"),
@@ -75,6 +76,7 @@ class ProfileMapper {
 
       socialLinks: this.#mapSocialLinks(profile.social_links),
 
+      isPrivate: Boolean(profile.is_private),
       isVerified: Boolean(profile.is_verified),
 
            stats: {

@@ -29,8 +29,13 @@ import {
     profilesRepository,
   } from "../repositories/index.js";
 
-  import ConnectionsRepository
+import ConnectionsRepository
   from "../repositories/connections.repository.js";
+
+import {
+  decodeCursor,
+  encodeCursor,
+} from "../../../shared/utils/cursor.js";
   
   class PostService {
     /**
@@ -41,18 +46,28 @@ import {
       limit,
       cursor = null,
     }) {
+      const decodedCursor =
+        decodeCursor(cursor);
+
       const result =
         await PostsRepository.getMyPosts({
           userId,
           limit,
-          cursor,
+          cursor:
+            decodedCursor,
         });
   
       return {
         posts: result.rows,
         pagination: {
           hasMore: result.hasMore,
-          nextCursor: result.nextCursor,
+          nextCursor:
+            result.hasMore &&
+            result.nextCursor
+              ? encodeCursor(
+                  result.nextCursor,
+                )
+              : null,
         },
       };
     }
@@ -66,6 +81,9 @@ import {
       limit = 20,
       cursor = null,
     }) {
+      const decodedCursor =
+        decodeCursor(cursor);
+
       const normalizedUsername =
         typeof username === "string"
           ? username.trim()
@@ -191,14 +209,21 @@ import {
           targetUserId,
           viewerUserId,
           limit: safeLimit,
-          cursor,
+          cursor:
+            decodedCursor,
         });
   
       return {
         posts: result.rows,
         pagination: {
           hasMore: result.hasMore,
-          nextCursor: result.nextCursor,
+          nextCursor:
+            result.hasMore &&
+            result.nextCursor
+              ? encodeCursor(
+                  result.nextCursor,
+                )
+              : null,
         },
       };
     }
