@@ -19,8 +19,52 @@ describe("ProfileMapper toPublicResponse", () => {
         "user_98ef01e9",
       shareUrl:
         "https://artictern.com/u/user_98ef01e9",
+      relationship:
+        null,
       isPrivate:
         true,
     });
   });
+
+  test(
+    "maps the viewer relationship state",
+    () => {
+      const result =
+        ProfileMapper.toPublicResponse(
+          {
+            user_id:
+              "b3fe5214-e569-4300-8509-589785ad86f2",
+
+            username:
+              "user_98ef01e9",
+
+            is_private:
+              false,
+          },
+          {
+            status:
+              "OUTGOING_PENDING",
+
+            connectionId:
+              null,
+
+            requestId:
+              "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          },
+        );
+
+      expect(
+        result.relationship,
+      ).toEqual({
+        status:
+          "OUTGOING_PENDING",
+
+        connectionId:
+          null,
+
+        requestId:
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+      });
+    },
+  );
 });

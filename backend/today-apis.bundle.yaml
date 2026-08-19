@@ -391,8 +391,9 @@ paths:
         Returns another user's public profile. Authentication is optional.
         Private profiles are available only to the profile owner or an accepted
         connection. Profiles across a block relationship are hidden. The
-        response includes userId, isPrivate, and savedItems but does not expose
-        private verification evidence.
+        response includes userId, isPrivate, savedItems, shareUrl, and the
+        viewer's current relationship state when authenticated. It does not
+        expose private verification evidence.
       operationId: getUserProfile
       security:
         - bearerAuth: []
@@ -2561,12 +2562,37 @@ components:
                         $ref: "#/components/schemas/BlockedUserSummary"
                 pagination:
                   $ref: "#/components/schemas/Pagination"
+    ProfileRelationship:
+      type: object
+      nullable: true
+      required:
+        - status
+        - connectionId
+        - requestId
+      properties:
+        status:
+          type: string
+          enum:
+            - SELF
+            - NONE
+            - OUTGOING_PENDING
+            - INCOMING_PENDING
+            - CONNECTED
+        connectionId:
+          type: string
+          format: uuid
+          nullable: true
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
     PublicProfile:
       type: object
       required:
         - userId
         - username
         - shareUrl
+        - relationship
         - displayName
         - bio
         - profilePhoto
@@ -2589,6 +2615,8 @@ components:
           type: string
           nullable: true
           example: https://artictern.com/u/user_98ef01e9
+        relationship:
+          $ref: "#/components/schemas/ProfileRelationship"
         displayName:
           type: string
           nullable: true

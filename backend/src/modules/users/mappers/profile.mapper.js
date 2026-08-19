@@ -64,10 +64,10 @@ class ProfileMapper {
     };
   }
 
-  toPublicResponse(profile) {
-    if (!profile) {
-      return null;
-    }
+  toPublicResponse(
+    profile,
+    relationship = null,
+  ) {
 
     return {
            userId:
@@ -80,6 +80,10 @@ class ProfileMapper {
       shareUrl:
         this.#buildProfileShareUrl(
           profile.username,
+        ),
+              relationship:
+        this.#mapRelationship(
+          relationship,
         ),
             displayName: profile.display_name ?? null,
       bio: profile.bio ?? null,
@@ -121,6 +125,27 @@ class ProfileMapper {
         this.#mapPreferredVisitedCollections(
           profile.preferred_visited_collections,
         ),
+    };
+  }
+
+  #mapRelationship(
+    relationship,
+  ) {
+    if (!relationship) {
+      return null;
+    }
+
+    return {
+      status:
+        relationship.status,
+
+      connectionId:
+        relationship.connectionId ??
+        null,
+
+      requestId:
+        relationship.requestId ??
+        null,
     };
   }
 
