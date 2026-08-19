@@ -165,10 +165,20 @@ class ProfileService {
       viewerUserId ===
       profile.user_id;
 
-    if (isOwner) {
+       if (isOwner) {
       return profileMapper
         .toPublicResponse(
           profile,
+          {
+            status:
+              "SELF",
+
+            connectionId:
+              null,
+
+            requestId:
+              null,
+          },
         );
     }
 
@@ -203,10 +213,67 @@ class ProfileService {
       throw new UserNotFoundError();
     }
 
-    return profileMapper
+       return profileMapper
       .toPublicResponse(
         profile,
+        this.createProfileRelationship({
+          viewerUserId,
+          relationship,
+        }),
       );
+  }
+
+  createProfileRelationship({
+    viewerUserId,
+    relationship,
+  }) {
+    if (
+      relationship.is_connected
+    ) {
+      return {
+        status:
+          "CONNECTED",
+
+        connectionId:
+          relationship.connection_id ??
+          null,
+
+        requestId:
+          null,
+      };
+    }
+
+    if (
+      relationship
+        .pending_request_id
+    ) {
+      return {
+        status:
+          relationship
+            .pending_sender_user_id ===
+          viewerUserId
+            ? "OUTGOING_PENDING"
+            : "INCOMING_PENDING",
+
+        connectionId:
+          null,
+
+        requestId:
+          relationship
+            .pending_request_id,
+      };
+    }
+
+    return {
+      status:
+        "NONE",
+
+      connectionId:
+        null,
+
+      requestId:
+        null,
+    };
   }
 
   /**

@@ -1336,25 +1336,81 @@ request.sender_user_id
     otherUserId,
   }) {
     const sql = `
+      WITH current_connection
+        AS MATERIALIZED (
+        SELECT
+          connection.id,
+          connection.connected_at
+
+        FROM users.connections
+          AS connection
+
+        WHERE connection.user_low_id =
+            LEAST(
+              $1::uuid,
+              $2::uuid
+            )
+
+          AND connection.user_high_id =
+            GREATEST(
+              $1::uuid,
+              $2::uuid
+            )
+
+        LIMIT 1
+      ),
+
+      pending_request
+        AS MATERIALIZED (
+        SELECT
+          request.id,
+          request.sender_user_id,
+          request.receiver_user_id,
+          request.status,
+          request.created_at
+
+        FROM users.connection_requests
+          AS request
+
+        WHERE request.status =
+            'PENDING'
+
+          AND LEAST(
+            request.sender_user_id,
+            request.receiver_user_id
+          ) =
+            LEAST(
+              $1::uuid,
+              $2::uuid
+            )
+
+          AND GREATEST(
+            request.sender_user_id,
+            request.receiver_user_id
+          ) =
+            GREATEST(
+              $1::uuid,
+              $2::uuid
+            )
+
+        ORDER BY
+          request.created_at DESC,
+          request.id DESC
+
+        LIMIT 1
+      )
+
       SELECT
         EXISTS (
           SELECT 1
-
-          FROM users.connections
-            AS connection
-
-          WHERE connection.user_low_id =
-              LEAST(
-                $1::uuid,
-                $2::uuid
-              )
-
-            AND connection.user_high_id =
-              GREATEST(
-                $1::uuid,
-                $2::uuid
-              )
+          FROM current_connection
         ) AS is_connected,
+
+        (
+          SELECT
+            current_connection.id
+          FROM current_connection
+        ) AS connection_id,
 
         EXISTS (
           SELECT 1
@@ -1376,7 +1432,25 @@ request.sender_user_id
             AND blocked.blocked_user_id =
               $1::uuid
           )
-        ) AS is_blocked
+        ) AS is_blocked,
+
+        (
+          SELECT
+            pending_request.id
+          FROM pending_request
+        ) AS pending_request_id,
+
+        (
+          SELECT
+            pending_request.sender_user_id
+          FROM pending_request
+        ) AS pending_sender_user_id,
+
+        (
+          SELECT
+            pending_request.receiver_user_id
+          FROM pending_request
+        ) AS pending_receiver_user_id
     `;
 
     const { rows } =
@@ -1392,8 +1466,20 @@ request.sender_user_id
       is_connected:
         false,
 
+      connection_id:
+        null,
+
       is_blocked:
         false,
+
+      pending_request_id:
+        null,
+
+      pending_sender_user_id:
+        null,
+
+      pending_receiver_user_id:
+        null,
     };
   }
 

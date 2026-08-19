@@ -304,6 +304,155 @@ databaseMock
       });
   });
 
+  describe(
+    "createProfileRelationship",
+    () => {
+      test(
+        "returns CONNECTED for an accepted connection",
+        () => {
+          expect(
+            ProfileService
+              .createProfileRelationship({
+                viewerUserId:
+                  USER_ID,
+
+                relationship: {
+                  is_connected:
+                    true,
+
+                  connection_id:
+                    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+
+                  pending_request_id:
+                    null,
+
+                  pending_sender_user_id:
+                    null,
+                },
+              }),
+          ).toEqual({
+            status:
+              "CONNECTED",
+
+            connectionId:
+              "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+
+            requestId:
+              null,
+          });
+        },
+      );
+
+      test(
+        "returns OUTGOING_PENDING when the viewer sent the request",
+        () => {
+          expect(
+            ProfileService
+              .createProfileRelationship({
+                viewerUserId:
+                  USER_ID,
+
+                relationship: {
+                  is_connected:
+                    false,
+
+                  connection_id:
+                    null,
+
+                  pending_request_id:
+                    "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+
+                  pending_sender_user_id:
+                    USER_ID,
+                },
+              }),
+          ).toEqual({
+            status:
+              "OUTGOING_PENDING",
+
+            connectionId:
+              null,
+
+            requestId:
+              "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          });
+        },
+      );
+
+      test(
+        "returns INCOMING_PENDING when the profile user sent the request",
+        () => {
+          expect(
+            ProfileService
+              .createProfileRelationship({
+                viewerUserId:
+                  USER_ID,
+
+                relationship: {
+                  is_connected:
+                    false,
+
+                  connection_id:
+                    null,
+
+                  pending_request_id:
+                    "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+
+                  pending_sender_user_id:
+                    OTHER_USER_ID,
+                },
+              }),
+          ).toEqual({
+            status:
+              "INCOMING_PENDING",
+
+            connectionId:
+              null,
+
+            requestId:
+              "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+          });
+        },
+      );
+
+      test(
+        "returns NONE without a current connection or pending request",
+        () => {
+          expect(
+            ProfileService
+              .createProfileRelationship({
+                viewerUserId:
+                  USER_ID,
+
+                relationship: {
+                  is_connected:
+                    false,
+
+                  connection_id:
+                    null,
+
+                  pending_request_id:
+                    null,
+
+                  pending_sender_user_id:
+                    null,
+                },
+              }),
+          ).toEqual({
+            status:
+              "NONE",
+
+            connectionId:
+              null,
+
+            requestId:
+              null,
+          });
+        },
+      );
+    },
+  );
+
   describe("getUserProfile", () => {
     const publicProfileRow = {
       user_id:
