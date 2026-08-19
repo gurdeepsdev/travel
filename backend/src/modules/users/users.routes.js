@@ -12,6 +12,9 @@ import SavedContentController from "./controllers/saved-content.controller.js";
 import MemoriesController from "./controllers/memories.controller.js";
 import ConnectionsController
   from "./controllers/connections.controller.js";
+
+  import BlocksController
+  from "./controllers/blocks.controller.js";
 import VisitedPlacesController
   from "./controllers/visited-places.controller.js";
 
@@ -53,7 +56,11 @@ import {
   sendConnectionRequestSchema,
 } from "./validations/connections.validation.js";
 
-
+import {
+  blockUserSchema,
+  getBlockedUsersSchema,
+  unblockUserSchema,
+} from "./validations/blocks.validation.js";
 import {
   getMyVisitedPlacesSchema,
   submitVisitedPlaceVerificationSchema,
@@ -142,6 +149,18 @@ router.get(
   ConnectionsController
     .getConnectionSuggestions,
 );
+
+// List users blocked by the authenticated user.
+router.get(
+  "/me/blocked-users",
+  AuthMiddleware.authenticate,
+  validate(
+    getBlockedUsersSchema,
+  ),
+  BlocksController
+    .getBlockedUsers,
+);
+
 
 // Verify an attraction and its city using a historical photo.
 router.post(
@@ -243,6 +262,27 @@ router.post(
     reportUserSchema,
   ),
   ReportsController.reportUser,
+);
+
+
+// Block another user and remove active relationships.
+router.post(
+  "/:userId/block",
+  AuthMiddleware.authenticate,
+  validate(
+    blockUserSchema,
+  ),
+  BlocksController.blockUser,
+);
+
+// Remove a block created by the authenticated user.
+router.delete(
+  "/:userId/block",
+  AuthMiddleware.authenticate,
+  validate(
+    unblockUserSchema,
+  ),
+  BlocksController.unblockUser,
 );
 
 // Get another user's profile.

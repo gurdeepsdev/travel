@@ -21,6 +21,7 @@ tags:
   - name: Connections
   - name: Connection Requests
   - name: Connection Suggestions
+  - name: Blocks
 paths:
   /posts:
     post:
@@ -1875,6 +1876,82 @@ paths:
               schema:
                 $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
                   json/schema"
+  "/users/{userId}/block":
+    post:
+      tags:
+        - Blocks
+      summary: Block a user
+      description: >
+        Blocks an active user. Repeated requests are idempotent. Any accepted
+        connection between the users is removed and pending connection requests
+        in either direction are cancelled.
+      operationId: blockUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User blocked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockUserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: User was not found or is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Blocks
+      summary: Unblock a user
+      description: >
+        Removes a block created by the authenticated user. Repeated requests
+        succeed with unblocked set to false.
+      operationId: unblockUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Unblock operation completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnblockUserResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /users/me/blocked-users:
+    get:
+      tags:
+        - Blocks
+      summary: List blocked users
+      operationId: getBlockedUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Blocked users fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockedUsersResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 components:
   securitySchemes:
     bearerAuth:
@@ -1882,6 +1959,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     CommentId:
       name: commentId
       in: path
@@ -2352,11 +2436,137 @@ components:
           type: string
           format: date-time
           nullable: true
+    BlockedUserProfilePhoto:
+      type: object
+      nullable: true
+      required:
+        - id
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+    BlockedUserSummary:
+      type: object
+      required:
+        - id
+        - username
+        - displayName
+        - isVerified
+        - isPrivate
+        - profilePhoto
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        isPrivate:
+          type: boolean
+        profilePhoto:
+          $ref: "#/components/schemas/BlockedUserProfilePhoto"
+    BlockUserResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - blocked
+                - block
+                - connectionRemoved
+                - connectionRequestsCancelled
+              properties:
+                blocked:
+                  type: boolean
+                  enum:
+                    - true
+                block:
+                  type: object
+                  required:
+                    - id
+                    - createdAt
+                    - user
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    createdAt:
+                      type: string
+                      format: date-time
+                    user:
+                      $ref: "#/components/schemas/BlockedUserSummary"
+                connectionRemoved:
+                  type: boolean
+                connectionRequestsCancelled:
+                  type: integer
+                  minimum: 0
+    UnblockUserResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - unblocked
+                - userId
+              properties:
+                unblocked:
+                  type: boolean
+                userId:
+                  type: string
+                  format: uuid
+    BlockedUsersResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - blockedUsers
+                - pagination
+              properties:
+                blockedUsers:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - blockId
+                      - blockedAt
+                      - user
+                    properties:
+                      blockId:
+                        type: string
+                        format: uuid
+                      blockedAt:
+                        type: string
+                        format: date-time
+                      user:
+                        $ref: "#/components/schemas/BlockedUserSummary"
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
     PublicProfile:
       type: object
       required:
         - userId
         - username
+        - shareUrl
         - displayName
         - bio
         - profilePhoto
@@ -2375,6 +2585,10 @@ components:
         username:
           type: string
           nullable: true
+        shareUrl:
+          type: string
+          nullable: true
+          example: https://artictern.com/u/user_98ef01e9
         displayName:
           type: string
           nullable: true

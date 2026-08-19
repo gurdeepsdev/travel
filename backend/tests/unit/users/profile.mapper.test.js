@@ -17,6 +17,8 @@ describe("ProfileMapper toPublicResponse", () => {
         "b3fe5214-e569-4300-8509-589785ad86f2",
       username:
         "user_98ef01e9",
+      shareUrl:
+        "https://artictern.com/u/user_98ef01e9",
       isPrivate:
         true,
     });
