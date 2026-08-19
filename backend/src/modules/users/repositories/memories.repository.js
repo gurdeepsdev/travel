@@ -19,7 +19,17 @@ class MemoriesRepository {
     userId,
     assetId,
     memoryType,
+    client = null,
   }) {
+    const executeQuery =
+      client
+        ? client.query.bind(
+            client,
+          )
+        : Database.query.bind(
+            Database,
+          );
+
     const sql = `
       WITH eligible_asset AS (
         SELECT
@@ -122,7 +132,7 @@ class MemoriesRepository {
           saved_memory.asset_id
     `;
 
-    const { rows } = await Database.query(
+    const { rows } = await executeQuery(
       sql,
       [
         userId,
