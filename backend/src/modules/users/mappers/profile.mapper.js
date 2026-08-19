@@ -9,8 +9,14 @@ class ProfileMapper {
     }
 
     return {
-      userId: profile.user_id,
-      username: profile.username ?? null,
+            userId:
+        profile.user_id,
+
+      username:
+        profile.username ??
+        null,
+
+
             displayName: profile.display_name ?? null,
       bio: profile.bio ?? null,
 
@@ -19,6 +25,7 @@ class ProfileMapper {
       // Your current DB does not contain cover_photo_asset_id.
       // This will automatically return null.
       coverPhoto: this.#mapMedia(profile, "cover_photo"),
+
 
       country: this.#mapCountry(profile),
       city: this.#mapCity(profile),
@@ -63,8 +70,17 @@ class ProfileMapper {
     }
 
     return {
-      userId: profile.user_id,
-      username: profile.username ?? null,
+           userId:
+        profile.user_id,
+
+      username:
+        profile.username ??
+        null,
+
+      shareUrl:
+        this.#buildProfileShareUrl(
+          profile.username,
+        ),
             displayName: profile.display_name ?? null,
       bio: profile.bio ?? null,
 
@@ -106,6 +122,30 @@ class ProfileMapper {
           profile.preferred_visited_collections,
         ),
     };
+  }
+
+    #buildProfileShareUrl(
+    username,
+  ) {
+    if (!username) {
+      return null;
+    }
+
+    const baseUrl =
+      (
+        process.env
+          .PUBLIC_WEB_URL ??
+        "https://artictern.com"
+      )
+        .trim()
+        .replace(
+          /\/+$/,
+          "",
+        );
+
+    return `${baseUrl}/u/${encodeURIComponent(
+      username,
+    )}`;
   }
 
   #mapCountry(profile) {
