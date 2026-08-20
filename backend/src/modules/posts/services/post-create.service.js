@@ -273,6 +273,7 @@ class PostCreateService {
     caption,
     visibility,
     placeId,
+    googlePlaceId,
     existingAssetIds,
     mediaOrder,
     itineraryIds,
@@ -431,12 +432,17 @@ class PostCreateService {
       transactionResult =
         await Database.transaction(
           async (client) => {
-            const place =
-              await PostCreateRepository
-                .findEligiblePlace({
-                  client,
-                  placeId,
-                });
+            const place = placeId
+              ? await PostCreateRepository
+                  .findEligiblePlace({
+                    client,
+                    placeId,
+                  })
+              : await PostCreateRepository
+                  .findEligibleGooglePlace({
+                    client,
+                    googlePlaceId,
+                  });
 
             if (!place) {
               throw createReferenceError({
@@ -574,7 +580,9 @@ class PostCreateService {
                   userId,
                   caption,
                   visibility,
-                  placeId,
+
+                  placeId:
+                    place.id,
                 });
 
             await PostCreateRepository
