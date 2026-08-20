@@ -756,14 +756,36 @@ paths:
             schema:
               type: object
               additionalProperties: false
+              description: >
+                Provide exactly one place identifier: placeId for an internal
+                Artictern place UUID, or googlePlaceId for a Google Places
+                provider ID already available in the places catalogue.
+              oneOf:
+                - required:
+                    - placeId
+                - required:
+                    - googlePlaceId
               required:
-                - placeId
                 - verificationPhoto
               properties:
                 placeId:
                   type: string
                   format: uuid
-                  description: Canonical POI place identifier
+                  description: Internal Artictern place UUID. Do not send with googlePlaceId.
+                googlePlaceId:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  description: Google Places provider ID. Do not send with placeId.
+                  example: ChIJArticternVisitedPlaceTest
+                googleCityPlaceId:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  description: >
+                    Optional Google city Place ID. When supplied, the resolved
+                    place must belong to this city.
+                  example: ChIJdd4hrwug2EcRmSrV3Vo6llI
                 claimedVisitedAt:
                   type: string
                   format: date-time
@@ -3503,6 +3525,14 @@ components:
           maxLength: 255
           description: Google Places provider ID. Do not send with placeId.
           example: ChIJArticternPostCreateTest
+        googleCityPlaceId:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: >
+            Optional Google city Place ID. When supplied, the resolved place
+            must belong to this city.
+          example: ChIJdd4hrwug2EcRmSrV3Vo6llI
         files:
           type: array
           maxItems: 10

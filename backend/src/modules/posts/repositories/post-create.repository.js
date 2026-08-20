@@ -2,6 +2,7 @@ class PostCreateRepository {
   async findEligiblePlace({
     client,
     placeId,
+    googleCityPlaceId = null,
   }) {
     const {
       rows,
@@ -10,13 +11,26 @@ class PostCreateRepository {
         SELECT
           place.id,
           place.name,
-          place.is_closed
+          place.is_closed,
+          place.city_id
 
         FROM poi.places place
+
+        INNER JOIN poi.cities city
+          ON city.id = place.city_id
 
         WHERE place.id = $1
           AND place.is_closed
             IS FALSE
+          AND (
+            $2::varchar IS NULL
+            OR (
+              city.provider =
+                'GOOGLE_PLACES'
+              AND city.provider_id =
+                $2
+            )
+          )
 
         LIMIT 1
 
@@ -24,6 +38,7 @@ class PostCreateRepository {
       `,
       [
         placeId,
+        googleCityPlaceId,
       ],
     );
 
@@ -33,6 +48,7 @@ class PostCreateRepository {
   async findEligibleGooglePlace({
     client,
     googlePlaceId,
+    googleCityPlaceId = null,
   }) {
     const {
       rows,
@@ -43,9 +59,13 @@ class PostCreateRepository {
           place.name,
           place.is_closed,
           place.provider,
-          place.provider_id
+          place.provider_id,
+          place.city_id
 
         FROM poi.places place
+
+        INNER JOIN poi.cities city
+          ON city.id = place.city_id
 
         WHERE place.provider =
             'GOOGLE_PLACES'
@@ -53,6 +73,15 @@ class PostCreateRepository {
             $1
           AND place.is_closed
             IS FALSE
+          AND (
+            $2::varchar IS NULL
+            OR (
+              city.provider =
+                'GOOGLE_PLACES'
+              AND city.provider_id =
+                $2
+            )
+          )
 
         LIMIT 1
 
@@ -60,6 +89,7 @@ class PostCreateRepository {
       `,
       [
         googlePlaceId,
+        googleCityPlaceId,
       ],
     );
 

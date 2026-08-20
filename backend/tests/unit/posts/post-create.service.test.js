@@ -14,6 +14,9 @@ const PLACE_ID =
 const GOOGLE_PLACE_ID =
   "ChIJLfySpTOuEmsRsc_JfJtljdc";
 
+const GOOGLE_CITY_PLACE_ID =
+  "ChIJdd4hrwug2EcRmSrV3Vo6llI";
+
 const ITINERARY_ID =
   "11111111-1111-4111-8111-111111111111";
 
@@ -482,6 +485,9 @@ describe(
 
                 googlePlaceId:
                   GOOGLE_PLACE_ID,
+
+                googleCityPlaceId:
+                  GOOGLE_CITY_PLACE_ID,
               }),
             );
 
@@ -494,6 +500,9 @@ describe(
 
           googlePlaceId:
             GOOGLE_PLACE_ID,
+
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
         });
 
         expect(

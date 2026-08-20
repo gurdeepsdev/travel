@@ -4,7 +4,9 @@ import Database
 class VisitedPlacesRepository {
   async findVerificationContext({
     userId,
-    placeId,
+    placeId = null,
+    googlePlaceId = null,
+    googleCityPlaceId = null,
     evidenceSha256,
   }) {
     const sql = `
@@ -17,6 +19,12 @@ class VisitedPlacesRepository {
             AS place_id,
 
           $3::varchar
+            AS google_place_id,
+
+          $4::varchar
+            AS google_city_place_id,
+
+          $5::varchar
             AS evidence_sha256
       )
 
@@ -77,6 +85,18 @@ class VisitedPlacesRepository {
           AND city.id IS NOT NULL
           AND city.is_active
             IS TRUE
+          AND (
+            requested_input
+                .google_city_place_id
+              IS NULL
+            OR (
+              city.provider =
+                'GOOGLE_PLACES'
+              AND city.provider_id =
+                requested_input
+                  .google_city_place_id
+            )
+          )
           AND place.latitude
             IS NOT NULL
           AND place.longitude
@@ -106,8 +126,20 @@ class VisitedPlacesRepository {
 
       LEFT JOIN poi.places
         AS place
-        ON place.id =
+        ON (
           requested_input.place_id
+            IS NOT NULL
+          AND place.id =
+            requested_input.place_id
+        )
+        OR (
+          requested_input.google_place_id
+            IS NOT NULL
+          AND place.provider =
+            'GOOGLE_PLACES'
+          AND place.provider_id =
+            requested_input.google_place_id
+        )
 
       LEFT JOIN poi.cities
         AS city
@@ -132,7 +164,7 @@ class VisitedPlacesRepository {
             requested_input.user_id
 
           AND visited_place.place_id =
-            requested_input.place_id
+            place.id
 
         LIMIT 1
       ) AS existing_visit
@@ -185,6 +217,8 @@ class VisitedPlacesRepository {
       [
         userId,
         placeId,
+        googlePlaceId,
+        googleCityPlaceId,
         evidenceSha256,
       ],
     );

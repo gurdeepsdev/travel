@@ -8,6 +8,9 @@ const USER_ID =
 const GOOGLE_PLACE_ID =
   "ChIJLfySpTOuEmsRsc_JfJtljdc";
 
+const GOOGLE_CITY_PLACE_ID =
+  "ChIJdd4hrwug2EcRmSrV3Vo6llI";
+
 const createPostMock =
   jest.fn();
 
@@ -82,6 +85,9 @@ describe(
               googlePlaceId:
                 GOOGLE_PLACE_ID,
 
+              googleCityPlaceId:
+                GOOGLE_CITY_PLACE_ID,
+
               existingAssetIds: [],
 
               mediaOrder: [],
@@ -136,6 +142,9 @@ describe(
 
           googlePlaceId:
             GOOGLE_PLACE_ID,
+
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
 
           existingAssetIds: [],
 

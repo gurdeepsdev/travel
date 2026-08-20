@@ -76,7 +76,40 @@ const submitVisitedPlaceVerificationSchema =
           .trim()
           .uuid(
             "Place ID must be a valid UUID.",
-          ),
+          )
+          .optional(),
+
+        googlePlaceId: z
+          .string({
+            error:
+              "Google Place ID must be a string.",
+          })
+          .trim()
+          .min(
+            1,
+            "Google Place ID cannot be empty.",
+          )
+          .max(
+            255,
+            "Google Place ID cannot exceed 255 characters.",
+          )
+          .optional(),
+
+        googleCityPlaceId: z
+          .string({
+            error:
+              "Google city Place ID must be a string.",
+          })
+          .trim()
+          .min(
+            1,
+            "Google city Place ID cannot be empty.",
+          )
+          .max(
+            255,
+            "Google city Place ID cannot exceed 255 characters.",
+          )
+          .optional(),
 
         claimedVisitedAt: z
           .iso
@@ -89,7 +122,33 @@ const submitVisitedPlaceVerificationSchema =
           })
           .optional(),
       })
-      .strict(),
+      .strict()
+      .superRefine(
+        (
+          value,
+          context,
+        ) => {
+          const identifierCount =
+            Number(
+              Boolean(value.placeId),
+            ) +
+            Number(
+              Boolean(
+                value.googlePlaceId,
+              ),
+            );
+
+          if (identifierCount !== 1) {
+            context.addIssue({
+              code:
+                "custom",
+
+              message:
+                "Provide either placeId or googlePlaceId, but not both.",
+            });
+          }
+        },
+      ),
 
     query: z
       .object({})
