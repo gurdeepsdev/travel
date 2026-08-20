@@ -2,6 +2,76 @@ import Database
   from "../../../database/database-manager.js";
 
 class VisitedPlacesRepository {
+  async findCityVerificationContext({
+    client = Database,
+    userId,
+    googleCityPlaceId,
+    evidenceSha256,
+  }) {
+    const sql = `
+      SELECT
+        city.id AS city_id,
+        city.name AS city_name,
+        city.official_name
+          AS city_official_name,
+        city.latitude AS city_latitude,
+        city.longitude AS city_longitude,
+        city.icon_asset_id
+          AS city_icon_asset_id,
+        country.id AS country_id,
+        country.name AS country_name,
+        (
+          city.id IS NOT NULL
+          AND city.is_active IS TRUE
+          AND city.latitude IS NOT NULL
+          AND city.longitude IS NOT NULL
+        ) AS city_available,
+        user_collection.id
+          AS existing_collection_id,
+        user_collection.verification_status
+          AS existing_collection_verified,
+        duplicate_evidence.id
+          AS duplicate_visit_id
+
+      FROM poi.cities city
+
+      INNER JOIN poi.countries country
+        ON country.id = city.country_id
+
+      LEFT JOIN users.collection
+        AS user_collection
+        ON user_collection.user_id = $1::uuid
+        AND user_collection.city_id = city.id
+
+      LEFT JOIN LATERAL (
+        SELECT visited_place.id
+        FROM users.visited_places
+          AS visited_place
+        WHERE $3::varchar IS NOT NULL
+          AND visited_place.evidence_sha256 =
+            $3::varchar
+        LIMIT 1
+      ) AS duplicate_evidence
+        ON TRUE
+
+      WHERE city.provider = 'GOOGLE_PLACES'
+        AND city.provider_id = $2::varchar
+
+      LIMIT 1
+    `;
+
+    const { rows } = await client.query(
+      sql,
+      [
+        userId,
+        googleCityPlaceId,
+        evidenceSha256,
+      ],
+    );
+
+    return rows[0] ?? null;
+  }
+
   async findVerificationContext({
     userId,
     placeId = null,
@@ -616,6 +686,117 @@ class VisitedPlacesRepository {
         JSON.stringify(
           verificationDetails ?? {},
         ),
+      ],
+    );
+
+    return rows[0] ?? null;
+  }
+
+  async saveVerifiedCity({
+    client,
+    userId,
+    cityId,
+    verificationAssetId,
+    visitedAt,
+  }) {
+    const sql = `
+      WITH city_lock AS MATERIALIZED (
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(
+            $1::uuid::text || ':' ||
+            $2::uuid::text,
+            0
+          )
+        )
+      ),
+      eligible_context AS MATERIALIZED (
+        SELECT
+          city.id AS city_id,
+          city.name AS city_name,
+          city.official_name
+            AS city_official_name,
+          city.icon_asset_id,
+          country.id AS country_id,
+          country.name AS country_name,
+          asset.id AS verification_asset_id
+        FROM city_lock
+        INNER JOIN poi.cities city
+          ON city.id = $2::uuid
+          AND city.is_active IS TRUE
+        INNER JOIN poi.countries country
+          ON country.id = city.country_id
+        INNER JOIN media.assets asset
+          ON asset.id = $3::uuid
+          AND asset.uploaded_by = $1::uuid
+          AND asset.deleted_at IS NULL
+          AND LOWER(asset.mime_type)
+            LIKE 'image/%'
+        FOR KEY SHARE OF city, asset
+      ),
+      verified_collection AS (
+        INSERT INTO users.collection
+          AS user_collection (
+            user_id,
+            city_id,
+            collections_name,
+            icon_asset_id,
+            verification_asset_id,
+            verification_status,
+            visited_at,
+            is_preference
+          )
+        SELECT
+          $1::uuid,
+          eligible_context.city_id,
+          eligible_context.city_name,
+          eligible_context.icon_asset_id,
+          eligible_context.verification_asset_id,
+          TRUE,
+          $4::timestamptz,
+          FALSE
+        FROM eligible_context
+        ON CONFLICT (user_id, city_id)
+        DO UPDATE SET
+          collections_name =
+            EXCLUDED.collections_name,
+          icon_asset_id = COALESCE(
+            user_collection.icon_asset_id,
+            EXCLUDED.icon_asset_id
+          ),
+          verification_asset_id =
+            EXCLUDED.verification_asset_id,
+          verification_status = TRUE,
+          visited_at = COALESCE(
+            user_collection.visited_at,
+            EXCLUDED.visited_at
+          ),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE user_collection
+                .verification_status
+              IS FALSE
+        RETURNING user_collection.*
+      )
+      SELECT
+        verified_collection.*,
+        eligible_context.city_name,
+        eligible_context.city_official_name,
+        eligible_context.country_id,
+        eligible_context.country_name,
+        TRUE AS collection_created
+      FROM verified_collection
+      INNER JOIN eligible_context
+        ON eligible_context.city_id =
+          verified_collection.city_id
+      LIMIT 1
+    `;
+
+    const { rows } = await client.query(
+      sql,
+      [
+        userId,
+        cityId,
+        verificationAssetId,
+        visitedAt,
       ],
     );
 

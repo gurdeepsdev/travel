@@ -39,6 +39,9 @@ import {
   encodeCursor,
 } from "../../../shared/utils/cursor.js";
 
+const CITY_VERIFICATION_RADIUS_METERS =
+  50 * 1000;
+
 function uniqueStorageObjects(
   objects,
 ) {
@@ -287,28 +290,49 @@ class VisitedPlacesService {
         inspectedEvidence.temporaryPath,
       );
 
-    const context =
-      await VisitedPlacesRepository
-        .findVerificationContext({
-          userId,
-          placeId,
-          googlePlaceId,
-          googleCityPlaceId,
+    const isCityOnlyVerification =
+      !placeId &&
+      !googlePlaceId &&
+      Boolean(googleCityPlaceId);
 
-          evidenceSha256:
-            inspectedEvidence.checksum,
-        });
+    const context =
+      isCityOnlyVerification
+        ? await VisitedPlacesRepository
+            .findCityVerificationContext({
+              userId,
+              googleCityPlaceId,
+              evidenceSha256:
+                inspectedEvidence.checksum,
+            })
+        : await VisitedPlacesRepository
+            .findVerificationContext({
+              userId,
+              placeId,
+              googlePlaceId,
+              googleCityPlaceId,
+              evidenceSha256:
+                inspectedEvidence.checksum,
+            });
 
     if (
       !context ||
-      context.place_available !==
-        true
+      (
+        isCityOnlyVerification
+          ? context.city_available !== true
+          : context.place_available !== true
+      )
     ) {
       throw createPlaceNotAvailableError();
     }
 
     if (
-      context.existing_visit_id
+      isCityOnlyVerification
+        ? context
+            .existing_collection_verified ===
+          true
+        : Boolean(
+            context.existing_visit_id,
+          )
     ) {
       throw new AppError({
         code:
@@ -317,14 +341,18 @@ class VisitedPlacesService {
             .EVIDENCE_REJECTED,
 
         message:
-          "This place is already verified for the user.",
+          isCityOnlyVerification
+            ? "This city is already verified for the user."
+            : "This place is already verified for the user.",
 
         statusCode:
           HttpStatus.CONFLICT,
 
         details: {
           reason:
-            "PLACE_ALREADY_VERIFIED",
+            isCityOnlyVerification
+              ? "CITY_ALREADY_VERIFIED"
+              : "PLACE_ALREADY_VERIFIED",
         },
       });
     }
@@ -339,12 +367,21 @@ class VisitedPlacesService {
       evaluateVisitedPlaceEvidence({
         metadata,
 
+        radiusMeters:
+          isCityOnlyVerification
+            ? CITY_VERIFICATION_RADIUS_METERS
+            : undefined,
+
         place: {
           latitude:
-            context.place_latitude,
+            isCityOnlyVerification
+              ? context.city_latitude
+              : context.place_latitude,
 
           longitude:
-            context.place_longitude,
+            isCityOnlyVerification
+              ? context.city_longitude
+              : context.place_longitude,
         },
       });
 
@@ -482,39 +519,42 @@ class VisitedPlacesService {
             };
 
             const visit =
-              await VisitedPlacesRepository
-                .saveVerifiedVisit({
-                  client,
-                  userId,
-                  placeId:
-                    context.place_id,
-
-                  verificationAssetId:
-                    evidenceAsset.id,
-
-                  claimedVisitedAt,
-
-                  evidenceCapturedAt:
-                    metadata.capturedAt,
-
-                  evidenceLatitude:
-                    metadata.latitude,
-
-                  evidenceLongitude:
-                    metadata.longitude,
-
-                  evidenceSha256:
-                    inspectedEvidence
-                      .checksum,
-
-                  evidencePerceptualHash:
-                    null,
-
-                  visitedAt:
-                    metadata.capturedAt,
-
-                  verificationDetails,
-                });
+              isCityOnlyVerification
+                ? await VisitedPlacesRepository
+                    .saveVerifiedCity({
+                      client,
+                      userId,
+                      cityId:
+                        context.city_id,
+                      verificationAssetId:
+                        evidenceAsset.id,
+                      visitedAt:
+                        metadata.capturedAt,
+                    })
+                : await VisitedPlacesRepository
+                    .saveVerifiedVisit({
+                      client,
+                      userId,
+                      placeId:
+                        context.place_id,
+                      verificationAssetId:
+                        evidenceAsset.id,
+                      claimedVisitedAt,
+                      evidenceCapturedAt:
+                        metadata.capturedAt,
+                      evidenceLatitude:
+                        metadata.latitude,
+                      evidenceLongitude:
+                        metadata.longitude,
+                      evidenceSha256:
+                        inspectedEvidence
+                          .checksum,
+                      evidencePerceptualHash:
+                        null,
+                      visitedAt:
+                        metadata.capturedAt,
+                      verificationDetails,
+                    });
 
             if (!visit) {
               throw createPlaceNotAvailableError();
@@ -526,8 +566,8 @@ class VisitedPlacesService {
              * Roll back this transaction and its asset.
              */
             if (
-              visit.visit_created !==
-                true
+              !isCityOnlyVerification &&
+              visit.visit_created !== true
             ) {
               throw new AppError({
                 code:
@@ -551,6 +591,7 @@ class VisitedPlacesService {
             return {
               visit,
               evidenceAsset,
+              verificationDetails,
 
               cleanupObjects: [
                 ...resolved
@@ -594,15 +635,26 @@ class VisitedPlacesService {
         "Failed to clean unused visit evidence storage object.",
     });
 
-    return VisitedPlacesMapper
-      .toVerificationResponse({
-        row:
-          transactionResult.visit,
-
-        asset:
-          transactionResult
-            .evidenceAsset,
-      });
+    return isCityOnlyVerification
+      ? VisitedPlacesMapper
+          .toCityVerificationResponse({
+            row:
+              transactionResult.visit,
+            asset:
+              transactionResult
+                .evidenceAsset,
+            verificationDetails:
+              transactionResult
+                .verificationDetails,
+          })
+      : VisitedPlacesMapper
+          .toVerificationResponse({
+            row:
+              transactionResult.visit,
+            asset:
+              transactionResult
+                .evidenceAsset,
+          });
   }
 
 

@@ -3,6 +3,68 @@ import {
 } from "../utils/asset-url.util.js";
 
 class VisitedPlacesMapper {
+  static toCityVerificationResponse({
+    row,
+    asset,
+    verificationDetails,
+  }) {
+    if (!row?.id) {
+      return null;
+    }
+
+    return {
+      visitCreated: true,
+      verification: {
+        status: "VERIFIED",
+        confidence:
+          verificationDetails?.confidence ??
+          null,
+        method:
+          verificationDetails
+            ?.verificationMethod ??
+          null,
+        distanceMeters:
+          verificationDetails
+            ?.distanceMeters ??
+          null,
+        radiusMeters:
+          verificationDetails
+            ?.radiusMeters ??
+          null,
+      },
+      visitedPlace: null,
+      cityCollection: {
+        id: row.id,
+        cityId: row.city_id,
+        name: row.city_name ?? null,
+        verificationStatus: true,
+        visitedAt: row.visited_at ?? null,
+        isPreference:
+          row.is_preference === true,
+        iconAssetId:
+          row.icon_asset_id ?? null,
+        evidence: {
+          assetId:
+            row.verification_asset_id ??
+            asset?.id ??
+            null,
+          url: buildAssetUrl({
+            assetId:
+              asset?.id ??
+              row.verification_asset_id ??
+              null,
+            storageProvider:
+              asset?.storage_provider ?? null,
+            storageKey:
+              asset?.storage_key ?? null,
+            isPublic:
+              asset?.is_public === true,
+          }),
+        },
+      },
+    };
+  }
+
   static toVerificationResponse({
     row,
     asset,

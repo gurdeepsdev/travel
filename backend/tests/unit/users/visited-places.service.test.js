@@ -65,7 +65,13 @@ const repositoryMock = {
   findVerificationContext:
     jest.fn(),
 
+  findCityVerificationContext:
+    jest.fn(),
+
   saveVerifiedVisit:
+    jest.fn(),
+
+  saveVerifiedCity:
     jest.fn(),
 
   updateCollectionPreference:
@@ -77,6 +83,9 @@ const repositoryMock = {
 
 const mapperMock = {
   toVerificationResponse:
+    jest.fn(),
+
+  toCityVerificationResponse:
     jest.fn(),
 
   toPreferenceResponse:
@@ -470,11 +479,60 @@ describe(
           createVisit(),
         );
 
+      repositoryMock
+        .findCityVerificationContext
+        .mockResolvedValue({
+          city_id:
+            CITY_ID,
+          city_name:
+            "Noida",
+          city_latitude:
+            28.5672,
+          city_longitude:
+            77.321,
+          city_available:
+            true,
+          existing_collection_id:
+            null,
+          existing_collection_verified:
+            false,
+          duplicate_visit_id:
+            null,
+        });
+
+      repositoryMock
+        .saveVerifiedCity
+        .mockResolvedValue({
+          id:
+            COLLECTION_ID,
+          city_id:
+            CITY_ID,
+          city_name:
+            "Noida",
+          verification_asset_id:
+            ASSET_ID,
+          verification_status:
+            true,
+          visited_at:
+            "2024-06-15T14:20:00.000Z",
+          is_preference:
+            false,
+        });
+
       mapperMock
         .toVerificationResponse
         .mockReturnValue({
           visitCreated:
             true,
+        });
+
+      mapperMock
+        .toCityVerificationResponse
+        .mockReturnValue({
+          visitCreated:
+            true,
+          visitedPlace:
+            null,
         });
     });
 
@@ -753,6 +811,66 @@ describe(
               PLACE_ID,
           }),
         );
+      },
+    );
+
+    test(
+      "verifies a city using only its Google city Place ID",
+      async () => {
+        const result = await submit({
+          placeId:
+            null,
+          googlePlaceId:
+            null,
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
+        });
+
+        expect(
+          repositoryMock
+            .findCityVerificationContext,
+        ).toHaveBeenCalledWith({
+          userId:
+            USER_ID,
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
+          evidenceSha256:
+            CHECKSUM,
+        });
+
+        expect(
+          repositoryMock
+            .findVerificationContext,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          repositoryMock
+            .saveVerifiedCity,
+        ).toHaveBeenCalledWith({
+          client:
+            transactionClient,
+          userId:
+            USER_ID,
+          cityId:
+            CITY_ID,
+          verificationAssetId:
+            ASSET_ID,
+          visitedAt:
+            "2024-06-15T14:20:00.000Z",
+        });
+
+        expect(
+          mapperMock
+            .toCityVerificationResponse,
+        ).toHaveBeenCalled();
+
+        expect(result)
+          .toEqual({
+            visitCreated:
+              true,
+            visitedPlace:
+              null,
+          });
       },
     );
 
