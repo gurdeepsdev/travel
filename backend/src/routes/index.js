@@ -7,6 +7,9 @@ import usersRoutes from "../modules/users/users.routes.js";
 import postsRoutes from "../modules/posts/posts.routes.js";
 import commentsRoutes from "../modules/posts/comments.routes.js";
 import mediaRoutes from "../modules/media/media.routes.js";
+import exploreRoutes
+  from "../modules/explore/explore.routes.js";
+
 const router = Router();
 
 router.use("/health", healthRoutes);
@@ -20,5 +23,10 @@ router.use(
   "/media",
   mediaRoutes,
 );
+router.use(
+  "/explore",
+  exploreRoutes,
+);
+
 
 export default router;

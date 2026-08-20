@@ -16,6 +16,7 @@ class PostSavesRepository {
         SELECT post.id
         FROM explore.posts post
         WHERE post.id = $2::uuid
+          AND post.deleted_at IS NULL
         FOR KEY SHARE
       )
 
