@@ -138,13 +138,19 @@ const submitVisitedPlaceVerificationSchema =
               ),
             );
 
-          if (identifierCount !== 1) {
+          if (
+            identifierCount > 1 ||
+            (
+              identifierCount === 0 &&
+              !value.googleCityPlaceId
+            )
+          ) {
             context.addIssue({
               code:
                 "custom",
 
               message:
-                "Provide either placeId or googlePlaceId, but not both.",
+                "Provide placeId, googlePlaceId, or googleCityPlaceId. Do not send placeId with googlePlaceId.",
             });
           }
         },
