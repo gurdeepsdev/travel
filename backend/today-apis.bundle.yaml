@@ -741,12 +741,13 @@ paths:
     post:
       tags:
         - Visited Places
-      summary: Verify a visited place
+      summary: Verify a visited place or city
       operationId: submitVisitedPlaceVerification
       description: >
         Verifies a historical gallery photo using EXIF GPS and capture time.
-        When an attraction is verified, its city becomes verified for the
-        authenticated user. The uploaded photo remains private.
+        A city can be verified directly with googleCityPlaceId, or indirectly
+        through an internal or Google place identifier. The uploaded photo
+        remains private.
       security:
         - bearerAuth: []
       requestBody:
@@ -757,14 +758,20 @@ paths:
               type: object
               additionalProperties: false
               description: >
-                Provide exactly one place identifier: placeId for an internal
-                Artictern place UUID, or googlePlaceId for a Google Places
-                provider ID already available in the places catalogue.
-              oneOf:
+                Provide placeId, googlePlaceId, or googleCityPlaceId. A city-only
+                verification requires only googleCityPlaceId and the photo.
+                placeId and googlePlaceId cannot be sent together.
+              anyOf:
                 - required:
                     - placeId
                 - required:
                     - googlePlaceId
+                - required:
+                    - googleCityPlaceId
+              not:
+                required:
+                  - placeId
+                  - googlePlaceId
               required:
                 - verificationPhoto
               properties:
@@ -783,8 +790,9 @@ paths:
                   minLength: 1
                   maxLength: 255
                   description: >
-                    Optional Google city Place ID. When supplied, the resolved
-                    place must belong to this city.
+                    Google city Place ID. Send it alone for city-only
+                    verification, or with a place identifier to confirm the
+                    place belongs to that city.
                   example: ChIJdd4hrwug2EcRmSrV3Vo6llI
                 claimedVisitedAt:
                   type: string
@@ -798,7 +806,7 @@ paths:
                     15 MB.
       responses:
         "201":
-          description: Visited place verified successfully
+          description: Visited place or city verified successfully
           content:
             application/json:
               schema:
