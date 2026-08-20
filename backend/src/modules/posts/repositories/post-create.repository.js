@@ -2,7 +2,6 @@ class PostCreateRepository {
   async findEligiblePlace({
     client,
     placeId,
-    googleCityPlaceId = null,
   }) {
     const {
       rows,
@@ -10,27 +9,20 @@ class PostCreateRepository {
       `
         SELECT
           place.id,
+          place.id
+            AS place_id,
+          NULL::uuid
+            AS city_id,
+          'PLACE'::varchar
+            AS target_type,
           place.name,
-          place.is_closed,
-          place.city_id
+          place.is_closed
 
         FROM poi.places place
-
-        INNER JOIN poi.cities city
-          ON city.id = place.city_id
 
         WHERE place.id = $1
           AND place.is_closed
             IS FALSE
-          AND (
-            $2::varchar IS NULL
-            OR (
-              city.provider =
-                'GOOGLE_PLACES'
-              AND city.provider_id =
-                $2
-            )
-          )
 
         LIMIT 1
 
@@ -38,58 +30,79 @@ class PostCreateRepository {
       `,
       [
         placeId,
-        googleCityPlaceId,
       ],
     );
 
     return rows[0] ?? null;
   }
 
-  async findEligibleGooglePlace({
+  async findEligibleGoogleLocation({
     client,
-    googlePlaceId,
-    googleCityPlaceId = null,
+    googleId,
   }) {
     const {
       rows,
     } = await client.query(
       `
+        WITH matching_locations AS (
+          SELECT
+            place.id,
+            place.id
+              AS place_id,
+            NULL::uuid
+              AS city_id,
+            'PLACE'::varchar
+              AS target_type,
+            place.name,
+            1 AS target_priority
+
+          FROM poi.places place
+
+          WHERE place.provider =
+              'GOOGLE_PLACES'
+            AND place.provider_id =
+              $1
+            AND place.is_closed
+              IS FALSE
+
+          UNION ALL
+
+          SELECT
+            city.id,
+            NULL::uuid
+              AS place_id,
+            city.id
+              AS city_id,
+            'CITY'::varchar
+              AS target_type,
+            city.name,
+            2 AS target_priority
+
+          FROM poi.cities city
+
+          WHERE city.provider =
+              'GOOGLE_PLACES'
+            AND city.provider_id =
+              $1
+            AND city.is_active
+              IS TRUE
+        )
+
         SELECT
-          place.id,
-          place.name,
-          place.is_closed,
-          place.provider,
-          place.provider_id,
-          place.city_id
+          id,
+          place_id,
+          city_id,
+          target_type,
+          name
 
-        FROM poi.places place
+        FROM matching_locations
 
-        INNER JOIN poi.cities city
-          ON city.id = place.city_id
-
-        WHERE place.provider =
-            'GOOGLE_PLACES'
-          AND place.provider_id =
-            $1
-          AND place.is_closed
-            IS FALSE
-          AND (
-            $2::varchar IS NULL
-            OR (
-              city.provider =
-                'GOOGLE_PLACES'
-              AND city.provider_id =
-                $2
-            )
-          )
+        ORDER BY target_priority
 
         LIMIT 1
-
-        FOR KEY SHARE
       `,
       [
-        googlePlaceId,
-        googleCityPlaceId,
+        googleId,
       ],
     );
 
@@ -235,7 +248,9 @@ class PostCreateRepository {
     userId,
     caption,
     visibility,
-    placeId,
+    placeId = null,
+    cityId = null,
+    postType,
   }) {
     const {
       rows,
@@ -246,14 +261,16 @@ class PostCreateRepository {
           caption,
           post_type,
           visibility,
-          place_id
+          place_id,
+          city_id
         )
         VALUES (
           $1,
           $2,
-          'PLACE',
           $3,
-          $4
+          $4,
+          $5,
+          $6
         )
         RETURNING
           id,
@@ -262,6 +279,7 @@ class PostCreateRepository {
           post_type,
           visibility,
           place_id,
+          city_id,
           comment_count,
           share_count,
           view_count,
@@ -271,8 +289,10 @@ class PostCreateRepository {
       [
         userId,
         caption ?? null,
+        postType,
         visibility,
         placeId,
+        cityId,
       ],
     );
 
