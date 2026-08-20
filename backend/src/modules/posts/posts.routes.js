@@ -8,7 +8,8 @@ import PostBeenThereController from "./controllers/post-been-there.controller.js
 import PostCommentsController from "./controllers/post-comments.controller.js";
 import PostSavesController from "./controllers/post-saves.controller.js";
 import PostCreateController from "./controllers/post-create.controller.js";
-
+import PostDeleteController
+  from "./controllers/post-delete.controller.js";
 import ReportsController
   from "../reports/controllers/reports.controller.js";
 
@@ -46,6 +47,9 @@ import {
   createPostSchema,
 } from "./validations/post-create.validation.js";
 
+import {
+  deletePostSchema,
+} from "./validations/post-delete.validation.js";
 
 const router = Router();
 
@@ -56,6 +60,14 @@ router.post(
   postMediaUploadMiddleware,
   validate(createPostSchema),
   PostCreateController.createPost,
+);
+
+// Soft-delete a post owned by the authenticated user.
+router.delete(
+  "/:postId",
+  AuthMiddleware.authenticate,
+  validate(deletePostSchema),
+  PostDeleteController.deletePost,
 );
 
 //add reaction
@@ -124,6 +136,7 @@ router.get(
   validate(getPostCommentsSchema),
   PostCommentsController.getPostComments,
 );
+
 
 
 // Save or reactivate a post.

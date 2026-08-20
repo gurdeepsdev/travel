@@ -1,17 +1,14 @@
 openapi: 3.0.3
-
 info:
   title: Artictern Recently Implemented APIs
   version: 1.1.0
   description: >
-    APIs implemented for saved content, partial profile updates,
-    comment deletion, comment liker visibility, private memories,
-    multipart post creation, and access-controlled local media delivery.
-
+    APIs implemented for saved content, partial profile updates, comment
+    deletion, comment liker visibility, private memories, multipart post
+    creation, and access-controlled local media delivery.
 servers:
   - url: http://localhost:3001/api/v1
     description: Local development
-
 tags:
   - name: Saved Content
   - name: Profile
@@ -19,27 +16,189 @@ tags:
   - name: Comment Likes
   - name: Memories
   - name: Post Creation
+  - name: Post Management
   - name: Media Delivery
   - name: Visited Places
   - name: Connections
   - name: Connection Requests
   - name: Connection Suggestions
   - name: Blocks
-
+  - name: Explore
 paths:
+  /explore/feed:
+    get:
+      tags:
+        - Explore
+      summary: Get the composite Explore feed
+      description: >
+        Returns public posts with popular-city and nearby-place discovery
+        modules inserted on the first page. Authentication is optional.
+        Anonymous viewers receive at most 20 posts without a next cursor.
+        Authenticated viewers receive opaque cursor pagination.
+      operationId: getExploreFeed
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: latitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - name: longitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - name: radiusKm
+          in: query
+          description: Requires latitude and longitude.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 500
+            default: 50
+        - name: limit
+          in: query
+          description: Number of posts, excluding discovery modules.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Explore feed fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreFeedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /explore/cities:
+    get:
+      tags:
+        - Explore
+      summary: List popular cities
+      operationId: getExploreCities
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: Explore cities fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreCitiesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  "/explore/cities/{cityId}/places":
+    get:
+      tags:
+        - Explore
+      summary: List places in a city
+      description: Returns open places whose city_id matches the path city ID.
+      operationId: getExploreCityPlaces
+      parameters:
+        - name: cityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: City places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreCityPlacesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /explore/places:
+    get:
+      tags:
+        - Explore
+      summary: List nearby or globally ranked places
+      description: >
+        When latitude and longitude are supplied, returns open places within
+        radiusKm ordered by distance. Without coordinates, returns open places
+        using rating, review count, and name ordering.
+      operationId: getExplorePlaces
+      parameters:
+        - name: latitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - name: longitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - name: radiusKm
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 500
+            default: 50
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: Explore places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExplorePlacesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /posts:
     post:
       tags:
         - Post Creation
       summary: Create a place post
       description: >
-        Creates a PLACE post for the authenticated user. The request
-        may contain newly uploaded media, existing media assets owned
-        by the user, owned itineraries, or a combination of these.
-        At least one media asset or itinerary is required. When newly
-        uploaded files and existing assets are combined, mediaOrder
-        must reference every file and existing asset exactly once.
-        The first ordered asset becomes the cover asset.
+        Creates a PLACE post for the authenticated user. The request may contain
+        newly uploaded media, existing media assets owned by the user, owned
+        itineraries, or a combination of these. At least one media asset or
+        itinerary is required. When newly uploaded files and existing assets are
+        combined, mediaOrder must reference every file and existing asset
+        exactly once. The first ordered asset becomes the cover asset.
       operationId: createPost
       security:
         - bearerAuth: []
@@ -52,9 +211,8 @@ paths:
             encoding:
               files:
                 contentType: >
-                  image/jpeg, image/png, image/webp, image/gif,
-                  image/heic, image/heif, video/mp4,
-                  video/quicktime, video/webm
+                  image/jpeg, image/png, image/webp, image/gif, image/heic,
+                  image/heif, video/mp4, video/quicktime, video/webm
       responses:
         "201":
           description: Post created successfully
@@ -74,9 +232,38 @@ paths:
           $ref: "#/components/responses/PostMediaInvalidType"
         "500":
           $ref: "#/components/responses/PostCreateFailed"
-
-
-
+  /posts/{postId}:
+    delete:
+      tags:
+        - Post Management
+      summary: Delete my post
+      description: >
+        Soft-deletes a post owned by the authenticated user. Missing,
+        already-deleted, and unowned posts return the same not-found response.
+      operationId: deletePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Post deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletePostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+        "500":
+          description: An unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /users/me/saved-posts:
     get:
       tags:
@@ -94,22 +281,67 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "./saved-content.openapi.yaml#/components/schemas/MySavedPostsResponse"
+                allOf:
+                  - type: object
+                    required:
+                      - success
+                      - message
+                      - data
+                      - requestId
+                      - timestamp
+                    properties:
+                      success:
+                        type: boolean
+                        enum:
+                          - true
+                      message:
+                        type: string
+                      data:
+                        type: object
+                      requestId:
+                        type: string
+                        format: uuid
+                        nullable: true
+                      timestamp:
+                        type: string
+                        format: date-time
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - posts
+                          - pagination
+                        properties:
+                          posts:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/CreatePostData/properties/post"
+                          pagination:
+                            type: object
+                            required:
+                              - hasMore
+                              - nextCursor
+                            properties:
+                              hasMore:
+                                type: boolean
+                              nextCursor:
+                                type: string
+                                nullable: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /media/assets/{assetId}/content:
+  "/media/assets/{assetId}/content":
     get:
       tags:
         - Media Delivery
       summary: Get local media content
       description: >
-        Delivers the binary content of a local media asset.
-        Authentication is optional for public assets. A private local
-        asset is delivered only when the authenticated viewer owns it.
-        Missing, unauthorized, and non-local assets are returned as
-        not found.
+        Delivers the binary content of a local media asset. Authentication is
+        optional for public assets. A private local asset is delivered only when
+        the authenticated viewer owns it. Missing, unauthorized, and non-local
+        assets are returned as not found.
       operationId: getMediaAssetContent
       security:
         - bearerAuth: []
@@ -122,8 +354,8 @@ paths:
           headers:
             Cache-Control:
               description: >
-                Public assets use public caching. Private assets use
-                private, no-store.
+                Public assets use public caching. Private assets use private,
+                no-store.
               schema:
                 type: string
             Content-Disposition:
@@ -174,16 +406,15 @@ paths:
           $ref: "#/components/responses/MediaAssetNotFound"
         "503":
           $ref: "#/components/responses/MediaContentUnavailable"
-          
-  /users/{username}/saved-places:
+  "/users/{username}/saved-places":
     get:
       tags:
         - Saved Content
       summary: Get public saved places for a user
       description: >
-        Returns canonical POI cards derived from accessible saved
-        posts. Authentication is optional. Private or blocked profile
-        relationships return an empty place list.
+        Returns canonical POI cards derived from accessible saved posts.
+        Authentication is optional. Private or blocked profile relationships
+        return an empty place list.
       operationId: getUserSavedPlaces
       security:
         - bearerAuth: []
@@ -204,7 +435,98 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "./saved-content.openapi.yaml#/components/schemas/UserSavedPlacesResponse"
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1saved-posts/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - username
+                          - places
+                          - pagination
+                        properties:
+                          username:
+                            type: string
+                          places:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - id
+                                - title
+                                - description
+                                - image
+                                - address
+                                - latitude
+                                - longitude
+                                - rating
+                                - reviewCount
+                                - isVerified
+                                - isClosed
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                title:
+                                  type: string
+                                  nullable: true
+                                description:
+                                  type: string
+                                  nullable: true
+                                image:
+                                  type: object
+                                  nullable: true
+                                  required:
+                                    - id
+                                    - storageProvider
+                                    - bucket
+                                    - storageKey
+                                    - url
+                                    - mimeType
+                                  properties:
+                                    id:
+                                      type: string
+                                      format: uuid
+                                    storageProvider:
+                                      type: string
+                                      nullable: true
+                                    bucket:
+                                      type: string
+                                      nullable: true
+                                    storageKey:
+                                      type: string
+                                      nullable: true
+                                    url:
+                                      type: string
+                                      nullable: true
+                                    mimeType:
+                                      type: string
+                                      nullable: true
+                                address:
+                                  type: string
+                                  nullable: true
+                                latitude:
+                                  type: number
+                                  nullable: true
+                                longitude:
+                                  type: number
+                                  nullable: true
+                                rating:
+                                  type: number
+                                  nullable: true
+                                reviewCount:
+                                  type: integer
+                                  minimum: 0
+                                isVerified:
+                                  type: boolean
+                                isClosed:
+                                  type: boolean
+                          pagination:
+                            $ref: "#/paths/~1users~1me~1saved-posts/get/responses/200/content/application~1\
+                              json/schema/allOf/1/properties/data/properties/pa\
+                              gination"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -213,16 +535,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
   /users/me/profile:
     patch:
       tags:
         - Profile
       summary: Partially update my profile
       description: >
-        Updates only fields supplied by the authenticated user.
-        Email, mobile, verification state, cover photo, and social
-        links are not accepted by this endpoint.
+        Updates only fields supplied by the authenticated user. Email, mobile,
+        verification state, cover photo, and social links are not accepted by
+        this endpoint.
       operationId: updateMyProfile
       security:
         - bearerAuth: []
@@ -245,8 +566,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: >
-            Profile, profile photo, country, or city was not found
-            or was not allowed.
+            Profile, profile photo, country, or city was not found or was not
+            allowed.
           content:
             application/json:
               schema:
@@ -257,17 +578,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /users/{username}:
+  "/users/{username}":
     get:
       tags:
         - Profile
       summary: Get a user profile by username
       description: >
         Returns another user's public profile. Authentication is optional.
-        Private profiles are available only to the profile owner or an
-        accepted connection. Profiles across a block relationship are hidden.
-        The response includes userId, isPrivate, savedItems, shareUrl, and the
+        Private profiles are available only to the profile owner or an accepted
+        connection. Profiles across a block relationship are hidden. The
+        response includes userId, isPrivate, savedItems, shareUrl, and the
         viewer's current relationship state when authenticated. It does not
         expose private verification evidence.
       operationId: getUserProfile
@@ -282,7 +602,7 @@ paths:
             type: string
             minLength: 3
             maxLength: 50
-            pattern: "^[a-z0-9_]+$"
+            pattern: ^[a-z0-9_]+$
       responses:
         "200":
           description: Profile fetched successfully
@@ -293,22 +613,21 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          description: >
+          description: |
             Profile was not found or is hidden by privacy or block rules.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /comments/{commentId}:
+  "/comments/{commentId}":
     delete:
       tags:
         - Comments
       summary: Delete a comment
       description: >
-        The comment author may delete their own comment. The owner
-        of the containing post may delete any comment on that post.
-        Deleting a parent comment cascades to replies and comment likes.
+        The comment author may delete their own comment. The owner of the
+        containing post may delete any comment on that post. Deleting a parent
+        comment cascades to replies and comment likes.
       operationId: deleteComment
       security:
         - bearerAuth: []
@@ -327,15 +646,14 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/CommentNotFound"
-
-  /comments/{commentId}/likes:
+  "/comments/{commentId}/likes":
     get:
       tags:
         - Comment Likes
       summary: List users who liked a comment
       description: >
-        Returns a cursor-paginated list of users who liked the
-        comment. Only the owner of the containing post may access it.
+        Returns a cursor-paginated list of users who liked the comment. Only the
+        owner of the containing post may access it.
       operationId: getCommentLikes
       security:
         - bearerAuth: []
@@ -356,7 +674,6 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/CommentNotFound"
-
   /users/me/memories:
     post:
       tags:
@@ -364,10 +681,9 @@ paths:
       summary: Save a private memory
       description: >
         Saves either an existing owned media asset or one newly uploaded
-        memoryFile as an IMAGE, VIDEO, or BOOMERANG memory. IMAGE requires
-        image MIME media. VIDEO and BOOMERANG require video MIME media.
-        Provide exactly one of assetId or memoryFile. Repeated saves are
-        idempotent.
+        memoryFile as an IMAGE, VIDEO, or BOOMERANG memory. IMAGE requires image
+        MIME media. VIDEO and BOOMERANG require video MIME media. Provide
+        exactly one of assetId or memoryFile. Repeated saves are idempotent.
       operationId: saveMemory
       security:
         - bearerAuth: []
@@ -397,14 +713,13 @@ paths:
           $ref: "#/components/responses/MemoryMediaTooLarge"
         "415":
           $ref: "#/components/responses/MemoryMediaInvalidType"
-
     get:
       tags:
         - Memories
       summary: Get my private memories
       description: >
-        Returns only the authenticated user's active memory assets,
-        ordered newest first using cursor pagination.
+        Returns only the authenticated user's active memory assets, ordered
+        newest first using cursor pagination.
       operationId: getMyMemories
       security:
         - bearerAuth: []
@@ -422,38 +737,1343 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /users/me/visited-place-verifications:
-    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-place-verifications"
-
-  /users/me/visited-collections/{collectionId}/preference:
-    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-collections~1{collectionId}~1preference"
-
+    post:
+      tags:
+        - Visited Places
+      summary: Verify a visited place
+      operationId: submitVisitedPlaceVerification
+      description: >
+        Verifies a historical gallery photo using EXIF GPS and capture time.
+        When an attraction is verified, its city becomes verified for the
+        authenticated user. The uploaded photo remains private.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - placeId
+                - verificationPhoto
+              properties:
+                placeId:
+                  type: string
+                  format: uuid
+                  description: Canonical POI place identifier
+                claimedVisitedAt:
+                  type: string
+                  format: date-time
+                  description: Optional claimed visit time with timezone
+                verificationPhoto:
+                  type: string
+                  format: binary
+                  description: >
+                    JPEG, PNG, WebP, HEIC, or HEIF image with a maximum size of
+                    15 MB.
+      responses:
+        "201":
+          description: Visited place verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - visitCreated
+                      - verification
+                      - visitedPlace
+                      - cityCollection
+                    properties:
+                      visitCreated:
+                        type: boolean
+                      verification:
+                        type: object
+                        required:
+                          - status
+                          - confidence
+                          - method
+                          - distanceMeters
+                          - radiusMeters
+                        properties:
+                          status:
+                            type: string
+                            enum:
+                              - VERIFIED
+                          confidence:
+                            type: string
+                            nullable: true
+                            example: MEDIUM
+                          method:
+                            type: string
+                            nullable: true
+                            example: EXIF_GPS_AND_CAPTURE_TIME
+                          distanceMeters:
+                            type: number
+                            format: double
+                            nullable: true
+                          radiusMeters:
+                            type: number
+                            format: double
+                            nullable: true
+                            example: 500
+                      visitedPlace:
+                        type: object
+                        required:
+                          - id
+                          - visitedAt
+                          - claimedVisitedAt
+                          - evidenceCapturedAt
+                          - visitSource
+                          - place
+                          - city
+                          - evidence
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          visitedAt:
+                            type: string
+                            format: date-time
+                          claimedVisitedAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          evidenceCapturedAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          visitSource:
+                            type: string
+                            example: PHOTO_VERIFICATION
+                          place:
+                            type: object
+                            required:
+                              - id
+                              - name
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+                                nullable: true
+                          city:
+                            type: object
+                            required:
+                              - id
+                              - name
+                              - officialName
+                              - country
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+                                nullable: true
+                              officialName:
+                                type: string
+                                nullable: true
+                              country:
+                                $ref: "#/paths/~1users~1me~1visited-collections~1%7BcollectionId%7D~1preference\
+                                  /patch/responses/200/content/application~1jso\
+                                  n/schema/properties/data/properties/collectio\
+                                  n/properties/city/properties/country"
+                          evidence:
+                            type: object
+                            required:
+                              - assetId
+                              - originalFilename
+                              - mimeType
+                              - extension
+                              - fileSize
+                              - isPublic
+                              - url
+                            properties:
+                              assetId:
+                                type: string
+                                format: uuid
+                                nullable: true
+                              originalFilename:
+                                type: string
+                                nullable: true
+                              mimeType:
+                                type: string
+                                nullable: true
+                              extension:
+                                type: string
+                                nullable: true
+                              fileSize:
+                                type: integer
+                                nullable: true
+                              isPublic:
+                                type: boolean
+                                example: false
+                              url:
+                                type: string
+                                nullable: true
+                                description: Authenticated media-content endpoint
+                      cityCollection:
+                        type: object
+                        required:
+                          - id
+                          - cityId
+                          - name
+                          - verificationStatus
+                          - visitedAt
+                          - isPreference
+                          - iconAssetId
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          cityId:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                            nullable: true
+                          verificationStatus:
+                            type: boolean
+                          visitedAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          isPreference:
+                            type: boolean
+                          iconAssetId:
+                            type: string
+                            format: uuid
+                            nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "400":
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "401":
+          $ref: "#/paths/~1users~1me~1visited-places/get/responses/401"
+        "404":
+          description: Place is unavailable for verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "409":
+          description: Place is already verified or evidence was already used
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "413":
+          description: Verification photo exceeds 15 MB
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "415":
+          description: Verification photo is not a supported image type
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "422":
+          description: Photo evidence could not verify the visit
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "500":
+          description: Verification evidence could not be processed or stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+  "/users/me/visited-collections/{collectionId}/preference":
+    patch:
+      tags:
+        - Visited Places
+      summary: Select or deselect a verified city
+      operationId: updateVisitedCollectionPreference
+      description: >
+        Selects or deselects an owned verified city for profile display. A user
+        may select no more than five verified cities.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: collectionId
+          in: path
+          required: true
+          description: Owned verified-city collection identifier
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - isPreference
+              properties:
+                isPreference:
+                  type: boolean
+            examples:
+              select:
+                summary: Select the city
+                value:
+                  isPreference: true
+              deselect:
+                summary: Deselect the city
+                value:
+                  isPreference: false
+      responses:
+        "200":
+          description: Verified-city preference updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - collection
+                    properties:
+                      collection:
+                        type: object
+                        required:
+                          - id
+                          - verificationStatus
+                          - visitedAt
+                          - isPreference
+                          - city
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          verificationStatus:
+                            type: boolean
+                          visitedAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          isPreference:
+                            type: boolean
+                          city:
+                            type: object
+                            required:
+                              - id
+                              - name
+                              - officialName
+                              - country
+                              - icon
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+                                nullable: true
+                              officialName:
+                                type: string
+                                nullable: true
+                              country:
+                                type: object
+                                required:
+                                  - id
+                                  - name
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                    nullable: true
+                                  name:
+                                    type: string
+                                    nullable: true
+                              icon:
+                                type: object
+                                nullable: true
+                                required:
+                                  - id
+                                  - url
+                                  - mimeType
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                  url:
+                                    type: string
+                                    nullable: true
+                                  mimeType:
+                                    type: string
+                                    nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "400":
+          $ref: "#/paths/~1users~1me~1visited-place-verifications/post/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1visited-places/get/responses/401"
+        "404":
+          description: Verified city collection was not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+        "409":
+          description: Maximum of five preferred verified cities reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
   /users/me/visited-places:
-    $ref: "./visited-places.openapi.yaml#/paths/~1users~1me~1visited-places"
-
-  /users/{userId}/connection-requests:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1{userId}~1connection-requests"
-
+    get:
+      tags:
+        - Visited Places
+      summary: List my verified visited places
+      operationId: getMyVisitedPlaces
+      description: >
+        Lists the authenticated user's verified visited places using stable
+        visited-time and UUID cursor pagination. Private verification evidence
+        is not returned.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of visited places to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque Base64URL pagination cursor
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+            pattern: ^[A-Za-z0-9_-]+$
+      responses:
+        "200":
+          description: Visited places fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - visitedPlaces
+                      - pagination
+                    properties:
+                      visitedPlaces:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - visitedAt
+                            - claimedVisitedAt
+                            - evidenceCapturedAt
+                            - verificationStatus
+                            - visitSource
+                            - place
+                            - cityCollection
+                            - city
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            visitedAt:
+                              type: string
+                              format: date-time
+                            claimedVisitedAt:
+                              type: string
+                              format: date-time
+                              nullable: true
+                            evidenceCapturedAt:
+                              type: string
+                              format: date-time
+                              nullable: true
+                            verificationStatus:
+                              type: string
+                              enum:
+                                - VERIFIED
+                            visitSource:
+                              type: string
+                              example: PHOTO_VERIFICATION
+                            place:
+                              type: object
+                              required:
+                                - id
+                                - name
+                                - location
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                name:
+                                  type: string
+                                  nullable: true
+                                location:
+                                  type: object
+                                  required:
+                                    - latitude
+                                    - longitude
+                                  properties:
+                                    latitude:
+                                      type: number
+                                      format: double
+                                      nullable: true
+                                    longitude:
+                                      type: number
+                                      format: double
+                                      nullable: true
+                            cityCollection:
+                              type: object
+                              required:
+                                - id
+                                - verificationStatus
+                                - isPreference
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                verificationStatus:
+                                  type: boolean
+                                isPreference:
+                                  type: boolean
+                            city:
+                              $ref: "#/paths/~1users~1me~1visited-collections~1%7BcollectionId%7D~1preference\
+                                /patch/responses/200/content/application~1json/\
+                                schema/properties/data/properties/collection/pr\
+                                operties/city"
+                      pagination:
+                        type: object
+                        required:
+                          - hasMore
+                          - nextCursor
+                        properties:
+                          hasMore:
+                            type: boolean
+                          nextCursor:
+                            type: string
+                            nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "400":
+          description: Pagination cursor or query parameters are invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - code
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    type: object
+                    nullable: true
+                    additionalProperties: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "401":
+          description: Access token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1visited-places/get/responses/400/content/applicatio\
+                  n~1json/schema"
+  "/users/{userId}/connection-requests":
+    post:
+      tags:
+        - Connection Requests
+      summary: Send a connection request
+      operationId: sendConnectionRequest
+      description: >
+        Sends a connection request from the authenticated user to the specified
+        user. Repeating an existing outgoing pending request is idempotent. A
+        reverse pending request must be explicitly accepted or rejected.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1users~1me~1connections~1%7BuserId%7D/delete/parameters/0"
+      responses:
+        "200":
+          description: Existing outgoing pending request returned
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - requestCreated
+                          - connectionRequest
+                        properties:
+                          requestCreated:
+                            type: boolean
+                          connectionRequest:
+                            allOf:
+                              - $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                  s/200/content/application~1json/schema/allOf/\
+                                  1/properties/data/properties/connectionReques\
+                                  t/allOf/0"
+                              - type: object
+                                required:
+                                  - recipient
+                                properties:
+                                  recipient:
+                                    $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                      s/200/content/application~1json/schema/al\
+                                      lOf/1/properties/data/properties/connecti\
+                                      onRequest/allOf/1/properties/sender"
+        "201":
+          description: New connection request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7BuserId%7D~1connection-requests/post/responses/200/co\
+                  ntent/application~1json/schema"
+        "400":
+          $ref: "#/paths/~1users~1me~1connections~1%7BuserId%7D/delete/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
+        "404":
+          description: Target user is missing, inactive, deleted, or blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
+                  json/schema"
+        "409":
+          description: Users are already connected or the request conflicts with current
+            state
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
+                  json/schema"
   /users/me/connection-requests/incoming:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1incoming"
-
+    get:
+      tags:
+        - Connection Requests
+      summary: List incoming connection requests
+      operationId: getIncomingConnectionRequests
+      description: >
+        Returns pending requests received by the authenticated user using stable
+        cursor pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/0"
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/1"
+      responses:
+        "200":
+          description: Incoming requests fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - connectionRequests
+                          - pagination
+                        properties:
+                          connectionRequests:
+                            type: array
+                            items:
+                              allOf:
+                                - $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                    s/200/content/application~1json/schema/allO\
+                                    f/1/properties/data/properties/connectionRe\
+                                    quest/allOf/0"
+                                - type: object
+                                  required:
+                                    - sender
+                                  properties:
+                                    sender:
+                                      $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                        s/200/content/application~1json/schema/\
+                                        allOf/1/properties/data/properties/conn\
+                                        ectionRequest/allOf/1/properties/sender"
+                          pagination:
+                            $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                              json/schema/allOf/1/properties/data/properties/pa\
+                              gination"
+        "400":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
   /users/me/connection-requests/outgoing:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1outgoing"
-
-  /users/me/connection-requests/{requestId}:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-requests~1{requestId}"
-
+    get:
+      tags:
+        - Connection Requests
+      summary: List outgoing connection requests
+      operationId: getOutgoingConnectionRequests
+      description: >
+        Returns pending requests sent by the authenticated user using stable
+        cursor pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/0"
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/1"
+      responses:
+        "200":
+          description: Outgoing requests fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - connectionRequests
+                          - pagination
+                        properties:
+                          connectionRequests:
+                            type: array
+                            items:
+                              allOf:
+                                - $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                    s/200/content/application~1json/schema/allO\
+                                    f/1/properties/data/properties/connectionRe\
+                                    quest/allOf/0"
+                                - type: object
+                                  required:
+                                    - recipient
+                                  properties:
+                                    recipient:
+                                      $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                        s/200/content/application~1json/schema/\
+                                        allOf/1/properties/data/properties/conn\
+                                        ectionRequest/allOf/1/properties/sender"
+                          pagination:
+                            $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                              json/schema/allOf/1/properties/data/properties/pa\
+                              gination"
+        "400":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
+  "/users/me/connection-requests/{requestId}":
+    patch:
+      tags:
+        - Connection Requests
+      summary: Accept or reject a connection request
+      operationId: respondToConnectionRequest
+      description: >
+        Allows only the stored receiver to accept or reject a pending request.
+        Repeating the same action is idempotent. Accepting creates one canonical
+        symmetric connection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - ACCEPT
+                    - REJECT
+            examples:
+              accept:
+                value:
+                  action: ACCEPT
+              reject:
+                value:
+                  action: REJECT
+      responses:
+        "200":
+          description: Request accepted, rejected, or already resolved with the same action
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - actionApplied
+                          - connectionRequest
+                          - connection
+                        properties:
+                          actionApplied:
+                            type: boolean
+                          connectionRequest:
+                            allOf:
+                              - type: object
+                                required:
+                                  - id
+                                  - senderUserId
+                                  - receiverUserId
+                                  - status
+                                  - createdAt
+                                  - updatedAt
+                                  - resolvedAt
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                  senderUserId:
+                                    type: string
+                                    format: uuid
+                                  receiverUserId:
+                                    type: string
+                                    format: uuid
+                                  status:
+                                    type: string
+                                    enum:
+                                      - PENDING
+                                      - ACCEPTED
+                                      - REJECTED
+                                      - CANCELLED
+                                  createdAt:
+                                    type: string
+                                    format: date-time
+                                  updatedAt:
+                                    type: string
+                                    format: date-time
+                                  resolvedAt:
+                                    type: string
+                                    format: date-time
+                                    nullable: true
+                              - type: object
+                                properties:
+                                  sender:
+                                    type: object
+                                    required:
+                                      - id
+                                      - username
+                                      - displayName
+                                      - isVerified
+                                      - isPrivate
+                                      - profilePhoto
+                                    properties:
+                                      id:
+                                        type: string
+                                        format: uuid
+                                      username:
+                                        type: string
+                                      displayName:
+                                        type: string
+                                        nullable: true
+                                      isVerified:
+                                        type: boolean
+                                      isPrivate:
+                                        type: boolean
+                                      profilePhoto:
+                                        allOf:
+                                          - type: object
+                                            required:
+                                              - id
+                                              - storageProvider
+                                              - storageKey
+                                              - url
+                                              - mimeType
+                                            properties:
+                                              id:
+                                                type: string
+                                                format: uuid
+                                              storageProvider:
+                                                type: string
+                                              bucket:
+                                                type: string
+                                                nullable: true
+                                              storageKey:
+                                                type: string
+                                              url:
+                                                type: string
+                                              mimeType:
+                                                type: string
+                                        nullable: true
+                          connection:
+                            allOf:
+                              - type: object
+                                required:
+                                  - id
+                                  - userLowId
+                                  - userHighId
+                                  - connectedAt
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                  userLowId:
+                                    type: string
+                                    format: uuid
+                                  userHighId:
+                                    type: string
+                                    format: uuid
+                                  connectedAt:
+                                    type: string
+                                    format: date-time
+                            nullable: true
+        "400":
+          $ref: "#/paths/~1users~1me~1connections~1%7BuserId%7D/delete/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
+        "404":
+          description: Connection request is missing or unavailable to this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
+                  json/schema"
+    delete:
+      tags:
+        - Connection Requests
+      summary: Cancel an outgoing connection request
+      operationId: cancelConnectionRequest
+      description: >
+        Allows only the stored sender to cancel a pending request. Repeating
+        cancellation is idempotent. Request history is preserved with status
+        CANCELLED.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/paramete\
+            rs/0"
+      responses:
+        "200":
+          description: Request cancelled or already cancelled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - actionApplied
+                          - connectionRequest
+                        properties:
+                          actionApplied:
+                            type: boolean
+                          connectionRequest:
+                            allOf:
+                              - $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                  s/200/content/application~1json/schema/allOf/\
+                                  1/properties/data/properties/connectionReques\
+                                  t/allOf/0"
+                              - type: object
+                                properties:
+                                  recipient:
+                                    $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                      s/200/content/application~1json/schema/al\
+                                      lOf/1/properties/data/properties/connecti\
+                                      onRequest/allOf/1/properties/sender"
+        "400":
+          $ref: "#/paths/~1users~1me~1connections~1%7BuserId%7D/delete/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
+        "404":
+          $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+            s/404"
   /users/me/connections:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connections"
-
+    get:
+      tags:
+        - Connections
+      summary: List my accepted connections
+      operationId: getMyConnections
+      description: >
+        Returns current accepted connections using stable cursor pagination.
+        Each item contains the other user relative to the authenticated user.
+        Internal user_low_id and user_high_id fields are not exposed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque Base64 URL-safe pagination cursor.
+          schema:
+            type: string
+            maxLength: 1024
+            pattern: ^[A-Za-z0-9_-]+$
+      responses:
+        "200":
+          description: Connections fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - success
+                      - message
+                      - data
+                    properties:
+                      success:
+                        type: boolean
+                        enum:
+                          - true
+                      message:
+                        type: string
+                      data:
+                        type: object
+                      requestId:
+                        type: string
+                        format: uuid
+                      timestamp:
+                        type: string
+                        format: date-time
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - connections
+                          - pagination
+                        properties:
+                          connections:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - id
+                                - connectedAt
+                                - user
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                connectedAt:
+                                  type: string
+                                  format: date-time
+                                user:
+                                  $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                    s/200/content/application~1json/schema/allO\
+                                    f/1/properties/data/properties/connectionRe\
+                                    quest/allOf/1/properties/sender"
+                          pagination:
+                            type: object
+                            required:
+                              - hasMore
+                              - nextCursor
+                            properties:
+                              hasMore:
+                                type: boolean
+                              nextCursor:
+                                type: string
+                                nullable: true
+        "400":
+          description: Pagination cursor is invalid or request validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - code
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  code:
+                    type: string
+                    example: COMMON.VALIDATION_FAILED
+                  message:
+                    type: string
+                  details:
+                    nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "401":
+          description: Access token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
+                  json/schema"
   /users/me/connection-suggestions:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connection-suggestions"
-
-  /users/me/connections/{userId}:
-    $ref: "./connections.openapi.yaml#/paths/~1users~1me~1connections~1{userId}"
-
-  /users/{userId}/block:
+    get:
+      tags:
+        - Connection Suggestions
+      summary: List connection suggestions
+      operationId: getConnectionSuggestions
+      description: >
+        Returns ranked users based on content reactions, reactions received,
+        mutual connections, and shared verified cities. The authenticated user,
+        blocked users, existing connections, users with pending requests in
+        either direction, inactive accounts, and deleted profiles are excluded.
+        Internal ranking scores are not exposed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/0"
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/1"
+      responses:
+        "200":
+          description: Connection suggestions fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - suggestions
+                          - pagination
+                        properties:
+                          suggestions:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - user
+                                - reason
+                                - signals
+                              properties:
+                                user:
+                                  $ref: "#/paths/~1users~1me~1connection-requests~1%7BrequestId%7D/patch/response\
+                                    s/200/content/application~1json/schema/allO\
+                                    f/1/properties/data/properties/connectionRe\
+                                    quest/allOf/1/properties/sender"
+                                reason:
+                                  type: object
+                                  required:
+                                    - type
+                                    - label
+                                  properties:
+                                    type:
+                                      type: string
+                                      enum:
+                                        - CONTENT_INTERACTION
+                                        - THEY_INTERACTED_WITH_YOU
+                                        - MUTUAL_CONNECTIONS
+                                        - SHARED_VERIFIED_CITIES
+                                    label:
+                                      type: string
+                                signals:
+                                  type: object
+                                  required:
+                                    - contentInteractions
+                                    - receivedContentInteractions
+                                    - mutualConnections
+                                    - sharedVerifiedCities
+                                  properties:
+                                    contentInteractions:
+                                      type: integer
+                                      minimum: 0
+                                    receivedContentInteractions:
+                                      type: integer
+                                      minimum: 0
+                                    mutualConnections:
+                                      type: integer
+                                      minimum: 0
+                                    sharedVerifiedCities:
+                                      type: integer
+                                      minimum: 0
+                          pagination:
+                            $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                              json/schema/allOf/1/properties/data/properties/pa\
+                              gination"
+        "400":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/400"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
+  "/users/me/connections/{userId}":
+    delete:
+      tags:
+        - Connections
+      summary: Remove an accepted connection
+      operationId: removeConnection
+      description: >
+        Removes the current symmetric connection between the authenticated user
+        and the specified user. Historical connection requests remain unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Connection removed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1\
+                      json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - removed
+                          - connection
+                        properties:
+                          removed:
+                            type: boolean
+                          connection:
+                            type: object
+                            required:
+                              - id
+                              - userId
+                              - connectedAt
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              userId:
+                                type: string
+                                format: uuid
+                              connectedAt:
+                                type: string
+                                format: date-time
+        "400":
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
+                  json/schema"
+        "401":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/401"
+        "404":
+          description: Accepted connection does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/400/content/application~1\
+                  json/schema"
+  "/users/{userId}/block":
     post:
       tags:
         - Blocks
@@ -484,7 +2104,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
     delete:
       tags:
         - Blocks
@@ -508,7 +2127,6 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
   /users/me/blocked-users:
     get:
       tags:
@@ -531,15 +2149,20 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   parameters:
+    PostId:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     UserId:
       name: userId
       in: path
@@ -547,7 +2170,6 @@ components:
       schema:
         type: string
         format: uuid
-
     CommentId:
       name: commentId
       in: path
@@ -555,7 +2177,6 @@ components:
       schema:
         type: string
         format: uuid
-
     AssetId:
       name: assetId
       in: path
@@ -563,7 +2184,6 @@ components:
       schema:
         type: string
         format: uuid
-
     Limit:
       name: limit
       in: query
@@ -573,7 +2193,6 @@ components:
         minimum: 1
         maximum: 50
         default: 20
-
     Cursor:
       name: cursor
       in: query
@@ -582,8 +2201,7 @@ components:
         type: string
         minLength: 1
         maxLength: 1024
-        pattern: "^[A-Za-z0-9_-]+$"
-
+        pattern: ^[A-Za-z0-9_-]+$
   responses:
     BadRequest:
       description: Validation failed or pagination cursor is invalid
@@ -591,18 +2209,29 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
-
     Unauthorized:
       description: Access token is missing, invalid, or expired
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
-
+    PostNotFound:
+      description: The post is missing, already deleted, or not owned by the user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: POST.NOT_FOUND
+            message: Post not found.
+            details: null
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: 2026-08-20T06:57:51.198Z
     PostReferenceNotAllowed:
       description: >
-        The place, existing asset, itinerary, or tagged user was not
-        found or is not allowed for the authenticated user.
+        The place, existing asset, itinerary, or tagged user was not found or is
+        not allowed for the authenticated user.
       content:
         application/json:
           schema:
@@ -615,7 +2244,7 @@ components:
                 message: Post place was not found or is not available.
                 details: null
                 requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
-                timestamp: "2026-08-05T07:22:58.846Z"
+                timestamp: 2026-08-05T07:22:58.846Z
             assetNotAllowed:
               value:
                 success: false
@@ -623,8 +2252,7 @@ components:
                 message: A post asset was not found or is not allowed.
                 details: null
                 requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
-                timestamp: "2026-08-05T07:22:58.846Z"
-
+                timestamp: 2026-08-05T07:22:58.846Z
     PostMediaTooLarge:
       description: Uploaded media exceeds its permitted size
       content:
@@ -639,12 +2267,11 @@ components:
               field: files
               maximumBytes: 262144000
             requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
-            timestamp: "2026-08-05T07:22:58.846Z"
-
+            timestamp: 2026-08-05T07:22:58.846Z
     PostMediaInvalidType:
       description: >
-        Uploaded media has an unsupported type or its declared MIME
-        type does not match its binary file signature.
+        Uploaded media has an unsupported type or its declared MIME type does
+        not match its binary file signature.
       content:
         application/json:
           schema:
@@ -657,19 +2284,17 @@ components:
               field: files
               mimeType: application/pdf
             requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
-            timestamp: "2026-08-05T07:22:58.846Z"
-
+            timestamp: 2026-08-05T07:22:58.846Z
     PostCreateFailed:
       description: Post creation or media storage failed
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
-
     MediaAssetNotFound:
       description: >
-        The asset is missing, unauthorized, or is not stored by the
-        local storage provider.
+        The asset is missing, unauthorized, or is not stored by the local
+        storage provider.
       content:
         application/json:
           schema:
@@ -680,12 +2305,11 @@ components:
             message: Media asset not found.
             details: null
             requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
-            timestamp: "2026-08-05T07:22:58.846Z"
-
+            timestamp: 2026-08-05T07:22:58.846Z
     MediaContentUnavailable:
       description: >
-        The local asset metadata exists, but its physical content
-        cannot currently be read.
+        The local asset metadata exists, but its physical content cannot
+        currently be read.
       content:
         application/json:
           schema:
@@ -696,12 +2320,11 @@ components:
             message: Media content is temporarily unavailable.
             details: null
             requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
-            timestamp: "2026-08-05T07:22:58.846Z"
-
+            timestamp: 2026-08-05T07:22:58.846Z
     CommentNotFound:
       description: >
-        Comment was not found or the authenticated user is not
-        authorized to perform the requested operation.
+        Comment was not found or the authenticated user is not authorized to
+        perform the requested operation.
       content:
         application/json:
           schema:
@@ -712,12 +2335,11 @@ components:
             message: Comment not found.
             details: null
             requestId: a7112179-a2f5-43de-8606-1d177130b691
-            timestamp: "2026-08-04T10:28:38.130Z"
-
+            timestamp: 2026-08-04T10:28:38.130Z
     MemoryAssetNotAllowed:
       description: >
-        Asset was missing, unowned, soft-deleted, or incompatible
-        with the requested memory type.
+        Asset was missing, unowned, soft-deleted, or incompatible with the
+        requested memory type.
       content:
         application/json:
           schema:
@@ -728,8 +2350,7 @@ components:
             message: Memory asset was not found or is not allowed.
             details: null
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
-            timestamp: "2026-08-04T11:22:08.691Z"
-
+            timestamp: 2026-08-04T11:22:08.691Z
     MemoryMediaTooLarge:
       description: Uploaded memory media exceeds its permitted size
       content:
@@ -744,12 +2365,11 @@ components:
               field: memoryFile
               maximumBytes: 262144000
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
-            timestamp: "2026-08-17T05:33:36.636Z"
-
+            timestamp: 2026-08-17T05:33:36.636Z
     MemoryMediaInvalidType:
       description: >
-        Uploaded media is unsupported, has a mismatched signature,
-        or does not match memoryType.
+        Uploaded media is unsupported, has a mismatched signature, or does not
+        match memoryType.
       content:
         application/json:
           schema:
@@ -762,9 +2382,334 @@ components:
               memoryType: VIDEO
               detectedMediaType: IMAGE
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
-            timestamp: "2026-08-17T05:33:44.704Z"
-
+            timestamp: 2026-08-17T05:33:44.704Z
   schemas:
+    DeletePostData:
+      type: object
+      required:
+        - deleted
+        - post
+      properties:
+        deleted:
+          type: boolean
+          enum:
+            - true
+        post:
+          type: object
+          required:
+            - id
+            - deletedAt
+          properties:
+            id:
+              type: string
+              format: uuid
+            deletedAt:
+              type: string
+              format: date-time
+    DeletePostResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DeletePostData"
+    ExploreAsset:
+      type: object
+      required:
+        - id
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+    ExploreCountry:
+      type: object
+      required:
+        - id
+        - name
+        - code
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+    ExploreCity:
+      type: object
+      required:
+        - id
+        - name
+        - officialName
+        - latitude
+        - longitude
+        - country
+        - placeCount
+        - placesWithMedia
+        - image
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        officialName:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        country:
+          $ref: "#/components/schemas/ExploreCountry"
+        placeCount:
+          type: integer
+          minimum: 0
+        placesWithMedia:
+          type: integer
+          minimum: 0
+        image:
+          allOf:
+            - $ref: "#/components/schemas/ExploreAsset"
+          nullable: true
+    ExplorePlace:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - address
+        - postalCode
+        - latitude
+        - longitude
+        - rating
+        - reviewCount
+        - recommendedDuration
+        - bookingType
+        - requireTicket
+        - itineraryWorthiness
+        - distanceKm
+        - city
+        - country
+        - category
+        - image
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        rating:
+          type: number
+          format: double
+          nullable: true
+        reviewCount:
+          type: integer
+          minimum: 0
+        recommendedDuration:
+          type: string
+          nullable: true
+        bookingType:
+          type: string
+          nullable: true
+        requireTicket:
+          type: boolean
+        itineraryWorthiness:
+          type: boolean
+        distanceKm:
+          type: number
+          format: double
+          nullable: true
+        city:
+          type: object
+          required:
+            - id
+            - name
+            - officialName
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            officialName:
+              type: string
+              nullable: true
+        country:
+          $ref: "#/components/schemas/ExploreCountry"
+        category:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+              nullable: true
+        image:
+          allOf:
+            - $ref: "#/components/schemas/ExploreAsset"
+          nullable: true
+    ExplorePostFeedItem:
+      type: object
+      required:
+        - type
+        - position
+        - post
+      properties:
+        type:
+          type: string
+          enum:
+            - POST
+        position:
+          type: integer
+          minimum: 1
+        post:
+          $ref: "#/components/schemas/CreatePostData/properties/post"
+    ExploreCitiesFeedItem:
+      type: object
+      required:
+        - type
+        - position
+        - title
+        - items
+      properties:
+        type:
+          type: string
+          enum:
+            - POPULAR_CITIES
+        position:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExploreCity"
+    ExplorePlacesFeedItem:
+      type: object
+      required:
+        - type
+        - position
+        - title
+        - items
+      properties:
+        type:
+          type: string
+          enum:
+            - NEARBY_PLACES
+        position:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExplorePlace"
+    ExploreFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - items
+                - pagination
+              properties:
+                items:
+                  type: array
+                  items:
+                    oneOf:
+                      - $ref: "#/components/schemas/ExplorePostFeedItem"
+                      - $ref: "#/components/schemas/ExploreCitiesFeedItem"
+                      - $ref: "#/components/schemas/ExplorePlacesFeedItem"
+                    discriminator:
+                      propertyName: type
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+    ExploreCitiesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - cities
+              properties:
+                cities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExploreCity"
+    ExploreCityPlacesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - cityId
+                - places
+              properties:
+                cityId:
+                  type: string
+                  format: uuid
+                places:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExplorePlace"
+    ExplorePlacesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - locationApplied
+                - places
+              properties:
+                locationApplied:
+                  type: boolean
+                places:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExplorePlace"
     SuccessBase:
       type: object
       required:
@@ -788,7 +2733,6 @@ components:
         timestamp:
           type: string
           format: date-time
-
     ErrorResponse:
       type: object
       required:
@@ -815,7 +2759,6 @@ components:
         timestamp:
           type: string
           format: date-time
-
     Pagination:
       type: object
       required:
@@ -827,7 +2770,6 @@ components:
         nextCursor:
           type: string
           nullable: true
-
     UpdateProfileRequest:
       type: object
       minProperties: 1
@@ -837,7 +2779,7 @@ components:
           type: string
           minLength: 3
           maxLength: 50
-          pattern: "^[a-z0-9_]+$"
+          pattern: ^[a-z0-9_]+$
         displayName:
           type: string
           minLength: 1
@@ -861,7 +2803,6 @@ components:
           nullable: true
         isPrivate:
           type: boolean
-
     ProfileMediaVariant:
       type: object
       nullable: true
@@ -884,7 +2825,6 @@ components:
         height:
           type: number
           nullable: true
-
     ProfileMedia:
       type: object
       nullable: true
@@ -918,7 +2858,6 @@ components:
           nullable: true
         variant:
           $ref: "#/components/schemas/ProfileMediaVariant"
-
     ProfileCountry:
       type: object
       nullable: true
@@ -932,7 +2871,6 @@ components:
         code:
           type: string
           nullable: true
-
     ProfileCity:
       type: object
       nullable: true
@@ -950,7 +2888,6 @@ components:
           type: string
           format: uuid
           nullable: true
-
     ProfileStats:
       type: object
       required:
@@ -975,7 +2912,6 @@ components:
         visitedPlaces:
           type: integer
           minimum: 0
-
     Profile:
       type: object
       required:
@@ -1043,7 +2979,6 @@ components:
           type: string
           format: date-time
           nullable: true
-
     BlockedUserProfilePhoto:
       type: object
       nullable: true
@@ -1061,7 +2996,6 @@ components:
         mimeType:
           type: string
           nullable: true
-
     BlockedUserSummary:
       type: object
       required:
@@ -1087,7 +3021,6 @@ components:
           type: boolean
         profilePhoto:
           $ref: "#/components/schemas/BlockedUserProfilePhoto"
-
     BlockUserResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1125,7 +3058,6 @@ components:
                 connectionRequestsCancelled:
                   type: integer
                   minimum: 0
-
     UnblockUserResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1142,7 +3074,6 @@ components:
                 userId:
                   type: string
                   format: uuid
-
     BlockedUsersResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1173,7 +3104,6 @@ components:
                         $ref: "#/components/schemas/BlockedUserSummary"
                 pagination:
                   $ref: "#/components/schemas/Pagination"
-
     ProfileRelationship:
       type: object
       nullable: true
@@ -1198,7 +3128,6 @@ components:
           type: string
           format: uuid
           nullable: true
-
     PublicProfile:
       type: object
       required:
@@ -1256,7 +3185,6 @@ components:
           type: array
           items:
             type: object
-
     PublicProfileResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1269,7 +3197,6 @@ components:
               properties:
                 profile:
                   $ref: "#/components/schemas/PublicProfile"
-
     ProfileUpdateResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1282,7 +3209,6 @@ components:
               properties:
                 profile:
                   $ref: "#/components/schemas/Profile"
-
     DeleteCommentData:
       type: object
       required:
@@ -1304,7 +3230,6 @@ components:
         commentCount:
           type: integer
           minimum: 0
-
     DeleteCommentResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1312,7 +3237,6 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/DeleteCommentData"
-
     CommentLikeProfilePhoto:
       type: object
       nullable: true
@@ -1335,7 +3259,6 @@ components:
         mimeType:
           type: string
           nullable: true
-
     CommentLiker:
       type: object
       required:
@@ -1378,7 +3301,6 @@ components:
               $ref: "#/components/schemas/CommentLikeProfilePhoto"
             viewerIsSelf:
               type: boolean
-
     CommentLikesData:
       type: object
       required:
@@ -1399,7 +3321,6 @@ components:
             $ref: "#/components/schemas/CommentLiker"
         pagination:
           $ref: "#/components/schemas/Pagination"
-
     CommentLikesResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1407,7 +3328,6 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/CommentLikesData"
-
     SaveMemoryRequest:
       type: object
       additionalProperties: false
@@ -1424,7 +3344,6 @@ components:
             - IMAGE
             - VIDEO
             - BOOMERANG
-
     SaveMemoryMultipartRequest:
       type: object
       additionalProperties: false
@@ -1442,9 +3361,8 @@ components:
           type: string
           format: binary
           description: >
-            One image or video file. Images may be at most 25 MiB.
-            Videos may be at most 250 MiB. BOOMERANG uses video media.
-
+            One image or video file. Images may be at most 25 MiB. Videos may be
+            at most 250 MiB. BOOMERANG uses video media.
     MemoryAsset:
       type: object
       required:
@@ -1491,13 +3409,12 @@ components:
           nullable: true
           description: >
             Public R2 URL for public remote assets, or the local
-            access-controlled media endpoint for local assets.
-            Private non-local assets may return null.
+            access-controlled media endpoint for local assets. Private non-local
+            assets may return null.
         createdAt:
           type: string
           format: date-time
           nullable: true
-
     Memory:
       type: object
       required:
@@ -1520,7 +3437,6 @@ components:
           format: date-time
         asset:
           $ref: "#/components/schemas/MemoryAsset"
-
     SaveMemoryData:
       type: object
       required:
@@ -1528,7 +3444,6 @@ components:
       properties:
         memory:
           $ref: "#/components/schemas/Memory"
-
     SaveMemoryResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1536,7 +3451,6 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/SaveMemoryData"
-
     GetMemoriesData:
       type: object
       required:
@@ -1549,7 +3463,6 @@ components:
             $ref: "#/components/schemas/Memory"
         pagination:
           $ref: "#/components/schemas/Pagination"
-
     GetMemoriesResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
@@ -1557,7 +3470,6 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/GetMemoriesData"
-
     CreatePostMultipartRequest:
       type: object
       additionalProperties: false
@@ -1581,8 +3493,8 @@ components:
           type: array
           maxItems: 10
           description: >
-            New image or video files. Images may be at most 25 MiB
-            each. Videos may be at most 250 MiB each.
+            New image or video files. Images may be at most 25 MiB each. Videos
+            may be at most 250 MiB each.
           items:
             type: string
             format: binary
@@ -1590,46 +3502,357 @@ components:
           type: string
           maxLength: 65536
           description: >
-            JSON-encoded array containing at most 10 unique UUIDs of
-            active media assets owned by the authenticated user.
-          example: >
+            JSON-encoded array containing at most 10 unique UUIDs of active
+            media assets owned by the authenticated user.
+          example: |
             ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"]
         mediaOrder:
           type: string
           maxLength: 65536
           description: >
-            JSON-encoded array defining final media order. UPLOAD
-            entries reference the zero-based position in files.
-            EXISTING entries reference an ID included in
-            existingAssetIds. Required when uploads and existing
-            assets are combined.
+            JSON-encoded array defining final media order. UPLOAD entries
+            reference the zero-based position in files. EXISTING entries
+            reference an ID included in existingAssetIds. Required when uploads
+            and existing assets are combined.
           example: >
             [{"source":"UPLOAD","fileIndex":0},{"source":"EXISTING","assetId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"}]
         itineraryIds:
           type: string
           maxLength: 65536
           description: >
-            JSON-encoded array containing at most 5 unique UUIDs of
-            eligible itineraries owned by the authenticated user.
-          example: >
+            JSON-encoded array containing at most 5 unique UUIDs of eligible
+            itineraries owned by the authenticated user.
+          example: |
             ["11111111-1111-4111-8111-111111111111"]
         taggedUserIds:
           type: string
           maxLength: 65536
           description: >
-            JSON-encoded array containing at most 20 unique user UUIDs.
-            The author cannot tag themselves, unavailable users, or
-            users across a block relationship.
+            JSON-encoded array containing at most 20 unique user UUIDs. The
+            author cannot tag themselves, unavailable users, or users across a
+            block relationship.
           example: "[]"
-
     CreatePostData:
       type: object
       required:
         - post
       properties:
         post:
-          $ref: "./saved-content.openapi.yaml#/components/schemas/FullPost"
-
+          type: object
+          required:
+            - id
+            - caption
+            - postType
+            - visibility
+            - createdAt
+            - updatedAt
+            - author
+            - assets
+            - coverAsset
+            - itineraries
+            - place
+            - engagement
+            - viewerState
+            - repost
+            - taggedPeople
+          properties:
+            id:
+              type: string
+              format: uuid
+            caption:
+              type: string
+              nullable: true
+            postType:
+              type: string
+            visibility:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            author:
+              type: object
+              required:
+                - id
+                - username
+                - displayName
+                - isVerified
+                - profilePhoto
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                username:
+                  type: string
+                  nullable: true
+                displayName:
+                  type: string
+                  nullable: true
+                isVerified:
+                  type: boolean
+                profilePhoto:
+                  allOf:
+                    - $ref: "#/components/schemas/CreatePostData/properties/post/properties/assets/it\
+                        ems"
+                  nullable: true
+            assets:
+              type: array
+              items:
+                type: object
+                required:
+                  - id
+                  - storageProvider
+                  - bucket
+                  - storageKey
+                  - url
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  postAssetId:
+                    type: string
+                    format: uuid
+                  displayOrder:
+                    type: integer
+                  mediaType:
+                    type: string
+                  storageProvider:
+                    type: string
+                    nullable: true
+                  bucket:
+                    type: string
+                    nullable: true
+                  storageKey:
+                    type: string
+                    nullable: true
+                  url:
+                    type: string
+                    nullable: true
+                  originalFilename:
+                    type: string
+                    nullable: true
+                  mimeType:
+                    type: string
+                    nullable: true
+                  extension:
+                    type: string
+                    nullable: true
+                  fileSize:
+                    type: integer
+                    nullable: true
+                  width:
+                    type: integer
+                    nullable: true
+                  height:
+                    type: integer
+                    nullable: true
+                  durationSeconds:
+                    type: number
+                    nullable: true
+                  isPublic:
+                    type: boolean
+                  createdAt:
+                    type: string
+            coverAsset:
+              allOf:
+                - $ref: "#/components/schemas/CreatePostData/properties/post/properties/assets/it\
+                    ems"
+              nullable: true
+            itineraries:
+              type: array
+              items:
+                type: object
+                properties:
+                  postItineraryId:
+                    type: string
+                    format: uuid
+                  id:
+                    type: string
+                    format: uuid
+                  createdBy:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                    nullable: true
+                  description:
+                    type: string
+                    nullable: true
+                  startDate:
+                    type: string
+                    nullable: true
+                  endDate:
+                    type: string
+                    nullable: true
+                  durationDays:
+                    type: integer
+                    nullable: true
+                  budgetAmount:
+                    type: number
+                    nullable: true
+                  currencyCode:
+                    type: string
+                    nullable: true
+                  visibility:
+                    type: string
+                    nullable: true
+                  tripStatus:
+                    type: string
+                    nullable: true
+                  aiGenerated:
+                    type: boolean
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
+                  linkedAt:
+                    type: string
+                  metadata:
+                    type: object
+                    nullable: true
+                  cover:
+                    allOf:
+                      - $ref: "#/components/schemas/CreatePostData/properties/post/properties/assets/it\
+                          ems"
+                    nullable: true
+            place:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  nullable: true
+                address:
+                  type: string
+                  nullable: true
+                latitude:
+                  type: number
+                  nullable: true
+                longitude:
+                  type: number
+                  nullable: true
+                rating:
+                  type: number
+                  nullable: true
+                reviewCount:
+                  type: integer
+                  minimum: 0
+                city:
+                  type: object
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                      nullable: true
+                    officialName:
+                      type: string
+                      nullable: true
+                region:
+                  type: object
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                      nullable: true
+                    officialName:
+                      type: string
+                      nullable: true
+                    timezone:
+                      type: string
+                      nullable: true
+                country:
+                  type: object
+                  nullable: true
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                      nullable: true
+                    code:
+                      type: string
+                      nullable: true
+                    phonePrefix:
+                      type: string
+                      nullable: true
+                    timezone:
+                      type: string
+                      nullable: true
+            engagement:
+              type: object
+              required:
+                - likes
+                - comments
+                - shares
+                - views
+                - beenThere
+              properties:
+                likes:
+                  type: integer
+                  minimum: 0
+                comments:
+                  type: integer
+                  minimum: 0
+                shares:
+                  type: integer
+                  minimum: 0
+                views:
+                  type: integer
+                  minimum: 0
+                beenThere:
+                  type: integer
+                  minimum: 0
+            viewerState:
+              type: object
+              required:
+                - liked
+                - saved
+                - beenThere
+                - reshared
+                - isOwner
+              properties:
+                liked:
+                  type: boolean
+                saved:
+                  type: boolean
+                beenThere:
+                  type: boolean
+                reshared:
+                  type: boolean
+                isOwner:
+                  type: boolean
+            repost:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                message:
+                  type: string
+                  nullable: true
+                originalPostId:
+                  type: string
+                  format: uuid
+                createdAt:
+                  type: string
+                  nullable: true
+            taggedPeople:
+              type: array
+              items:
+                type: object
     CreatePostResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"

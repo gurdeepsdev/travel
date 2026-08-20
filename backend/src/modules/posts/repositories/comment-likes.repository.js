@@ -73,6 +73,7 @@ async findOwnerListContext({
 
     INNER JOIN explore.posts post
       ON post.id = comment.post_id
+      AND post.deleted_at IS NULL
 
     WHERE comment.id = $1::uuid
       AND post.user_id = $2::uuid

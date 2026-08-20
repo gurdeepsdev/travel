@@ -623,6 +623,7 @@ cover_photo.original_width
         FROM explore.posts AS post
 
         WHERE post.user_id = profile.user_id
+          AND post.deleted_at IS NULL
       ) AS post_stats
         ON TRUE
 
@@ -972,5 +973,4 @@ async findByUsername(username) {
 }
 
 export default new ProfilesRepository();
-
 

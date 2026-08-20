@@ -16,13 +16,177 @@ tags:
   - name: Comment Likes
   - name: Memories
   - name: Post Creation
+  - name: Post Management
   - name: Media Delivery
   - name: Visited Places
   - name: Connections
   - name: Connection Requests
   - name: Connection Suggestions
   - name: Blocks
+  - name: Explore
 paths:
+  /explore/feed:
+    get:
+      tags:
+        - Explore
+      summary: Get the composite Explore feed
+      description: >
+        Returns public posts with popular-city and nearby-place discovery
+        modules inserted on the first page. Authentication is optional.
+        Anonymous viewers receive at most 20 posts without a next cursor.
+        Authenticated viewers receive opaque cursor pagination.
+      operationId: getExploreFeed
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: latitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - name: longitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - name: radiusKm
+          in: query
+          description: Requires latitude and longitude.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 500
+            default: 50
+        - name: limit
+          in: query
+          description: Number of posts, excluding discovery modules.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Explore feed fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreFeedResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /explore/cities:
+    get:
+      tags:
+        - Explore
+      summary: List popular cities
+      operationId: getExploreCities
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: Explore cities fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreCitiesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  "/explore/cities/{cityId}/places":
+    get:
+      tags:
+        - Explore
+      summary: List places in a city
+      description: Returns open places whose city_id matches the path city ID.
+      operationId: getExploreCityPlaces
+      parameters:
+        - name: cityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: City places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreCityPlacesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /explore/places:
+    get:
+      tags:
+        - Explore
+      summary: List nearby or globally ranked places
+      description: >
+        When latitude and longitude are supplied, returns open places within
+        radiusKm ordered by distance. Without coordinates, returns open places
+        using rating, review count, and name ordering.
+      operationId: getExplorePlaces
+      parameters:
+        - name: latitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - name: longitude
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - name: radiusKm
+          in: query
+          schema:
+            type: number
+            format: double
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 500
+            default: 50
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: Explore places fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExplorePlacesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /posts:
     post:
       tags:
@@ -68,6 +232,38 @@ paths:
           $ref: "#/components/responses/PostMediaInvalidType"
         "500":
           $ref: "#/components/responses/PostCreateFailed"
+  /posts/{postId}:
+    delete:
+      tags:
+        - Post Management
+      summary: Delete my post
+      description: >
+        Soft-deletes a post owned by the authenticated user. Missing,
+        already-deleted, and unowned posts return the same not-found response.
+      operationId: deletePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Post deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletePostResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+        "500":
+          description: An unexpected error occurred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /users/me/saved-posts:
     get:
       tags:
@@ -1960,6 +2156,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    PostId:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     UserId:
       name: userId
       in: path
@@ -2012,6 +2215,19 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    PostNotFound:
+      description: The post is missing, already deleted, or not owned by the user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            code: POST.NOT_FOUND
+            message: Post not found.
+            details: null
+            requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
+            timestamp: 2026-08-20T06:57:51.198Z
     PostReferenceNotAllowed:
       description: >
         The place, existing asset, itinerary, or tagged user was not found or is
@@ -2168,6 +2384,332 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: 2026-08-17T05:33:44.704Z
   schemas:
+    DeletePostData:
+      type: object
+      required:
+        - deleted
+        - post
+      properties:
+        deleted:
+          type: boolean
+          enum:
+            - true
+        post:
+          type: object
+          required:
+            - id
+            - deletedAt
+          properties:
+            id:
+              type: string
+              format: uuid
+            deletedAt:
+              type: string
+              format: date-time
+    DeletePostResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/DeletePostData"
+    ExploreAsset:
+      type: object
+      required:
+        - id
+        - url
+        - mimeType
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          nullable: true
+        mimeType:
+          type: string
+          nullable: true
+    ExploreCountry:
+      type: object
+      required:
+        - id
+        - name
+        - code
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+    ExploreCity:
+      type: object
+      required:
+        - id
+        - name
+        - officialName
+        - latitude
+        - longitude
+        - country
+        - placeCount
+        - placesWithMedia
+        - image
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        officialName:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        country:
+          $ref: "#/components/schemas/ExploreCountry"
+        placeCount:
+          type: integer
+          minimum: 0
+        placesWithMedia:
+          type: integer
+          minimum: 0
+        image:
+          allOf:
+            - $ref: "#/components/schemas/ExploreAsset"
+          nullable: true
+    ExplorePlace:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - address
+        - postalCode
+        - latitude
+        - longitude
+        - rating
+        - reviewCount
+        - recommendedDuration
+        - bookingType
+        - requireTicket
+        - itineraryWorthiness
+        - distanceKm
+        - city
+        - country
+        - category
+        - image
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        rating:
+          type: number
+          format: double
+          nullable: true
+        reviewCount:
+          type: integer
+          minimum: 0
+        recommendedDuration:
+          type: string
+          nullable: true
+        bookingType:
+          type: string
+          nullable: true
+        requireTicket:
+          type: boolean
+        itineraryWorthiness:
+          type: boolean
+        distanceKm:
+          type: number
+          format: double
+          nullable: true
+        city:
+          type: object
+          required:
+            - id
+            - name
+            - officialName
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            officialName:
+              type: string
+              nullable: true
+        country:
+          $ref: "#/components/schemas/ExploreCountry"
+        category:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+              nullable: true
+        image:
+          allOf:
+            - $ref: "#/components/schemas/ExploreAsset"
+          nullable: true
+    ExplorePostFeedItem:
+      type: object
+      required:
+        - type
+        - position
+        - post
+      properties:
+        type:
+          type: string
+          enum:
+            - POST
+        position:
+          type: integer
+          minimum: 1
+        post:
+          $ref: "#/components/schemas/CreatePostData/properties/post"
+    ExploreCitiesFeedItem:
+      type: object
+      required:
+        - type
+        - position
+        - title
+        - items
+      properties:
+        type:
+          type: string
+          enum:
+            - POPULAR_CITIES
+        position:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExploreCity"
+    ExplorePlacesFeedItem:
+      type: object
+      required:
+        - type
+        - position
+        - title
+        - items
+      properties:
+        type:
+          type: string
+          enum:
+            - NEARBY_PLACES
+        position:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExplorePlace"
+    ExploreFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - items
+                - pagination
+              properties:
+                items:
+                  type: array
+                  items:
+                    oneOf:
+                      - $ref: "#/components/schemas/ExplorePostFeedItem"
+                      - $ref: "#/components/schemas/ExploreCitiesFeedItem"
+                      - $ref: "#/components/schemas/ExplorePlacesFeedItem"
+                    discriminator:
+                      propertyName: type
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+    ExploreCitiesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - cities
+              properties:
+                cities:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExploreCity"
+    ExploreCityPlacesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - cityId
+                - places
+              properties:
+                cityId:
+                  type: string
+                  format: uuid
+                places:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExplorePlace"
+    ExplorePlacesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - locationApplied
+                - places
+              properties:
+                locationApplied:
+                  type: boolean
+                places:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExplorePlace"
     SuccessBase:
       type: object
       required:

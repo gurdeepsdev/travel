@@ -349,6 +349,7 @@ EXISTS (
   ON TRUE
 
       WHERE p.user_id = $1
+        AND p.deleted_at IS NULL
       ${cursorWhere}
 
       ORDER BY
@@ -1034,6 +1035,7 @@ AND saved_item.item_type =
      ON TRUE
 
    WHERE post.user_id = $1::uuid
+     AND post.deleted_at IS NULL
 
      AND (
        $2::uuid = post.user_id
@@ -1703,6 +1705,7 @@ AND saved_item.item_type =
      ON TRUE
 
   WHERE post.id = ANY($1::uuid[])
+    AND post.deleted_at IS NULL
 
   AND (
     post.user_id = $2::uuid

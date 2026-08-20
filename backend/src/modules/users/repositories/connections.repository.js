@@ -819,6 +819,7 @@ request.sender_user_id
           AS post
           ON post.id =
             post_like.post_id
+          AND post.deleted_at IS NULL
 
         WHERE post_like.user_id =
             $1::uuid
@@ -843,6 +844,8 @@ request.sender_user_id
 
         WHERE post.user_id =
             $1::uuid
+
+          AND post.deleted_at IS NULL
 
           AND post_like.user_id <>
             $1::uuid
@@ -966,6 +969,8 @@ request.sender_user_id
               AS liked_post
               ON liked_post.id =
                 outgoing_like.post_id
+              AND liked_post.deleted_at
+                IS NULL
 
             WHERE outgoing_like.user_id =
                 $1::uuid
@@ -989,6 +994,9 @@ request.sender_user_id
 
             WHERE viewer_post.user_id =
                 $1::uuid
+
+              AND viewer_post.deleted_at
+                IS NULL
 
               AND incoming_like.user_id =
                 candidate_pool

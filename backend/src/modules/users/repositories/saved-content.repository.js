@@ -61,6 +61,7 @@ class SavedContentRepository {
       INNER JOIN explore.posts post
         ON saved_item.item_type = 'POST'
         AND post.id = saved_item.item_id
+        AND post.deleted_at IS NULL
 
       LEFT JOIN users.profiles owner_profile
         ON owner_profile.user_id =
@@ -266,6 +267,7 @@ class SavedContentRepository {
             'POST'
           AND post.id =
             saved_item.item_id
+          AND post.deleted_at IS NULL
 
         LEFT JOIN users.profiles
           source_owner_profile
