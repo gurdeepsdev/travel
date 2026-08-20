@@ -527,6 +527,10 @@ import {
                     officialName:
                       row.city_official_name ??
                       null,
+
+                    googleId:
+                      row.city_provider_id ??
+                      null,
                   }
                 : null,
   
@@ -571,6 +575,24 @@ import {
                       null,
                   }
                 : null,
+            }
+          : null,
+
+        city: row.city_id
+          ? {
+              id:
+                row.city_id,
+
+              name:
+                row.city_name ?? null,
+
+              officialName:
+                row.city_official_name ??
+                null,
+
+              googleId:
+                row.city_provider_id ??
+                null,
             }
           : null,
   

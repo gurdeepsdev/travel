@@ -273,8 +273,7 @@ class PostCreateService {
     caption,
     visibility,
     placeId,
-    googlePlaceId,
-    googleCityPlaceId = null,
+    googleId,
     existingAssetIds,
     mediaOrder,
     itineraryIds,
@@ -433,28 +432,26 @@ class PostCreateService {
       transactionResult =
         await Database.transaction(
           async (client) => {
-            const place = placeId
+            const location = placeId
               ? await PostCreateRepository
                   .findEligiblePlace({
                     client,
                     placeId,
-                    googleCityPlaceId,
                   })
               : await PostCreateRepository
-                  .findEligibleGooglePlace({
+                  .findEligibleGoogleLocation({
                     client,
-                    googlePlaceId,
-                    googleCityPlaceId,
+                    googleId,
                   });
 
-            if (!place) {
+            if (!location) {
               throw createReferenceError({
                 code:
                   ErrorCodes.POST
                     .PLACE_NOT_ALLOWED,
 
                 message:
-                  "Post place was not found or is not available.",
+                  "Post location was not found or is not available.",
               });
             }
 
@@ -585,7 +582,13 @@ class PostCreateService {
                   visibility,
 
                   placeId:
-                    place.id,
+                    location.place_id,
+
+                  cityId:
+                    location.city_id,
+
+                  postType:
+                    location.target_type,
                 });
 
             await PostCreateRepository

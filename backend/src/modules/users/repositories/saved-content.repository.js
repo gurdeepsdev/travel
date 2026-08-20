@@ -285,6 +285,9 @@ class SavedContentRepository {
           AND saved_item.is_active
             IS TRUE
 
+          AND post.place_id
+            IS NOT NULL
+
           /*
            * Public saved places must not reveal
            * locations derived from inaccessible

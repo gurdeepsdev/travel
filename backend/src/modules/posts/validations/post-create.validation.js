@@ -303,35 +303,19 @@ const createPostBodySchema = z
       })
         .optional(),
 
-    googlePlaceId: z
+    googleId: z
       .string({
         error:
-          "Google Place ID must be a string.",
+          "Google ID must be a string.",
       })
       .trim()
       .min(
         1,
-        "Google Place ID cannot be empty.",
+        "Google ID cannot be empty.",
       )
       .max(
         255,
-        "Google Place ID cannot exceed 255 characters.",
-      )
-      .optional(),
-
-    googleCityPlaceId: z
-      .string({
-        error:
-          "Google city Place ID must be a string.",
-      })
-      .trim()
-      .min(
-        1,
-        "Google city Place ID cannot be empty.",
-      )
-      .max(
-        255,
-        "Google city Place ID cannot exceed 255 characters.",
+        "Google ID cannot exceed 255 characters.",
       )
       .optional(),
 
@@ -355,7 +339,7 @@ const createPostBodySchema = z
     ) => {
       const placeReferenceCount = [
         body.placeId,
-        body.googlePlaceId,
+        body.googleId,
       ].filter(Boolean).length;
 
       if (
@@ -370,7 +354,7 @@ const createPostBodySchema = z
           ],
 
           message:
-            "Provide either placeId or googlePlaceId, but not both.",
+            "Provide either placeId or googleId, but not both.",
         });
       }
 

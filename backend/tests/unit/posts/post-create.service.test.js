@@ -11,10 +11,13 @@ const POST_ID =
 const PLACE_ID =
   "72bf8c7b-c684-4046-9f97-cfb1f569e59a";
 
+const CITY_ID =
+  "187cef7e-0554-42f0-a0b9-4e44b9824cee";
+
 const GOOGLE_PLACE_ID =
   "ChIJLfySpTOuEmsRsc_JfJtljdc";
 
-const GOOGLE_CITY_PLACE_ID =
+const GOOGLE_CITY_ID =
   "ChIJdd4hrwug2EcRmSrV3Vo6llI";
 
 const ITINERARY_ID =
@@ -65,7 +68,7 @@ const postCreateRepositoryMock = {
   findEligiblePlace:
     jest.fn(),
 
-  findEligibleGooglePlace:
+  findEligibleGoogleLocation:
     jest.fn(),
 
   findOwnedItineraries:
@@ -327,24 +330,36 @@ describe(
           id:
             PLACE_ID,
 
+          place_id:
+            PLACE_ID,
+
+          city_id:
+            null,
+
+          target_type:
+            "PLACE",
+
           is_closed:
             false,
         });
 
       postCreateRepositoryMock
-        .findEligibleGooglePlace
+        .findEligibleGoogleLocation
         .mockResolvedValue({
           id:
             PLACE_ID,
 
-          provider:
-            "GOOGLE_PLACES",
+          place_id:
+            PLACE_ID,
 
-          provider_id:
-            GOOGLE_PLACE_ID,
+          city_id:
+            null,
 
-          is_closed:
-            false,
+          target_type:
+            "PLACE",
+
+          name:
+            "DLF Mall of India",
         });
 
       mediaRepositoryMock
@@ -437,6 +452,12 @@ describe(
 
           placeId:
             PLACE_ID,
+
+          cityId:
+            null,
+
+          postType:
+            "PLACE",
         });
 
         expect(
@@ -474,7 +495,7 @@ describe(
     );
 
     test(
-      "creates a post using a Google Place ID and stores the resolved internal UUID",
+      "creates a place post using one Google ID",
       async () => {
         const result =
           await PostCreateService
@@ -483,26 +504,20 @@ describe(
                 placeId:
                   undefined,
 
-                googlePlaceId:
+                googleId:
                   GOOGLE_PLACE_ID,
-
-                googleCityPlaceId:
-                  GOOGLE_CITY_PLACE_ID,
               }),
             );
 
         expect(
           postCreateRepositoryMock
-            .findEligibleGooglePlace,
+            .findEligibleGoogleLocation,
         ).toHaveBeenCalledWith({
           client:
             transactionClient,
 
-          googlePlaceId:
+          googleId:
             GOOGLE_PLACE_ID,
-
-          googleCityPlaceId:
-            GOOGLE_CITY_PLACE_ID,
         });
 
         expect(
@@ -517,6 +532,12 @@ describe(
           expect.objectContaining({
             placeId:
               PLACE_ID,
+
+            cityId:
+              null,
+
+            postType:
+              "PLACE",
           }),
         );
 
@@ -528,10 +549,72 @@ describe(
     );
 
     test(
+      "creates a city post using one Google ID",
+      async () => {
+        postCreateRepositoryMock
+          .findEligibleGoogleLocation
+          .mockResolvedValue({
+            id:
+              CITY_ID,
+
+            place_id:
+              null,
+
+            city_id:
+              CITY_ID,
+
+            target_type:
+              "CITY",
+
+            name:
+              "Delhi",
+          });
+
+        await PostCreateService
+          .createPost(
+            createRequest({
+              placeId:
+                undefined,
+
+              googleId:
+                GOOGLE_CITY_ID,
+            }),
+          );
+
+        expect(
+          postCreateRepositoryMock
+            .findEligibleGoogleLocation,
+        ).toHaveBeenCalledWith({
+          client:
+            transactionClient,
+
+          googleId:
+            GOOGLE_CITY_ID,
+        });
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            placeId:
+              null,
+
+            cityId:
+              CITY_ID,
+
+            postType:
+              "CITY",
+          }),
+        );
+      },
+    );
+
+    test(
       "rejects an unavailable Google Place ID",
       async () => {
         postCreateRepositoryMock
-          .findEligibleGooglePlace
+          .findEligibleGoogleLocation
           .mockResolvedValue(
             null,
           );
@@ -543,7 +626,7 @@ describe(
                 placeId:
                   undefined,
 
-                googlePlaceId:
+                googleId:
                   GOOGLE_PLACE_ID,
               }),
             ),

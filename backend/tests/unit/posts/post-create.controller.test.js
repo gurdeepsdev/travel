@@ -8,8 +8,6 @@ const USER_ID =
 const GOOGLE_PLACE_ID =
   "ChIJLfySpTOuEmsRsc_JfJtljdc";
 
-const GOOGLE_CITY_PLACE_ID =
-  "ChIJdd4hrwug2EcRmSrV3Vo6llI";
 
 const createPostMock =
   jest.fn();
@@ -51,7 +49,7 @@ describe(
     });
 
     test(
-      "forwards googlePlaceId to the service",
+      "forwards googleId to the service",
       async () => {
         const files = [
           {
@@ -82,11 +80,8 @@ describe(
               visibility:
                 "PUBLIC",
 
-              googlePlaceId:
+              googleId:
                 GOOGLE_PLACE_ID,
-
-              googleCityPlaceId:
-                GOOGLE_CITY_PLACE_ID,
 
               existingAssetIds: [],
 
@@ -140,11 +135,8 @@ describe(
           placeId:
             undefined,
 
-          googlePlaceId:
+          googleId:
             GOOGLE_PLACE_ID,
-
-          googleCityPlaceId:
-            GOOGLE_CITY_PLACE_ID,
 
           existingAssetIds: [],
 

@@ -3497,13 +3497,13 @@ components:
       additionalProperties: false
       description: >
         Provide exactly one place identifier: placeId for an internal Artictern
-        place UUID, or googlePlaceId for a Google Places provider ID already
-        available in the places catalogue.
+        place UUID, or googleId for a Google provider ID already available in
+        either the places or cities catalogue. Place matches take precedence.
       oneOf:
         - required:
             - placeId
         - required:
-            - googlePlaceId
+            - googleId
       properties:
         caption:
           type: string
@@ -3518,21 +3518,14 @@ components:
         placeId:
           type: string
           format: uuid
-          description: Internal Artictern place UUID. Do not send with googlePlaceId.
-        googlePlaceId:
-          type: string
-          minLength: 1
-          maxLength: 255
-          description: Google Places provider ID. Do not send with placeId.
-          example: ChIJArticternPostCreateTest
-        googleCityPlaceId:
+          description: Internal Artictern place UUID. Do not send with googleId.
+        googleId:
           type: string
           minLength: 1
           maxLength: 255
           description: >
-            Optional Google city Place ID. When supplied, the resolved place
-            must belong to this city.
-          example: ChIJdd4hrwug2EcRmSrV3Vo6llI
+            Google place or Google city provider ID. Do not send with placeId.
+          example: ChIJArticternPostCreateTest
         files:
           type: array
           maxItems: 10
@@ -3595,6 +3588,7 @@ components:
             - coverAsset
             - itineraries
             - place
+            - city
             - engagement
             - viewerState
             - repost
@@ -3608,6 +3602,9 @@ components:
               nullable: true
             postType:
               type: string
+              enum:
+                - PLACE
+                - CITY
             visibility:
               type: string
             createdAt:
@@ -3799,6 +3796,9 @@ components:
                     officialName:
                       type: string
                       nullable: true
+                    googleId:
+                      type: string
+                      nullable: true
                 region:
                   type: object
                   nullable: true
@@ -3815,6 +3815,22 @@ components:
                     timezone:
                       type: string
                       nullable: true
+            city:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  nullable: true
+                officialName:
+                  type: string
+                  nullable: true
+                googleId:
+                  type: string
+                  nullable: true
                 country:
                   type: object
                   nullable: true

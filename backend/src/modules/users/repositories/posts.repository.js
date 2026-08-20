@@ -68,6 +68,7 @@ class PostsRepository {
         city.id AS city_id,
         city.name AS city_name,
         city.official_name AS city_official_name,
+        city.provider_id AS city_provider_id,
 
         region.id AS region_id,
         region.name AS region_name,
@@ -143,13 +144,16 @@ COALESCE(
         ON place.id = p.place_id
 
       LEFT JOIN poi.cities city
-        ON city.id = place.city_id
+        ON city.id = COALESCE(
+          place.city_id,
+          p.city_id
+        )
 
       LEFT JOIN poi.regions region
-        ON region.id = place.region_id
+        ON region.id = city.region_id
 
       LEFT JOIN poi.countries country
-        ON country.id = place.country_id
+        ON country.id = city.country_id
 
    LEFT JOIN LATERAL (
   SELECT
@@ -531,6 +535,9 @@ async getUserPosts({
      city.official_name
        AS city_official_name,
 
+     city.provider_id
+       AS city_provider_id,
+
      region.id
        AS region_id,
 
@@ -655,7 +662,10 @@ async getUserPosts({
      ON place.id = post.place_id
 
    LEFT JOIN poi.cities AS city
-     ON city.id = place.city_id
+     ON city.id = COALESCE(
+       place.city_id,
+       post.city_id
+     )
 
    LEFT JOIN poi.regions AS region
      ON region.id = city.region_id
@@ -1200,6 +1210,9 @@ async getPostsByIds({
      city.official_name
        AS city_official_name,
 
+     city.provider_id
+       AS city_provider_id,
+
      region.id
        AS region_id,
 
@@ -1323,7 +1336,10 @@ async getPostsByIds({
      ON place.id = post.place_id
 
    LEFT JOIN poi.cities AS city
-     ON city.id = place.city_id
+     ON city.id = COALESCE(
+       place.city_id,
+       post.city_id
+     )
 
    LEFT JOIN poi.regions AS region
      ON region.id = city.region_id
