@@ -274,6 +274,7 @@ class PostCreateService {
     visibility,
     placeId,
     googlePlaceId,
+    googleCityPlaceId = null,
     existingAssetIds,
     mediaOrder,
     itineraryIds,
@@ -437,11 +438,13 @@ class PostCreateService {
                   .findEligiblePlace({
                     client,
                     placeId,
+                    googleCityPlaceId,
                   })
               : await PostCreateRepository
                   .findEligibleGooglePlace({
                     client,
                     googlePlaceId,
+                    googleCityPlaceId,
                   });
 
             if (!place) {

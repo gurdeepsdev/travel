@@ -240,7 +240,9 @@ function isPreferenceLimitError(
 class VisitedPlacesService {
   async submitVerification({
     userId,
-    placeId,
+    placeId = null,
+    googlePlaceId = null,
+    googleCityPlaceId = null,
     claimedVisitedAt = null,
     verificationPhotoFile,
     logger = null,
@@ -290,6 +292,8 @@ class VisitedPlacesService {
         .findVerificationContext({
           userId,
           placeId,
+          googlePlaceId,
+          googleCityPlaceId,
 
           evidenceSha256:
             inspectedEvidence.checksum,
@@ -482,7 +486,8 @@ class VisitedPlacesService {
                 .saveVerifiedVisit({
                   client,
                   userId,
-                  placeId,
+                  placeId:
+                    context.place_id,
 
                   verificationAssetId:
                     evidenceAsset.id,

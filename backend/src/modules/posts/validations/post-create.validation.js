@@ -319,6 +319,22 @@ const createPostBodySchema = z
       )
       .optional(),
 
+    googleCityPlaceId: z
+      .string({
+        error:
+          "Google city Place ID must be a string.",
+      })
+      .trim()
+      .min(
+        1,
+        "Google city Place ID cannot be empty.",
+      )
+      .max(
+        255,
+        "Google city Place ID cannot exceed 255 characters.",
+      )
+      .optional(),
+
     existingAssetIds:
       existingAssetIdsSchema,
 

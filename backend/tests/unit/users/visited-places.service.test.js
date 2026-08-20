@@ -10,6 +10,12 @@ const USER_ID =
 const PLACE_ID =
   "72bf8c7b-c684-4046-9f97-cfb1f569e59a";
 
+const GOOGLE_PLACE_ID =
+  "ChIJArticternVisitedPlaceTest";
+
+const GOOGLE_CITY_PLACE_ID =
+  "ChIJdd4hrwug2EcRmSrV3Vo6llI";
+
 const CITY_ID =
   "187cef7e-0554-42f0-a0b9-4e44b9824cee";
 
@@ -698,6 +704,55 @@ describe(
             visitCreated:
               true,
           });
+      },
+    );
+
+    test(
+      "resolves a Google Place ID and saves the internal UUID",
+      async () => {
+        await submit({
+          placeId:
+            null,
+
+          googlePlaceId:
+            GOOGLE_PLACE_ID,
+
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
+        });
+
+        expect(
+          repositoryMock
+            .findVerificationContext,
+        ).toHaveBeenCalledWith({
+          userId:
+            USER_ID,
+
+          placeId:
+            null,
+
+          googlePlaceId:
+            GOOGLE_PLACE_ID,
+
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
+
+          evidenceSha256:
+            CHECKSUM,
+        });
+
+        expect(
+          repositoryMock
+            .saveVerifiedVisit,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId:
+              USER_ID,
+
+            placeId:
+              PLACE_ID,
+          }),
+        );
       },
     );
 

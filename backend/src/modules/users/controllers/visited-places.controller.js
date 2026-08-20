@@ -20,6 +20,8 @@ class VisitedPlacesController {
     try {
       const {
         placeId,
+        googlePlaceId,
+        googleCityPlaceId,
         claimedVisitedAt = null,
       } = req.validated.body;
 
@@ -30,6 +32,10 @@ class VisitedPlacesController {
               req.user.id,
 
             placeId,
+
+            googlePlaceId,
+
+            googleCityPlaceId,
 
             claimedVisitedAt,
 
