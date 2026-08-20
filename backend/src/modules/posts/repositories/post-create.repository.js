@@ -30,6 +30,42 @@ class PostCreateRepository {
     return rows[0] ?? null;
   }
 
+  async findEligibleGooglePlace({
+    client,
+    googlePlaceId,
+  }) {
+    const {
+      rows,
+    } = await client.query(
+      `
+        SELECT
+          place.id,
+          place.name,
+          place.is_closed,
+          place.provider,
+          place.provider_id
+
+        FROM poi.places place
+
+        WHERE place.provider =
+            'GOOGLE_PLACES'
+          AND place.provider_id =
+            $1
+          AND place.is_closed
+            IS FALSE
+
+        LIMIT 1
+
+        FOR KEY SHARE
+      `,
+      [
+        googlePlaceId,
+      ],
+    );
+
+    return rows[0] ?? null;
+  }
+
   async findOwnedItineraries({
     client,
     userId,

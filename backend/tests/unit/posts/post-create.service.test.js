@@ -11,6 +11,9 @@ const POST_ID =
 const PLACE_ID =
   "72bf8c7b-c684-4046-9f97-cfb1f569e59a";
 
+const GOOGLE_PLACE_ID =
+  "ChIJLfySpTOuEmsRsc_JfJtljdc";
+
 const ITINERARY_ID =
   "11111111-1111-4111-8111-111111111111";
 
@@ -57,6 +60,9 @@ const userPostsRepositoryMock = {
 
 const postCreateRepositoryMock = {
   findEligiblePlace:
+    jest.fn(),
+
+  findEligibleGooglePlace:
     jest.fn(),
 
   findOwnedItineraries:
@@ -322,6 +328,22 @@ describe(
             false,
         });
 
+      postCreateRepositoryMock
+        .findEligibleGooglePlace
+        .mockResolvedValue({
+          id:
+            PLACE_ID,
+
+          provider:
+            "GOOGLE_PLACES",
+
+          provider_id:
+            GOOGLE_PLACE_ID,
+
+          is_closed:
+            false,
+        });
+
       mediaRepositoryMock
         .findOwnedPostAssets
         .mockResolvedValue([]);
@@ -445,6 +467,89 @@ describe(
           post:
             createCanonicalPost(),
         });
+      },
+    );
+
+    test(
+      "creates a post using a Google Place ID and stores the resolved internal UUID",
+      async () => {
+        const result =
+          await PostCreateService
+            .createPost(
+              createRequest({
+                placeId:
+                  undefined,
+
+                googlePlaceId:
+                  GOOGLE_PLACE_ID,
+              }),
+            );
+
+        expect(
+          postCreateRepositoryMock
+            .findEligibleGooglePlace,
+        ).toHaveBeenCalledWith({
+          client:
+            transactionClient,
+
+          googlePlaceId:
+            GOOGLE_PLACE_ID,
+        });
+
+        expect(
+          postCreateRepositoryMock
+            .findEligiblePlace,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            placeId:
+              PLACE_ID,
+          }),
+        );
+
+        expect(result).toEqual({
+          post:
+            createCanonicalPost(),
+        });
+      },
+    );
+
+    test(
+      "rejects an unavailable Google Place ID",
+      async () => {
+        postCreateRepositoryMock
+          .findEligibleGooglePlace
+          .mockResolvedValue(
+            null,
+          );
+
+        await expect(
+          PostCreateService
+            .createPost(
+              createRequest({
+                placeId:
+                  undefined,
+
+                googlePlaceId:
+                  GOOGLE_PLACE_ID,
+              }),
+            ),
+        ).rejects.toMatchObject({
+          code:
+            "POST.PLACE_NOT_ALLOWED",
+
+          statusCode:
+            404,
+        });
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).not.toHaveBeenCalled();
       },
     );
 
