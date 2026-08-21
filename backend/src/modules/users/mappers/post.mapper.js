@@ -200,6 +200,10 @@ import {
     buildAssetUrl,
   } from "../utils/asset-url.util.js";
   
+import {
+  buildProfileShareUrl,
+} from "../utils/profile-share-url.util.js";
+
   class PostMapper {
     static mapAsset(asset) {
       if (!asset) {
@@ -412,6 +416,11 @@ import {
   
           username:
             row.username ?? null,
+
+          shareprofile_url:
+            buildProfileShareUrl(
+              row.username,
+            ),
   
           displayName:
             row.display_name ?? null,

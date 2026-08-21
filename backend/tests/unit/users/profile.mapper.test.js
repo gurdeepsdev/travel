@@ -19,6 +19,8 @@ describe("ProfileMapper toPublicResponse", () => {
         "user_98ef01e9",
       shareUrl:
         "https://artictern.com/u/user_98ef01e9",
+      shareprofile_url:
+        "https://artictern.com/u/user_98ef01e9",
       relationship:
         null,
       isPrivate:
@@ -65,6 +67,26 @@ describe("ProfileMapper toPublicResponse", () => {
         requestId:
           "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
       });
+    },
+  );
+
+  test(
+    "includes the share URL in the authenticated profile response",
+    () => {
+      const result =
+        ProfileMapper.toResponse({
+          user_id:
+            "b3fe5214-e569-4300-8509-589785ad86f2",
+          username:
+            "user_98ef01e9",
+          is_private:
+            false,
+        });
+
+      expect(result.shareprofile_url)
+        .toBe(
+          "https://artictern.com/u/user_98ef01e9",
+        );
     },
   );
 });

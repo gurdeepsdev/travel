@@ -1,6 +1,9 @@
 import {
   buildAssetUrl,
 } from "../utils/asset-url.util.js";
+import {
+  buildProfileShareUrl,
+} from "../utils/profile-share-url.util.js";
 
 class ProfileMapper {
   toResponse(profile) {
@@ -15,6 +18,11 @@ class ProfileMapper {
       username:
         profile.username ??
         null,
+
+      shareprofile_url:
+        buildProfileShareUrl(
+          profile.username,
+        ),
 
 
             displayName: profile.display_name ?? null,
@@ -78,7 +86,12 @@ class ProfileMapper {
         null,
 
       shareUrl:
-        this.#buildProfileShareUrl(
+        buildProfileShareUrl(
+          profile.username,
+        ),
+
+      shareprofile_url:
+        buildProfileShareUrl(
           profile.username,
         ),
               relationship:
@@ -147,30 +160,6 @@ class ProfileMapper {
         relationship.requestId ??
         null,
     };
-  }
-
-    #buildProfileShareUrl(
-    username,
-  ) {
-    if (!username) {
-      return null;
-    }
-
-    const baseUrl =
-      (
-        process.env
-          .PUBLIC_WEB_URL ??
-        "https://artictern.com"
-      )
-        .trim()
-        .replace(
-          /\/+$/,
-          "",
-        );
-
-    return `${baseUrl}/u/${encodeURIComponent(
-      username,
-    )}`;
   }
 
   #mapCountry(profile) {
