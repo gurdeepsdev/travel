@@ -508,6 +508,9 @@ describe(
 
               places_with_media:
                 0,
+
+              viewer_saved:
+                true,
             },
           ]);
 
@@ -519,6 +522,9 @@ describe(
 
               limit:
                 10,
+
+              viewerUserId:
+                VIEWER_USER_ID,
             });
 
         expect(
@@ -530,6 +536,9 @@ describe(
 
           limit:
             10,
+
+          viewerUserId:
+            VIEWER_USER_ID,
         });
 
         expect(
@@ -543,6 +552,11 @@ describe(
 
           placeCount:
             1,
+
+          viewerState: {
+            saved:
+              true,
+          },
         });
       },
     );
@@ -561,6 +575,8 @@ describe(
             "FOR_YOU",
           limit:
             10,
+          viewerUserId:
+            null,
         });
       },
     );

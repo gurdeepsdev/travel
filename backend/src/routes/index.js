@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import healthRoutes from "./health.routes.js";
+import docsRoutes from "./docs.routes.js";
 import testRoutes from "./test.routes.js";
 import authRoutes from "../modules/auth/auth.routes.js";
 import usersRoutes from "../modules/users/users.routes.js";
@@ -13,6 +14,7 @@ import exploreRoutes
 const router = Router();
 
 router.use("/health", healthRoutes);
+router.use("/docs", docsRoutes);
 
 router.use("/test", testRoutes);
 router.use("/auth", authRoutes);

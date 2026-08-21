@@ -37,12 +37,14 @@ class ExploreService {
   async getCities({
     category = "FOR_YOU",
     limit = 10,
+    viewerUserId = null,
   } = {}) {
     const cityRows =
       await ExploreRepository
         .listPopularCities({
           category,
           limit,
+          viewerUserId,
         });
 
     return {
@@ -53,6 +55,10 @@ class ExploreService {
               ExploreMapper
                 .toCity(
                   row,
+                  {
+                    includeViewerState:
+                      true,
+                  },
                 ),
           )
           .filter(

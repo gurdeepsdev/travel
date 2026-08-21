@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: Artictern Recently Implemented APIs
-  version: 1.1.0
-  description: >
-    APIs implemented for saved content, partial profile updates, comment
-    deletion, comment liker visibility, private memories, multipart post
-    creation, and access-controlled local media delivery.
+  title: Artictern API
+  version: 1.2.0
+  description: |
+    Consolidated contract for all registered Artictern production APIs.
 servers:
+  - url: https://apitest.artictern.com/api/v1
+    description: UAT
   - url: http://localhost:3001/api/v1
     description: Local development
 tags:
@@ -25,6 +25,1504 @@ tags:
   - name: Blocks
   - name: Explore
 paths:
+  /docs/openapi.yaml:
+    get:
+      tags:
+        - Documentation
+      summary: Download the complete OpenAPI contract
+      operationId: getOpenApiContract
+      responses:
+        "200":
+          description: Standalone OpenAPI YAML contract
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check API health
+      operationId: getHealth
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+  /auth/send-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Send a login OTP
+      operationId: sendOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+                - identifier
+              properties:
+                provider:
+                  type: string
+                  enum:
+                    - phone
+                    - email
+                identifier:
+                  type: string
+      responses:
+        "200":
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "400":
+          $ref: "#/paths/~1auth~1refresh/post/responses/400"
+  /auth/verify-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Verify a login OTP
+      operationId: verifyOtp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/paths/~1auth~1send-otp/post/requestBody/content/application~1json/sche\
+                    ma"
+                - type: object
+                  required:
+                    - otp
+                  properties:
+                    otp:
+                      type: string
+                      pattern: ^[0-9]{6}$
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "400":
+          $ref: "#/paths/~1auth~1refresh/post/responses/400"
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get the authenticated viewer
+      operationId: getAuthenticatedViewer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          description: Access token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7Busername%7D~1posts/get/responses/404/content/applica\
+                  tion~1json/schema"
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh authentication tokens
+      operationId: refreshTokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  minLength: 1
+      responses:
+        "200":
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7Busername%7D~1posts/get/responses/404/content/applica\
+                  tion~1json/schema"
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Log out the current session
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          $ref: "#/paths/~1auth~1me/get/responses/401"
+  /auth/logout-all:
+    post:
+      tags:
+        - Authentication
+      summary: Log out all sessions
+      operationId: logoutAll
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out from all devices successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          $ref: "#/paths/~1auth~1me/get/responses/401"
+  /auth/sessions:
+    get:
+      tags:
+        - Authentication
+      summary: List authenticated user sessions
+      operationId: getSessions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sessions fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          $ref: "#/paths/~1auth~1me/get/responses/401"
+  "/auth/sessions/{sessionId}":
+    delete:
+      tags:
+        - Authentication
+      summary: Revoke a session
+      operationId: revokeSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          $ref: "#/paths/~1auth~1me/get/responses/401"
+  /users/me:
+    get:
+      tags:
+        - Profile
+      summary: Get my profile
+      operationId: getMyProfile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          $ref: "#/paths/~1auth~1me/get/responses/401"
+  /users/me/posts:
+    get:
+      tags:
+        - Posts
+      summary: Get my posts
+      operationId: getMyPosts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+            pattern: ^[A-Za-z0-9_-]+$
+      responses:
+        "200":
+          description: Posts fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "401":
+          $ref: "#/paths/~1auth~1me/get/responses/401"
+  "/users/{username}/posts":
+    get:
+      tags:
+        - Posts
+      summary: Get a user's accessible posts
+      operationId: getUserPosts
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+        - $ref: "#/paths/~1users~1me~1posts/get/parameters/0"
+        - $ref: "#/paths/~1users~1me~1posts/get/parameters/1"
+      responses:
+        "200":
+          description: User posts fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1health/get/responses/200/content/application~1json/schema"
+        "404":
+          description: Profile not found or unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - code
+                  - message
+                  - details
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+  "/posts/{postId}/reactions":
+    get:
+      tags:
+        - Post Reactions
+      summary: Get reactions for a post
+      description: >
+        Returns a cursor-paginated list of users who reacted to a post.
+        Authentication is optional. The list can be filtered by reaction type.
+      operationId: getPostReactions
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+        - name: reactionType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - LIKE
+              - LOVE
+              - CELEBRATE
+              - INSIGHTFUL
+              - FUNNY
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/parameters/1"
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/parameters/2"
+      responses:
+        "200":
+          description: Post reactions fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - postId
+                          - filter
+                          - reactionCount
+                          - reactionSummary
+                          - reactions
+                          - pagination
+                        properties:
+                          postId:
+                            type: string
+                            format: uuid
+                          filter:
+                            type: object
+                            required:
+                              - reactionType
+                            properties:
+                              reactionType:
+                                allOf:
+                                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1reactions/get/parameters/1/schema"
+                                nullable: true
+                          reactionCount:
+                            type: integer
+                            minimum: 0
+                          reactionSummary:
+                            $ref: "#/paths/~1posts~1%7BpostId%7D~1reaction/put/responses/200/content/applic\
+                              ation~1json/schema/allOf/1/properties/data/proper\
+                              ties/reactionSummary"
+                          reactions:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - id
+                                - type
+                                - reactedAt
+                                - user
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                type:
+                                  $ref: "#/paths/~1posts~1%7BpostId%7D~1reactions/get/parameters/1/schema"
+                                reactedAt:
+                                  type: string
+                                  format: date-time
+                                user:
+                                  type: object
+                                  required:
+                                    - id
+                                    - username
+                                    - displayName
+                                    - isVerified
+                                    - profilePhoto
+                                  properties:
+                                    id:
+                                      type: string
+                                      format: uuid
+                                    username:
+                                      type: string
+                                      nullable: true
+                                    displayName:
+                                      type: string
+                                      nullable: true
+                                    isVerified:
+                                      type: boolean
+                                    isPrivate:
+                                      type: boolean
+                                    profilePhoto:
+                                      $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/201/content/appli\
+                                        cation~1json/schema/allOf/1/properties/\
+                                        data/properties/comment/properties/auth\
+                                        or/properties/profilePhoto"
+                                    viewerIsSelf:
+                                      type: boolean
+                          pagination:
+                            $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/responses/200/content/applic\
+                              ation~1json/schema/allOf/1/properties/data/proper\
+                              ties/pagination"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+  "/posts/{postId}/reaction":
+    put:
+      tags:
+        - Post Reactions
+      summary: Create or replace the viewer reaction
+      operationId: setPostReaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reactionType
+              properties:
+                reactionType:
+                  $ref: "#/paths/~1posts~1%7BpostId%7D~1reactions/get/parameters/1/schema"
+            example:
+              reactionType: LOVE
+      responses:
+        "200":
+          description: Post reaction saved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - postId
+                          - viewerReaction
+                          - reaction
+                          - reactionCount
+                          - reactionSummary
+                        properties:
+                          postId:
+                            type: string
+                            format: uuid
+                          viewerReaction:
+                            allOf:
+                              - $ref: "#/paths/~1posts~1%7BpostId%7D~1reactions/get/parameters/1/schema"
+                            nullable: true
+                          reaction:
+                            allOf:
+                              - type: object
+                                required:
+                                  - id
+                                  - postId
+                                  - type
+                                  - createdAt
+                                  - updatedAt
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                  postId:
+                                    type: string
+                                    format: uuid
+                                  type:
+                                    $ref: "#/paths/~1posts~1%7BpostId%7D~1reactions/get/parameters/1/schema"
+                                  createdAt:
+                                    type: string
+                                    format: date-time
+                                  updatedAt:
+                                    type: string
+                                    format: date-time
+                            nullable: true
+                          reactionCount:
+                            type: integer
+                            minimum: 0
+                          reactionSummary:
+                            type: object
+                            required:
+                              - LIKE
+                              - LOVE
+                              - CELEBRATE
+                              - INSIGHTFUL
+                              - FUNNY
+                            properties:
+                              LIKE:
+                                type: integer
+                                minimum: 0
+                              LOVE:
+                                type: integer
+                                minimum: 0
+                              CELEBRATE:
+                                type: integer
+                                minimum: 0
+                              INSIGHTFUL:
+                                type: integer
+                                minimum: 0
+                              FUNNY:
+                                type: integer
+                                minimum: 0
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+    delete:
+      tags:
+        - Post Reactions
+      summary: Remove the viewer reaction
+      operationId: removePostReaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      responses:
+        "200":
+          description: Post reaction removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1reaction/put/responses/200/content/applic\
+                  ation~1json/schema"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+  "/posts/{postId}/been-there":
+    get:
+      tags:
+        - Post Been There
+      summary: Get users who marked Been There
+      operationId: getPostBeenThere
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/parameters/1"
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/parameters/2"
+      responses:
+        "200":
+          description: Been There users fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - postId
+                          - beenThereCount
+                          - visitors
+                          - pagination
+                        properties:
+                          postId:
+                            type: string
+                            format: uuid
+                          beenThereCount:
+                            type: integer
+                            minimum: 0
+                          visitors:
+                            type: array
+                            items:
+                              type: object
+                              required:
+                                - id
+                                - markedAt
+                                - user
+                              properties:
+                                id:
+                                  type: string
+                                  format: uuid
+                                markedAt:
+                                  type: string
+                                  format: date-time
+                                user:
+                                  $ref: "#/paths/~1posts~1%7BpostId%7D~1reactions/get/responses/200/content/appli\
+                                    cation~1json/schema/allOf/1/properties/data\
+                                    /properties/reactions/items/properties/user"
+                          pagination:
+                            $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/responses/200/content/applic\
+                              ation~1json/schema/allOf/1/properties/data/proper\
+                              ties/pagination"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+    put:
+      tags:
+        - Post Been There
+      summary: Mark a post as Been There
+      operationId: setPostBeenThere
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/requestBody/content/application\
+                ~1json/schema"
+            example: {}
+      responses:
+        "200":
+          description: Post marked as Been There
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - postId
+                          - viewerBeenThere
+                          - beenThereCount
+                        properties:
+                          postId:
+                            type: string
+                            format: uuid
+                          viewerBeenThere:
+                            type: boolean
+                          beenThereCount:
+                            type: integer
+                            minimum: 0
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+    delete:
+      tags:
+        - Post Been There
+      summary: Remove the viewer Been There state
+      operationId: removePostBeenThere
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      responses:
+        "200":
+          description: Been There removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1been-there/put/responses/200/content/appl\
+                  ication~1json/schema"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+  "/posts/{postId}/comments":
+    get:
+      tags:
+        - Post Comments
+      summary: Get top-level comments for a post
+      description: >
+        Returns cursor-paginated top-level comments. commentCount includes
+        top-level comments and replies. Each top-level comment includes its
+        replyCount.
+      operationId: getPostComments
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 1024
+            pattern: ^[A-Za-z0-9_-]+$
+      responses:
+        "200":
+          description: Post comments fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - postId
+                          - commentCount
+                          - comments
+                          - pagination
+                        properties:
+                          postId:
+                            type: string
+                            format: uuid
+                          commentCount:
+                            type: integer
+                            minimum: 0
+                          comments:
+                            type: array
+                            items:
+                              allOf:
+                                - $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/201/content/appli\
+                                    cation~1json/schema/allOf/1/properties/data\
+                                    /properties/comment"
+                                - type: object
+                                  required:
+                                    - replyCount
+                                    - viewerIsAuthor
+                                  properties:
+                                    replyCount:
+                                      type: integer
+                                      minimum: 0
+                                    viewerIsAuthor:
+                                      type: boolean
+                          pagination:
+                            type: object
+                            required:
+                              - hasMore
+                              - nextCursor
+                            properties:
+                              hasMore:
+                                type: boolean
+                              nextCursor:
+                                type: string
+                                nullable: true
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+    post:
+      tags:
+        - Post Comments
+      summary: Create a comment or reply
+      operationId: createPostComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - comment
+              properties:
+                comment:
+                  type: string
+                  minLength: 1
+                  maxLength: 250
+                parentCommentId:
+                  type: string
+                  format: uuid
+                  nullable: true
+            examples:
+              topLevelComment:
+                value:
+                  comment: This place looks amazing!
+              reply:
+                value:
+                  comment: I visited it last year.
+                  parentCommentId: 0044c566-a39a-40a1-9b90-a7d256ef32f9
+      responses:
+        "201":
+          description: Comment created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - comment
+                          - commentCount
+                        properties:
+                          comment:
+                            type: object
+                            required:
+                              - id
+                              - postId
+                              - comment
+                              - parentCommentId
+                              - isReply
+                              - likeCount
+                              - createdAt
+                              - updatedAt
+                              - author
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              postId:
+                                type: string
+                                format: uuid
+                              comment:
+                                type: string
+                                maxLength: 250
+                              parentCommentId:
+                                type: string
+                                format: uuid
+                                nullable: true
+                              isReply:
+                                type: boolean
+                              likeCount:
+                                type: integer
+                                minimum: 0
+                              createdAt:
+                                type: string
+                                format: date-time
+                              updatedAt:
+                                type: string
+                                format: date-time
+                              author:
+                                type: object
+                                required:
+                                  - id
+                                  - username
+                                  - displayName
+                                  - isVerified
+                                  - profilePhoto
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                  username:
+                                    type: string
+                                    nullable: true
+                                  displayName:
+                                    type: string
+                                    nullable: true
+                                  isVerified:
+                                    type: boolean
+                                  profilePhoto:
+                                    type: object
+                                    nullable: true
+                                    required:
+                                      - id
+                                      - storageProvider
+                                      - bucket
+                                      - storageKey
+                                      - url
+                                      - mimeType
+                                    properties:
+                                      id:
+                                        type: string
+                                        format: uuid
+                                      storageProvider:
+                                        type: string
+                                        nullable: true
+                                      bucket:
+                                        type: string
+                                        nullable: true
+                                      storageKey:
+                                        type: string
+                                        nullable: true
+                                      url:
+                                        type: string
+                                        nullable: true
+                                      mimeType:
+                                        type: string
+                                        nullable: true
+                          commentCount:
+                            type: integer
+                            minimum: 0
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          description: Post or parent comment was not found
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - code
+                  - message
+                  - details
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                    nullable: true
+                  timestamp:
+                    type: string
+                    format: date-time
+              examples:
+                postNotFound:
+                  value:
+                    success: false
+                    code: POST.NOT_FOUND
+                    message: Post not found.
+                    details: null
+                    requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                    timestamp: 2026-08-03T10:00:00.000Z
+                parentNotFound:
+                  value:
+                    success: false
+                    code: COMMENT.PARENT_NOT_FOUND
+                    message: Parent comment was not found on this post.
+                    details: null
+                    requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                    timestamp: 2026-08-03T10:00:00.000Z
+  "/comments/{commentId}/like":
+    put:
+      tags:
+        - Comment Likes
+      summary: Like a comment
+      operationId: setCommentLike
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/requestBody/content/application\
+                ~1json/schema"
+            example: {}
+      responses:
+        "200":
+          description: Comment liked successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - commentId
+                          - viewerHasLiked
+                          - likeCount
+                        properties:
+                          commentId:
+                            type: string
+                            format: uuid
+                          viewerHasLiked:
+                            type: boolean
+                          likeCount:
+                            type: integer
+                            minimum: 0
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          description: Comment does not exist or is inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/404/content/appli\
+                  cation~1json/schema"
+              example:
+                success: false
+                code: COMMENT.NOT_FOUND
+                message: Comment not found.
+                details: null
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: 2026-08-03T10:00:00.000Z
+    delete:
+      tags:
+        - Comment Likes
+      summary: Remove the viewer comment like
+      operationId: removeCommentLike
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1comments~1%7BcommentId%7D~1like/put/parameters/0"
+      responses:
+        "200":
+          description: Comment like removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1comments~1%7BcommentId%7D~1like/put/responses/200/content/appl\
+                  ication~1json/schema"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1comments~1%7BcommentId%7D~1like/put/responses/404"
+  "/posts/{postId}/saved":
+    put:
+      tags:
+        - Saved Posts
+      summary: Save or reactivate a post
+      operationId: savePost
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+            example: {}
+      responses:
+        "200":
+          description: Post saved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - success
+                      - message
+                      - data
+                      - requestId
+                      - timestamp
+                    properties:
+                      success:
+                        type: boolean
+                        enum:
+                          - true
+                      message:
+                        type: string
+                      data:
+                        type: object
+                      requestId:
+                        type: string
+                        format: uuid
+                        nullable: true
+                      timestamp:
+                        type: string
+                        format: date-time
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - postId
+                          - viewerHasSaved
+                          - savedItem
+                        properties:
+                          postId:
+                            type: string
+                            format: uuid
+                          viewerHasSaved:
+                            type: boolean
+                          savedItem:
+                            allOf:
+                              - type: object
+                                nullable: true
+                                required:
+                                  - id
+                                  - savedAt
+                                properties:
+                                  id:
+                                    type: string
+                                    format: uuid
+                                  savedAt:
+                                    type: string
+                                    format: date-time
+                            nullable: true
+        "400":
+          description: Validation failed or pagination cursor is invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/404/content/appli\
+                  cation~1json/schema"
+              examples:
+                validationFailed:
+                  value:
+                    success: false
+                    code: COMMON.VALIDATION_FAILED
+                    message: Validation failed.
+                    details:
+                      formErrors: []
+                      fieldErrors:
+                        query:
+                          - Limit must be at least 1.
+                    requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                    timestamp: 2026-08-03T10:00:00.000Z
+                invalidCursor:
+                  value:
+                    success: false
+                    code: COMMON.INVALID_CURSOR
+                    message: Pagination cursor is invalid.
+                    details: null
+                    requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                    timestamp: 2026-08-03T10:00:00.000Z
+        "401":
+          description: Access token is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/404/content/appli\
+                  cation~1json/schema"
+              example:
+                success: false
+                code: AUTH.INVALID_ACCESS_TOKEN
+                message: Authorization header is required.
+                details: null
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: 2026-08-03T10:00:00.000Z
+        "404":
+          description: Post does not exist or is inaccessible
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/404/content/appli\
+                  cation~1json/schema"
+              example:
+                success: false
+                code: POST.NOT_FOUND
+                message: Post not found.
+                details: null
+                requestId: 9e4063c7-30f3-471a-815b-995478749ca4
+                timestamp: 2026-08-03T10:00:00.000Z
+    delete:
+      tags:
+        - Saved Posts
+      summary: Remove a saved post
+      operationId: removeSavedPost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      responses:
+        "200":
+          description: Saved post removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                  on~1json/schema"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+  "/users/{userId}/reports":
+    post:
+      tags:
+        - Reports
+      summary: Report a user profile
+      description: >
+        Creates a pending profile report. If the authenticated user already has
+        an active report against this profile, the existing report is returned
+        without replacing its original reason or description.
+      operationId: reportUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - reasonCode
+              properties:
+                reasonCode:
+                  type: string
+                  enum:
+                    - SPAM
+                    - HARASSMENT
+                    - HATE_SPEECH
+                    - NUDITY_OR_SEXUAL_CONTENT
+                    - VIOLENCE
+                    - MISINFORMATION
+                    - IMPERSONATION
+                    - INTELLECTUAL_PROPERTY
+                    - OTHER
+                description:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  example: Repeated promotional or misleading content.
+      responses:
+        "201":
+          description: User report submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                      - report
+                    properties:
+                      report:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          - id
+                          - target
+                          - reasonCode
+                          - status
+                          - createdAt
+                          - updatedAt
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          target:
+                            type: object
+                            additionalProperties: false
+                            required:
+                              - type
+                            properties:
+                              type:
+                                type: string
+                                enum:
+                                  - USER
+                                  - POST
+                              userId:
+                                type: string
+                                format: uuid
+                                description: Present only when type is USER.
+                              postId:
+                                type: string
+                                format: uuid
+                                description: Present only when type is POST.
+                          reasonCode:
+                            $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/requestBody/content/applicat\
+                              ion~1json/schema/properties/reasonCode"
+                          description:
+                            type: string
+                            nullable: true
+                          status:
+                            type: string
+                            enum:
+                              - PENDING
+                              - UNDER_REVIEW
+                              - RESOLVED
+                              - REJECTED
+                          createdAt:
+                            type: string
+                            format: date-time
+                          updatedAt:
+                            type: string
+                            format: date-time
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "400":
+          description: >
+            Request validation failed or the authenticated user attempted to
+            report their own profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - code
+                  - message
+                  - details
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - false
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    nullable: true
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
+        "401":
+          description: Access token is missing, invalid, or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/400/content/applic\
+                  ation~1json/schema"
+        "404":
+          description: Report target was not found or is not available
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/400/content/applic\
+                  ation~1json/schema"
+              example:
+                success: false
+                code: REPORT.TARGET_NOT_AVAILABLE
+                message: The report target was not found or is not available.
+                details: null
+                requestId: 768684c6-458e-468c-9e41-af46fd5404c9
+                timestamp: 2026-08-18T07:38:08.573Z
+  "/posts/{postId}/reports":
+    post:
+      tags:
+        - Reports
+      summary: Report a post
+      description: >
+        Creates a pending report against an accessible post. If the
+        authenticated user already has an active report against this post, the
+        existing report is returned without replacing its original reason or
+        description.
+      operationId: reportPost
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/requestBody/content/applicat\
+                ion~1json/schema"
+      responses:
+        "201":
+          description: Post report submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/201/content/applic\
+                  ation~1json/schema"
+        "400":
+          description: >
+            Request validation failed or the authenticated user attempted to
+            report their own post.
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/400/content/applic\
+                  ation~1json/schema"
+        "401":
+          $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/401"
+        "404":
+          $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/404"
   /explore/countries:
     get:
       tags:
@@ -117,6 +1615,9 @@ paths:
         - Explore
       summary: List popular cities
       operationId: getExploreCities
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
         - name: category
           in: query
@@ -339,7 +1840,7 @@ paths:
           $ref: "#/components/responses/PostMediaInvalidType"
         "500":
           $ref: "#/components/responses/PostCreateFailed"
-  /posts/{postId}:
+  "/posts/{postId}":
     delete:
       tags:
         - Post Management
@@ -851,8 +2352,8 @@ paths:
       summary: Verify a visited place or city
       operationId: submitVisitedPlaceVerification
       description: >
-        Verifies a historical gallery photo using EXIF GPS and capture time.
-        A city can be verified directly with googleCityPlaceId, or indirectly
+        Verifies a historical gallery photo using EXIF GPS and capture time. A
+        city can be verified directly with googleCityPlaceId, or indirectly
         through an internal or Google place identifier. The uploaded photo
         remains private.
       security:
@@ -865,9 +2366,9 @@ paths:
               type: object
               additionalProperties: false
               description: >
-                Provide placeId, googlePlaceId, or googleCityPlaceId. A city-only
-                verification requires only googleCityPlaceId and the photo.
-                placeId and googlePlaceId cannot be sent together.
+                Provide placeId, googlePlaceId, or googleCityPlaceId. A
+                city-only verification requires only googleCityPlaceId and the
+                photo. placeId and googlePlaceId cannot be sent together.
               anyOf:
                 - required:
                     - placeId
@@ -2593,6 +4094,7 @@ components:
         - placeCount
         - placesWithMedia
         - image
+        - viewerState
       properties:
         id:
           type: string
@@ -2622,6 +4124,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/ExploreAsset"
           nullable: true
+        viewerState:
+          type: object
+          required:
+            - saved
+          properties:
+            saved:
+              type: boolean
+              description: True when the optional authenticated viewer saved this city.
     ExploreCountryCard:
       type: object
       required:
@@ -3739,7 +5249,7 @@ components:
           type: string
           minLength: 1
           maxLength: 255
-          description: >
+          description: |
             Google place or Google city provider ID. Do not send with placeId.
           example: ChIJArticternPostCreateTest
         files:
