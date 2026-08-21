@@ -235,6 +235,35 @@ const getExploreCitiesSchema =
   })
   .strict();
 
+const getExploreCountriesSchema =
+  z.object({
+    params: z.object({})
+      .strict(),
+    body: z.unknown()
+      .optional(),
+    query: z.object({
+      limit: z.coerce
+        .number({
+          error:
+            "Limit must be a number.",
+        })
+        .int(
+          "Limit must be an integer.",
+        )
+        .min(
+          1,
+          "Limit must be at least 1.",
+        )
+        .max(
+          20,
+          "Limit cannot exceed 20.",
+        )
+        .default(10),
+    })
+      .strict(),
+  })
+  .strict();
+
 const getExploreCityPlacesSchema =
   z.object({
     params:
@@ -396,6 +425,7 @@ const getExplorePlacesSchema =
 
 export {
   EXPLORE_CITY_CATEGORIES,
+  getExploreCountriesSchema,
   getExploreFeedSchema,
   getExploreCitiesSchema,
   getExploreCityPlacesSchema,

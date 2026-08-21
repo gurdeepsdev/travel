@@ -89,6 +89,11 @@ BLOCK: Object.freeze({
     "BLOCK.SELF_BLOCK_NOT_ALLOWED",
 }),
 
+CITY: Object.freeze({
+  NOT_FOUND:
+    "CITY.NOT_FOUND",
+}),
+
 MEMORY: Object.freeze({
   ASSET_NOT_ALLOWED:
     "MEMORY.ASSET_NOT_ALLOWED",

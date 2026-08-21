@@ -21,6 +21,9 @@ const CREATED_AT =
   "2026-08-19 10:00:00.000000";
 
 const exploreRepositoryMock = {
+  listPopularCountries:
+    jest.fn(),
+
   listPopularCities:
     jest.fn(),
 
@@ -71,6 +74,12 @@ describe(
     beforeEach(
       () => {
         jest.clearAllMocks();
+
+        exploreRepositoryMock
+          .listPopularCountries
+          .mockResolvedValue(
+            [],
+          );
 
         exploreRepositoryMock
           .listPopularCities
@@ -364,6 +373,102 @@ describe(
           nextCursor:
             null,
         });
+      },
+    );
+
+    test(
+      "returns mapped popular countries",
+      async () => {
+        const previousBaseUrl =
+          process.env
+            .API_PUBLIC_BASE_URL;
+
+        process.env.API_PUBLIC_BASE_URL =
+          "https://apitest.artictern.com";
+
+        exploreRepositoryMock
+          .listPopularCountries
+          .mockResolvedValue([
+            {
+              id:
+                "060de7c3-9c68-4507-aff7-62a5411bf60a",
+              name:
+                "India",
+              code:
+                "IN",
+              description:
+                "Country description",
+              phone_prefix:
+                "+91",
+              timezone:
+                "Asia/Kolkata",
+              city_count:
+                10,
+              place_count:
+                100,
+              places_with_media:
+                50,
+              image_asset_id:
+                "42225d26-2755-4759-b0ab-217b2192f581",
+              image_storage_provider:
+                "local",
+              image_storage_key:
+                "country-icons/india.png",
+              image_mime_type:
+                "image/png",
+              image_is_public:
+                true,
+            },
+          ]);
+
+        const result =
+          await ExploreService
+            .getCountries({
+              limit:
+                10,
+            });
+
+        expect(
+          exploreRepositoryMock
+            .listPopularCountries,
+        ).toHaveBeenCalledWith({
+          limit:
+            10,
+        });
+
+        expect(result)
+          .toEqual({
+            countries: [
+              expect.objectContaining({
+                title:
+                  "India",
+                name:
+                  "India",
+                code:
+                  "IN",
+                cityCount:
+                  10,
+                placeCount:
+                  100,
+                image: {
+                  id:
+                    "42225d26-2755-4759-b0ab-217b2192f581",
+                  url:
+                    "https://apitest.artictern.com/api/v1/media/assets/42225d26-2755-4759-b0ab-217b2192f581/content",
+                  mimeType:
+                    "image/png",
+                },
+              }),
+            ],
+          });
+
+        if (previousBaseUrl) {
+          process.env.API_PUBLIC_BASE_URL =
+            previousBaseUrl;
+        } else {
+          delete process.env
+            .API_PUBLIC_BASE_URL;
+        }
       },
     );
 

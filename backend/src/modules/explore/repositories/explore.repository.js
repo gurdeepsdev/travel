@@ -42,6 +42,137 @@ const CITY_CATEGORY_PATTERNS = {
 
 class ExploreRepository {
 
+  async listPopularCountries({
+    limit = 10,
+  } = {}) {
+    const safeLimit = Math.max(
+      1,
+      Math.min(
+        Number(limit) || 10,
+        20,
+      ),
+    );
+
+    const sql = `
+      SELECT
+        country.id,
+        country.name,
+        country.code,
+        country.description,
+        country.phone_prefix,
+        country.timezone,
+        country_stats.city_count,
+        country_stats.place_count,
+        country_stats.places_with_media,
+        COALESCE(
+          flag_asset.id,
+          cover_asset.id
+        ) AS image_asset_id,
+        COALESCE(
+          flag_asset.storage_provider,
+          cover_asset.storage_provider
+        ) AS image_storage_provider,
+        COALESCE(
+          flag_asset.storage_key,
+          cover_asset.storage_key
+        ) AS image_storage_key,
+        COALESCE(
+          flag_asset.mime_type,
+          cover_asset.mime_type
+        ) AS image_mime_type,
+        COALESCE(
+          flag_asset.is_public,
+          cover_asset.is_public,
+          FALSE
+        ) AS image_is_public
+
+      FROM poi.countries country
+
+      INNER JOIN LATERAL (
+        SELECT
+          COUNT(
+            DISTINCT place.city_id
+          )::integer AS city_count,
+          COUNT(*)::integer
+            AS place_count,
+          COUNT(
+            place.media_id
+          )::integer
+            AS places_with_media
+        FROM poi.places place
+        WHERE place.country_id =
+            country.id
+          AND COALESCE(
+            place.is_closed,
+            FALSE
+          ) IS FALSE
+      ) AS country_stats
+        ON country_stats.place_count > 0
+
+      LEFT JOIN media.assets flag_asset
+        ON flag_asset.id =
+          country.flag_asset_id
+        AND flag_asset.deleted_at IS NULL
+        AND flag_asset.is_public IS TRUE
+        AND flag_asset.mime_type
+          LIKE 'image/%'
+
+      LEFT JOIN LATERAL (
+        SELECT
+          asset.id,
+          asset.storage_provider,
+          asset.storage_key,
+          asset.mime_type,
+          asset.is_public
+        FROM poi.places place
+        LEFT JOIN poi.cities city
+          ON city.id = place.city_id
+        INNER JOIN media.assets asset
+          ON asset.id = COALESCE(
+            city.icon_asset_id,
+            place.media_id
+          )
+          AND asset.deleted_at IS NULL
+          AND asset.is_public IS TRUE
+          AND asset.mime_type
+            LIKE 'image/%'
+        WHERE place.country_id =
+            country.id
+          AND COALESCE(
+            place.is_closed,
+            FALSE
+          ) IS FALSE
+        ORDER BY
+          place.rating DESC NULLS LAST,
+          place.review_count DESC,
+          place.id ASC
+        LIMIT 1
+      ) AS cover_asset
+        ON TRUE
+
+      WHERE country.is_active IS TRUE
+
+      ORDER BY
+        country_stats
+          .places_with_media DESC,
+        country_stats.place_count DESC,
+        country_stats.city_count DESC,
+        country.name ASC,
+        country.id ASC
+
+      LIMIT $1
+    `;
+
+    const { rows } = await Database.query(
+      sql,
+      [
+        safeLimit,
+      ],
+    );
+
+    return rows;
+  }
+
 
 
 

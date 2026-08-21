@@ -13,6 +13,27 @@ import {
 } from "../../../shared/utils/cursor.js";
 
 class ExploreService {
+  async getCountries({
+    limit = 10,
+  } = {}) {
+    const countryRows =
+      await ExploreRepository
+        .listPopularCountries({
+          limit,
+        });
+
+    return {
+      countries: countryRows
+        .map(
+          (row) =>
+            ExploreMapper.toCountry(
+              row,
+            ),
+        )
+        .filter(Boolean),
+    };
+  }
+
   async getCities({
     category = "FOR_YOU",
     limit = 10,
