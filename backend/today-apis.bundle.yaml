@@ -25,6 +25,33 @@ tags:
   - name: Blocks
   - name: Explore
 paths:
+  /explore/countries:
+    get:
+      tags:
+        - Explore
+      summary: List popular countries
+      description: >
+        Returns active countries ranked by available place media and place
+        count. Images use country flag, city icon, and place media fallback.
+      operationId: getExploreCountries
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        "200":
+          description: Explore countries fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreCountriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /explore/feed:
     get:
       tags:
@@ -152,6 +179,71 @@ paths:
                 $ref: "#/components/schemas/ExploreCityPlacesResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+  "/explore/cities/{cityId}/saved":
+    put:
+      tags:
+        - Explore
+      summary: Save a city
+      description: Saves or reactivates an active city for the authenticated user.
+      operationId: saveExploreCity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: City saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CitySaveResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: City not found or inactive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Explore
+      summary: Remove a saved city
+      description: Soft-removes a saved city. Repeated requests are idempotent.
+      operationId: removeSavedExploreCity
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Saved city removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CitySaveResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: City not found or inactive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /explore/places:
     get:
       tags:
@@ -2530,6 +2622,53 @@ components:
           allOf:
             - $ref: "#/components/schemas/ExploreAsset"
           nullable: true
+    ExploreCountryCard:
+      type: object
+      required:
+        - id
+        - title
+        - name
+        - code
+        - description
+        - phonePrefix
+        - timezone
+        - cityCount
+        - placeCount
+        - placesWithMedia
+        - image
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        phonePrefix:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+        cityCount:
+          type: integer
+          minimum: 0
+        placeCount:
+          type: integer
+          minimum: 0
+        placesWithMedia:
+          type: integer
+          minimum: 0
+        image:
+          allOf:
+            - $ref: "#/components/schemas/ExploreAsset"
+          nullable: true
     ExplorePlace:
       type: object
       required:
@@ -2720,6 +2859,50 @@ components:
                   type: array
                   items:
                     $ref: "#/components/schemas/ExploreCity"
+    ExploreCountriesResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - countries
+              properties:
+                countries:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExploreCountryCard"
+    CitySaveResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - cityId
+                - viewerHasSaved
+                - savedItem
+              properties:
+                cityId:
+                  type: string
+                  format: uuid
+                viewerHasSaved:
+                  type: boolean
+                savedItem:
+                  type: object
+                  nullable: true
+                  required:
+                    - id
+                    - savedAt
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    savedAt:
+                      type: string
+                      format: date-time
     ExploreCityPlacesResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"

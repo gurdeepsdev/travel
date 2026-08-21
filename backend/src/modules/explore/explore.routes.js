@@ -10,7 +10,15 @@ import validate
 
 import ExploreController
   from "./controllers/explore.controller.js";
+import CitySavesController
+  from "./controllers/city-saves.controller.js";
+import AuthMiddleware
+  from "../../middleware/auth.middleware.js";
 import {
+  citySaveSchema,
+} from "./validations/city-saves.validation.js";
+import {
+  getExploreCountriesSchema,
   getExploreCitiesSchema,
   getExploreCityPlacesSchema,
   getExploreFeedSchema,
@@ -21,11 +29,33 @@ const router =
   Router();
 
 router.get(
+  "/countries",
+  validate(
+    getExploreCountriesSchema,
+  ),
+  ExploreController.getCountries,
+);
+
+router.get(
   "/cities",
   validate(
     getExploreCitiesSchema,
   ),
   ExploreController.getCities,
+);
+
+router.put(
+  "/cities/:cityId/saved",
+  AuthMiddleware.authenticate,
+  validate(citySaveSchema),
+  CitySavesController.saveCity,
+);
+
+router.delete(
+  "/cities/:cityId/saved",
+  AuthMiddleware.authenticate,
+  validate(citySaveSchema),
+  CitySavesController.removeSavedCity,
 );
 
 

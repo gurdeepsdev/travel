@@ -2,7 +2,89 @@ import {
   buildAssetUrl,
 } from "../../users/utils/asset-url.util.js";
 
+const buildAbsoluteAssetUrl = (
+  asset,
+) => {
+  const assetUrl =
+    buildAssetUrl(asset);
+
+  if (
+    !assetUrl ||
+    /^https?:\/\//i.test(assetUrl)
+  ) {
+    return assetUrl;
+  }
+
+  const configuredBaseUrl =
+    process.env
+      .API_PUBLIC_BASE_URL
+      ?.trim();
+
+  const baseUrl =
+    configuredBaseUrl ||
+    `http://localhost:${
+      process.env.APP_PORT || 3001
+    }`;
+
+  return `${baseUrl.replace(
+    /\/+$/,
+    "",
+  )}/${assetUrl.replace(
+    /^\/+/,
+    "",
+  )}`;
+};
+
 class ExploreMapper {
+  static toCountry(
+    row,
+  ) {
+    if (!row?.id) {
+      return null;
+    }
+
+    const imageAssetId =
+      row.image_asset_id ?? null;
+
+    return {
+      id: row.id,
+      title: row.name,
+      name: row.name,
+      code: row.code ?? null,
+      description:
+        row.description ?? null,
+      phonePrefix:
+        row.phone_prefix ?? null,
+      timezone:
+        row.timezone ?? null,
+      cityCount: Number(
+        row.city_count ?? 0,
+      ),
+      placeCount: Number(
+        row.place_count ?? 0,
+      ),
+      placesWithMedia: Number(
+        row.places_with_media ?? 0,
+      ),
+      image: imageAssetId
+        ? {
+            id: imageAssetId,
+            url: buildAbsoluteAssetUrl({
+              assetId: imageAssetId,
+              storageProvider:
+                row.image_storage_provider,
+              storageKey:
+                row.image_storage_key,
+              isPublic:
+                row.image_is_public === true,
+            }),
+            mimeType:
+              row.image_mime_type ?? null,
+          }
+        : null,
+    };
+  }
+
   static toCity(
     row,
   ) {

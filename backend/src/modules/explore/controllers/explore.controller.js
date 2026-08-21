@@ -5,6 +5,32 @@ import ExploreService
   from "../services/explore.service.js";
 
 class ExploreController {
+  async getCountries(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const {
+        limit = 10,
+      } = req.validated.query;
+
+      const result =
+        await ExploreService
+          .getCountries({
+            limit,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Explore countries fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async getCities(
     req,
     res,
