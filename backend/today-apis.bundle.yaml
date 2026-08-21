@@ -91,6 +91,21 @@ paths:
       summary: List popular cities
       operationId: getExploreCities
       parameters:
+        - name: category
+          in: query
+          required: false
+          description: >
+            Optional case-insensitive city category. Empty and For You preserve
+            the default popular-city results.
+          schema:
+            type: string
+            enum:
+              - For You
+              - Peaceful
+              - Fun
+              - History and Culture
+              - Adventure
+            default: For You
         - name: limit
           in: query
           schema:
