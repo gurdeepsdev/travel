@@ -8,6 +8,45 @@ const DEFAULT_POST_LIMIT =
 const MAX_POST_LIMIT =
   50;
 
+const EXPLORE_CITY_CATEGORIES = [
+  "FOR_YOU",
+  "PEACEFUL",
+  "FUN",
+  "HISTORY_AND_CULTURE",
+  "ADVENTURE",
+];
+
+const exploreCityCategorySchema = z
+  .string({
+    error:
+      "Category must be a string.",
+  })
+  .trim()
+  .max(
+    50,
+    "Category cannot exceed 50 characters.",
+  )
+  .transform(
+    (value) =>
+      value === ""
+        ? "FOR_YOU"
+        : value
+            .toUpperCase()
+            .replace(
+              /[\s-]+/g,
+              "_",
+            ),
+  )
+  .pipe(
+    z.enum(
+      EXPLORE_CITY_CATEGORIES,
+      {
+        error:
+          "Category must be For You, Peaceful, Fun, History and Culture, or Adventure.",
+      },
+    ),
+  );
+
 const cursorSchema = z
   .string({
     error:
@@ -164,6 +203,13 @@ const getExploreCitiesSchema =
 
     query:
       z.object({
+        category:
+          exploreCityCategorySchema
+            .optional()
+            .default(
+              "FOR_YOU",
+            ),
+
         limit:
           z.coerce
             .number({
@@ -349,6 +395,7 @@ const getExplorePlacesSchema =
   .strict();
 
 export {
+  EXPLORE_CITY_CATEGORIES,
   getExploreFeedSchema,
   getExploreCitiesSchema,
   getExploreCityPlacesSchema,

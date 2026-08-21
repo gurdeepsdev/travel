@@ -1,12 +1,52 @@
 import Database
   from "../../../database/database-manager.js";
 
+const CITY_CATEGORY_PATTERNS = {
+  PEACEFUL: [
+    "%nature%",
+    "%park%",
+    "%garden%",
+    "%religious%",
+    "%wellness%",
+    "%spa%",
+  ],
+  FUN: [
+    "%entertainment%",
+    "%activit%",
+    "%amusement%",
+    "%nightlife%",
+    "%dining%",
+    "%drink%",
+    "%shopping%",
+    "%market%",
+    "%mall%",
+  ],
+  HISTORY_AND_CULTURE: [
+    "%culture%",
+    "%heritage%",
+    "%historic%",
+    "%museum%",
+    "%monument%",
+    "%religious%",
+    "%tourist attraction%",
+  ],
+  ADVENTURE: [
+    "%adventure%",
+    "%outdoor%",
+    "%nature%",
+    "%hiking%",
+    "%trek%",
+    "%water sport%",
+  ],
+};
+
 class ExploreRepository {
 
 
 
 
   async listPopularCities({
+    category = "FOR_YOU",
     limit = 10,
   } = {}) {
     const safeLimit =
@@ -17,6 +57,11 @@ class ExploreRepository {
           20,
         ),
       );
+
+    const categoryPatterns =
+      CITY_CATEGORY_PATTERNS[
+        category
+      ] ?? null;
 
     const sql = `
       SELECT
@@ -155,6 +200,28 @@ class ExploreRepository {
       WHERE city.is_active
         IS TRUE
 
+        AND (
+          $2::varchar[] IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM poi.places
+              AS category_place
+            INNER JOIN poi.categories
+              AS category
+              ON category.id =
+                category_place.category_id
+            WHERE category_place.city_id =
+                city.id
+              AND COALESCE(
+                category_place.is_closed,
+                FALSE
+              ) IS FALSE
+              AND category.name ILIKE ANY(
+                $2::varchar[]
+              )
+          )
+        )
+
       ORDER BY
         place_stats
           .places_with_media DESC,
@@ -174,6 +241,7 @@ class ExploreRepository {
         sql,
         [
           safeLimit,
+          categoryPatterns,
         ],
       );
 

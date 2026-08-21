@@ -12,12 +12,14 @@ class ExploreController {
   ) {
     try {
       const {
+        category = "FOR_YOU",
         limit = 10,
       } = req.validated.query;
 
       const result =
         await ExploreService
           .getCities({
+            category,
             limit,
           });
 

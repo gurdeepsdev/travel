@@ -409,6 +409,9 @@ describe(
         const result =
           await ExploreService
             .getCities({
+              category:
+                "FUN",
+
               limit:
                 10,
             });
@@ -417,6 +420,9 @@ describe(
           exploreRepositoryMock
             .listPopularCities,
         ).toHaveBeenCalledWith({
+          category:
+            "FUN",
+
           limit:
             10,
         });
@@ -432,6 +438,24 @@ describe(
 
           placeCount:
             1,
+        });
+      },
+    );
+
+    test(
+      "uses For You when no city category is supplied",
+      async () => {
+        await ExploreService
+          .getCities();
+
+        expect(
+          exploreRepositoryMock
+            .listPopularCities,
+        ).toHaveBeenCalledWith({
+          category:
+            "FOR_YOU",
+          limit:
+            10,
         });
       },
     );

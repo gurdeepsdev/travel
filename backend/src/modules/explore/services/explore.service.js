@@ -14,11 +14,13 @@ import {
 
 class ExploreService {
   async getCities({
+    category = "FOR_YOU",
     limit = 10,
   } = {}) {
     const cityRows =
       await ExploreRepository
         .listPopularCities({
+          category,
           limit,
         });
 
