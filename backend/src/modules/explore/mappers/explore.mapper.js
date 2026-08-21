@@ -87,6 +87,10 @@ class ExploreMapper {
 
   static toCity(
     row,
+    {
+      includeViewerState =
+        false,
+    } = {},
   ) {
     if (!row?.id) {
       return null;
@@ -176,6 +180,16 @@ class ExploreMapper {
                 null,
             }
           : null,
+
+      ...(includeViewerState
+        ? {
+            viewerState: {
+              saved:
+                row.viewer_saved ===
+                true,
+            },
+          }
+        : {}),
     };
   }
 

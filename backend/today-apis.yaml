@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: Artictern Recently Implemented APIs
-  version: 1.1.0
+  title: Artictern API
+  version: 1.2.0
   description: >
-    APIs implemented for saved content, partial profile updates, comment
-    deletion, comment liker visibility, private memories, multipart post
-    creation, and access-controlled local media delivery.
+    Consolidated contract for all registered Artictern production APIs.
 servers:
+  - url: https://apitest.artictern.com/api/v1
+    description: UAT
   - url: http://localhost:3001/api/v1
     description: Local development
 tags:
@@ -25,6 +25,48 @@ tags:
   - name: Blocks
   - name: Explore
 paths:
+  /docs/openapi.yaml:
+    $ref: "./platform-core.openapi.yaml#/paths/~1docs~1openapi.yaml"
+  /health:
+    $ref: "./platform-core.openapi.yaml#/paths/~1health"
+  /auth/send-otp:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1send-otp"
+  /auth/verify-otp:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1verify-otp"
+  /auth/me:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1me"
+  /auth/refresh:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1refresh"
+  /auth/logout:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1logout"
+  /auth/logout-all:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1logout-all"
+  /auth/sessions:
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1sessions"
+  "/auth/sessions/{sessionId}":
+    $ref: "./platform-core.openapi.yaml#/paths/~1auth~1sessions~1{sessionId}"
+  /users/me:
+    $ref: "./platform-core.openapi.yaml#/paths/~1users~1me"
+  /users/me/posts:
+    $ref: "./platform-core.openapi.yaml#/paths/~1users~1me~1posts"
+  "/users/{username}/posts":
+    $ref: "./platform-core.openapi.yaml#/paths/~1users~1{username}~1posts"
+  "/posts/{postId}/reactions":
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1reactions"
+  "/posts/{postId}/reaction":
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1reaction"
+  "/posts/{postId}/been-there":
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1been-there"
+  "/posts/{postId}/comments":
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1comments"
+  "/comments/{commentId}/like":
+    $ref: "./posts.openapi.yaml#/paths/~1comments~1{commentId}~1like"
+  "/posts/{postId}/saved":
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1saved"
+  "/users/{userId}/reports":
+    $ref: "./reports.openapi.yaml#/paths/~1users~1{userId}~1reports"
+  "/posts/{postId}/reports":
+    $ref: "./reports.openapi.yaml#/paths/~1posts~1{postId}~1reports"
   /explore/countries:
     get:
       tags:
@@ -117,6 +159,9 @@ paths:
         - Explore
       summary: List popular cities
       operationId: getExploreCities
+      security:
+        - {}
+        - bearerAuth: []
       parameters:
         - name: category
           in: query
@@ -2593,6 +2638,7 @@ components:
         - placeCount
         - placesWithMedia
         - image
+        - viewerState
       properties:
         id:
           type: string
@@ -2622,6 +2668,14 @@ components:
           allOf:
             - $ref: "#/components/schemas/ExploreAsset"
           nullable: true
+        viewerState:
+          type: object
+          required:
+            - saved
+          properties:
+            saved:
+              type: boolean
+              description: True when the optional authenticated viewer saved this city.
     ExploreCountryCard:
       type: object
       required:

@@ -47,6 +47,8 @@ class ExploreController {
           .getCities({
             category,
             limit,
+            viewerUserId:
+              req.user?.id ?? null,
           });
 
       return Response.success(

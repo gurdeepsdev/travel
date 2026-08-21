@@ -179,6 +179,7 @@ class ExploreRepository {
   async listPopularCities({
     category = "FOR_YOU",
     limit = 10,
+    viewerUserId = null,
   } = {}) {
     const safeLimit =
       Math.max(
@@ -213,6 +214,24 @@ class ExploreRepository {
 
         place_stats.place_count,
         place_stats.places_with_media,
+
+        CASE
+          WHEN $3::uuid IS NULL
+          THEN FALSE
+          ELSE EXISTS (
+            SELECT 1
+            FROM users.saved_items
+              AS saved_item
+            WHERE saved_item.user_id =
+                $3::uuid
+              AND saved_item.item_type =
+                'CITY'
+              AND saved_item.item_id =
+                city.id
+              AND saved_item.is_active
+                IS TRUE
+          )
+        END AS viewer_saved,
 
         COALESCE(
           city_icon.id,
@@ -373,6 +392,7 @@ class ExploreRepository {
         [
           safeLimit,
           categoryPatterns,
+          viewerUserId,
         ],
       );
 

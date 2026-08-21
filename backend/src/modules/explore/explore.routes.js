@@ -38,6 +38,7 @@ router.get(
 
 router.get(
   "/cities",
+  optionalAuthMiddleware,
   validate(
     getExploreCitiesSchema,
   ),
