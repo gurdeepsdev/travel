@@ -3145,6 +3145,7 @@ components:
       required:
         - userId
         - username
+        - shareprofile_url
         - displayName
         - bio
         - profilePhoto
@@ -3167,6 +3168,10 @@ components:
         username:
           type: string
           nullable: true
+        shareprofile_url:
+          type: string
+          nullable: true
+          example: https://artictern.com/u/user_98ef01e9
         displayName:
           type: string
           nullable: true
@@ -3362,6 +3367,7 @@ components:
         - userId
         - username
         - shareUrl
+        - shareprofile_url
         - relationship
         - displayName
         - bio
@@ -3382,6 +3388,10 @@ components:
           type: string
           nullable: true
         shareUrl:
+          type: string
+          nullable: true
+          example: https://artictern.com/u/user_98ef01e9
+        shareprofile_url:
           type: string
           nullable: true
           example: https://artictern.com/u/user_98ef01e9
@@ -3824,6 +3834,7 @@ components:
               required:
                 - id
                 - username
+                - shareprofile_url
                 - displayName
                 - isVerified
                 - profilePhoto
@@ -3834,6 +3845,10 @@ components:
                 username:
                   type: string
                   nullable: true
+                shareprofile_url:
+                  type: string
+                  nullable: true
+                  example: https://artictern.com/u/user_98ef01e9
                 displayName:
                   type: string
                   nullable: true
