@@ -4761,7 +4761,8 @@ components:
           type: string
           minLength: 3
           maxLength: 50
-          pattern: ^[a-z0-9_]+$
+          pattern: ^[a-zA-Z0-9_]+$
+          description: Uppercase letters are accepted and stored as lowercase.
         displayName:
           type: string
           minLength: 1

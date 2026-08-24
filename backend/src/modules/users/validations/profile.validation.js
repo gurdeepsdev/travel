@@ -42,8 +42,12 @@ const usernameSchema = z
     `Username cannot exceed ${MAX_USERNAME_LENGTH} characters.`,
   )
   .regex(
-    /^[a-z0-9_]+$/,
-    "Username can contain only lowercase letters, numbers, and underscores.",
+    /^[a-zA-Z0-9_]+$/,
+    "Username can contain only letters, numbers, and underscores.",
+  )
+  .transform(
+    (username) =>
+      username.toLowerCase(),
   );
 
 const displayNameSchema = z
