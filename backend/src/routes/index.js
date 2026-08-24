@@ -10,6 +10,8 @@ import commentsRoutes from "../modules/posts/comments.routes.js";
 import mediaRoutes from "../modules/media/media.routes.js";
 import exploreRoutes
   from "../modules/explore/explore.routes.js";
+import itineraryRoutes
+  from "../modules/itinerary/itinerary.routes.js";
 
 const router = Router();
 
@@ -28,6 +30,10 @@ router.use(
 router.use(
   "/explore",
   exploreRoutes,
+);
+router.use(
+  "/itineraries",
+  itineraryRoutes,
 );
 
 
