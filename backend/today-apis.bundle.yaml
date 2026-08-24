@@ -5169,9 +5169,9 @@ components:
           type: string
           nullable: true
           description: >
-            Public R2 URL for public remote assets, or the local
-            access-controlled media endpoint for local assets. Private non-local
-            assets may return null.
+            Absolute public URL for public remote assets, or the authenticated
+            media-delivery URL for local assets. Private non-local assets return
+            null until signed URL delivery is available.
         createdAt:
           type: string
           format: date-time
