@@ -5346,6 +5346,7 @@ components:
           type: object
           required:
             - id
+            - sharepost_url
             - caption
             - postType
             - visibility
@@ -5365,6 +5366,10 @@ components:
             id:
               type: string
               format: uuid
+            sharepost_url:
+              type: string
+              nullable: true
+              example: https://artictern.com/p/44444444-4444-4444-8444-444444444444
             caption:
               type: string
               nullable: true
