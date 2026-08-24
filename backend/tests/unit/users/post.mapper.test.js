@@ -5,7 +5,7 @@ describe(
   "PostMapper",
   () => {
     test(
-      "includes the author profile share URL",
+      "includes post and author share URLs",
       () => {
         const result =
           PostMapper.toResponse({
@@ -26,6 +26,12 @@ describe(
             .shareprofile_url,
         ).toBe(
           "https://artictern.com/u/user_98ef01e9",
+        );
+
+        expect(
+          result.sharepost_url,
+        ).toBe(
+          "https://artictern.com/p/44444444-4444-4444-8444-444444444444",
         );
       },
     );
