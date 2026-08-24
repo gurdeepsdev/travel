@@ -361,7 +361,29 @@ post_like.created_at::text
       (
         $3::uuid IS NOT NULL
         AND post_like.user_id = $3::uuid
-      ) AS viewer_is_self
+      ) AS viewer_is_self,
+
+      CASE
+        WHEN $3::uuid IS NULL
+        THEN 'NONE'
+        WHEN post_like.user_id = $3::uuid
+        THEN 'SELF'
+        WHEN viewer_connection.id IS NOT NULL
+        THEN 'CONNECTED'
+        WHEN viewer_request.sender_user_id =
+          $3::uuid
+        THEN 'OUTGOING_PENDING'
+        WHEN viewer_request.receiver_user_id =
+          $3::uuid
+        THEN 'INCOMING_PENDING'
+        ELSE 'NONE'
+      END AS relationship_status,
+
+      viewer_connection.id
+        AS relationship_connection_id,
+
+      viewer_request.id
+        AS relationship_request_id
 
     FROM explore.post_likes post_like
 
@@ -378,6 +400,47 @@ post_like.created_at::text
       ON profile_photo.id =
         profile.profile_photo_asset_id
       AND profile_photo.deleted_at IS NULL
+
+    LEFT JOIN LATERAL (
+      SELECT connection.id
+      FROM users.connections connection
+      WHERE $3::uuid IS NOT NULL
+        AND connection.user_low_id =
+          LEAST($3::uuid, post_like.user_id)
+        AND connection.user_high_id =
+          GREATEST($3::uuid, post_like.user_id)
+      LIMIT 1
+    ) viewer_connection
+      ON TRUE
+
+    LEFT JOIN LATERAL (
+      SELECT
+        request.id,
+        request.sender_user_id,
+        request.receiver_user_id
+      FROM users.connection_requests request
+      WHERE $3::uuid IS NOT NULL
+        AND request.status = 'PENDING'
+        AND LEAST(
+          request.sender_user_id,
+          request.receiver_user_id
+        ) = LEAST(
+          $3::uuid,
+          post_like.user_id
+        )
+        AND GREATEST(
+          request.sender_user_id,
+          request.receiver_user_id
+        ) = GREATEST(
+          $3::uuid,
+          post_like.user_id
+        )
+      ORDER BY
+        request.created_at DESC,
+        request.id DESC
+      LIMIT 1
+    ) viewer_request
+      ON TRUE
 
     WHERE post_like.post_id = $1::uuid
 

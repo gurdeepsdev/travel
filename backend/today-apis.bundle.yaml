@@ -475,6 +475,7 @@ paths:
                                     - displayName
                                     - isVerified
                                     - profilePhoto
+                                    - relationship
                                   properties:
                                     id:
                                       type: string
@@ -496,6 +497,11 @@ paths:
                                         or/properties/profilePhoto"
                                     viewerIsSelf:
                                       type: boolean
+                                    relationship:
+                                      $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/post/responses/201/content/appli\
+                                        cation~1json/schema/allOf/1/properties/\
+                                        data/properties/comment/properties/auth\
+                                        or/properties/relationship"
                           pagination:
                             $ref: "#/paths/~1posts~1%7BpostId%7D~1comments/get/responses/200/content/applic\
                               ation~1json/schema/allOf/1/properties/data/proper\
@@ -998,6 +1004,29 @@ paths:
                                         nullable: true
                                       mimeType:
                                         type: string
+                                        nullable: true
+                                  relationship:
+                                    type: object
+                                    required:
+                                      - status
+                                      - connectionId
+                                      - requestId
+                                    properties:
+                                      status:
+                                        type: string
+                                        enum:
+                                          - SELF
+                                          - NONE
+                                          - CONNECTED
+                                          - OUTGOING_PENDING
+                                          - INCOMING_PENDING
+                                      connectionId:
+                                        type: string
+                                        format: uuid
+                                        nullable: true
+                                      requestId:
+                                        type: string
+                                        format: uuid
                                         nullable: true
                           commentCount:
                             type: integer

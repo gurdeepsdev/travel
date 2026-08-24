@@ -74,6 +74,28 @@ static toListItem(row) {
 
       viewerIsSelf:
         row.viewer_is_self === true,
+
+      relationship: {
+        status:
+          row.relationship_status ??
+          "NONE",
+
+        connectionId:
+          row.relationship_status ===
+          "CONNECTED"
+            ? row.relationship_connection_id ??
+              null
+            : null,
+
+        requestId:
+          row.relationship_status ===
+            "OUTGOING_PENDING" ||
+          row.relationship_status ===
+            "INCOMING_PENDING"
+            ? row.relationship_request_id ??
+              null
+            : null,
+      },
     },
   };
 }

@@ -658,6 +658,7 @@ components:
         - displayName
         - isVerified
         - profilePhoto
+        - relationship
       properties:
         id:
           type: string
@@ -682,6 +683,35 @@ components:
 
         viewerIsSelf:
           type: boolean
+
+        relationship:
+          $ref: "#/components/schemas/UserRelationship"
+
+    UserRelationship:
+      type: object
+      required:
+        - status
+        - connectionId
+        - requestId
+      properties:
+        status:
+          type: string
+          enum:
+            - SELF
+            - NONE
+            - CONNECTED
+            - OUTGOING_PENDING
+            - INCOMING_PENDING
+
+        connectionId:
+          type: string
+          format: uuid
+          nullable: true
+
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
 
     Pagination:
       type: object
@@ -930,6 +960,9 @@ components:
 
         profilePhoto:
           $ref: "#/components/schemas/ProfilePhoto"
+
+        relationship:
+          $ref: "#/components/schemas/UserRelationship"
 
     Comment:
       type: object

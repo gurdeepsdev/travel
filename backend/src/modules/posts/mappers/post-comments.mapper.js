@@ -83,6 +83,32 @@ import {
       return {
         ...comment,
 
+        author: {
+          ...comment.author,
+
+          relationship: {
+            status:
+              row.relationship_status ??
+              "NONE",
+
+            connectionId:
+              row.relationship_status ===
+              "CONNECTED"
+                ? row.relationship_connection_id ??
+                  null
+                : null,
+
+            requestId:
+              row.relationship_status ===
+                "OUTGOING_PENDING" ||
+              row.relationship_status ===
+                "INCOMING_PENDING"
+                ? row.relationship_request_id ??
+                  null
+                : null,
+          },
+        },
+
         replyCount: Number(
           row.reply_count ?? 0,
         ),

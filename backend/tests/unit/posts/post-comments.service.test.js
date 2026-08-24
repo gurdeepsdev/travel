@@ -107,6 +107,8 @@ describe("PostCommentsService", () => {
               createCommentRow({
                 reply_count: "1",
                 viewer_is_author: true,
+                relationship_status:
+                  "SELF",
               }),
             ],
             hasMore: false,
@@ -157,6 +159,11 @@ describe("PostCommentsService", () => {
                 id: USER_ID,
                 username: "traveller",
                 displayName: "Traveller",
+                relationship: {
+                  status: "SELF",
+                  connectionId: null,
+                  requestId: null,
+                },
               },
             },
           ],
