@@ -2,6 +2,39 @@ import {
   buildAssetUrl,
 } from "../utils/asset-url.util.js";
 
+const buildAbsoluteAssetUrl = (
+  asset,
+) => {
+  const assetUrl =
+    buildAssetUrl(asset);
+
+  if (
+    !assetUrl ||
+    /^https?:\/\//i.test(assetUrl)
+  ) {
+    return assetUrl;
+  }
+
+  const configuredBaseUrl =
+    process.env
+      .API_PUBLIC_BASE_URL
+      ?.trim();
+
+  const baseUrl =
+    configuredBaseUrl ||
+    `http://localhost:${
+      process.env.APP_PORT || 3001
+    }`;
+
+  return `${baseUrl.replace(
+    /\/+$/,
+    "",
+  )}/${assetUrl.replace(
+    /^\/+/,
+    "",
+  )}`;
+};
+
 class MemoriesMapper {
   static toMemory(row) {
     if (!row) {
@@ -59,19 +92,19 @@ class MemoriesMapper {
 
         isPublic,
 
-        /*
-         * Never construct a public URL for an asset
-         * that is marked private.
-         *
-         * Private memory delivery will later use the
-         * authenticated media endpoint or a signed URL.
-         */
         url:
-          isPublic
-            ? buildAssetUrl(
-                row.storage_key,
-              )
-            : null,
+          buildAbsoluteAssetUrl({
+            assetId:
+              row.asset_id,
+
+            storageProvider:
+              row.storage_provider,
+
+            storageKey:
+              row.storage_key,
+
+            isPublic,
+          }),
 
         createdAt:
           row.asset_created_at ??

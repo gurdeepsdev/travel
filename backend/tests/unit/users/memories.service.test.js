@@ -684,6 +684,72 @@ describe("MemoriesService", () => {
 
   describe("getMyMemories", () => {
     test(
+      "returns the authenticated delivery URL for a private local memory",
+      async () => {
+        const previousBaseUrl =
+          process.env
+            .API_PUBLIC_BASE_URL;
+
+        process.env
+          .API_PUBLIC_BASE_URL =
+            "https://apitest.artictern.com";
+
+        repositoryMock.listMine
+          .mockResolvedValue({
+            rows: [
+              createMemoryRow({
+                storage_provider:
+                  "local",
+
+                storage_key:
+                  STORED_KEY,
+              }),
+            ],
+
+            hasMore:
+              false,
+
+            lastRow:
+              null,
+          });
+
+        try {
+          const result =
+            await MemoriesService
+              .getMyMemories({
+                userId:
+                  USER_ID,
+
+                limit:
+                  20,
+
+                cursor:
+                  null,
+              });
+
+          expect(
+            result.memories[0]
+              .asset.url,
+          ).toBe(
+            `https://apitest.artictern.com/api/v1/media/assets/${ASSET_ID}/content`,
+          );
+        } finally {
+          if (
+            previousBaseUrl ===
+            undefined
+          ) {
+            delete process.env
+              .API_PUBLIC_BASE_URL;
+          } else {
+            process.env
+              .API_PUBLIC_BASE_URL =
+                previousBaseUrl;
+          }
+        }
+      },
+    );
+
+    test(
       "returns only the authenticated user's memories",
       async () => {
         repositoryMock.listMine
