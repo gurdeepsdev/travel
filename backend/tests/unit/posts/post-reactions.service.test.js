@@ -395,6 +395,7 @@ describe("getPostReactions", () => {
         is_private: false,
         profile_photo_id: null,
         viewer_is_self: true,
+        relationship_status: "SELF",
       };
 
       repositoryMock.listByPost
@@ -439,6 +440,11 @@ describe("getPostReactions", () => {
             user: {
               id: VIEWER_ID,
               viewerIsSelf: true,
+              relationship: {
+                status: "SELF",
+                connectionId: null,
+                requestId: null,
+              },
             },
           },
         ],

@@ -290,6 +290,7 @@ describe("PostBeenThereService", () => {
         is_private: false,
         profile_photo_id: null,
         viewer_is_self: true,
+        relationship_status: "SELF",
       };
 
       repositoryMock.listByPost
@@ -327,6 +328,11 @@ describe("PostBeenThereService", () => {
             user: {
               id: USER_ID,
               viewerIsSelf: true,
+              relationship: {
+                status: "SELF",
+                connectionId: null,
+                requestId: null,
+              },
             },
           },
         ],
