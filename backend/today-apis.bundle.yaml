@@ -25,6 +25,19 @@ tags:
   - name: Blocks
   - name: Explore
 paths:
+  /docs:
+    get:
+      tags:
+        - Documentation
+      summary: Open interactive Swagger UI
+      operationId: getApiDocumentation
+      responses:
+        "200":
+          description: Interactive Swagger UI
+          content:
+            text/html:
+              schema:
+                type: string
   /docs/openapi.yaml:
     get:
       tags:
