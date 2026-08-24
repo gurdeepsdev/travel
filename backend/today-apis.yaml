@@ -25,6 +25,8 @@ tags:
   - name: Blocks
   - name: Explore
 paths:
+  /docs:
+    $ref: "./platform-core.openapi.yaml#/paths/~1docs"
   /docs/openapi.yaml:
     $ref: "./platform-core.openapi.yaml#/paths/~1docs~1openapi.yaml"
   /health:
