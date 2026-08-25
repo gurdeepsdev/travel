@@ -699,8 +699,10 @@ paths:
                             type: object
                             nullable: true
                             description: >
-                              Canonical repost object when reposted is true;
-                              null after removal.
+                              Canonical repost object when reposted is true. Its
+                              repost field contains the complete accessible
+                              original post, including media and caption. Null
+                              after removal.
         "400":
           $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
         "401":
@@ -5980,6 +5982,12 @@ components:
                 createdAt:
                   type: string
                   nullable: true
+                originalPost:
+                  type: object
+                  nullable: true
+                  description: >
+                    Complete accessible original post, including its caption,
+                    author, media, location, engagement, and viewer state.
             taggedPeople:
               type: array
               items:
