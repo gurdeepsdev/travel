@@ -4397,6 +4397,12 @@ components:
                 createdAt:
                   type: string
                   nullable: true
+                originalPost:
+                  type: object
+                  nullable: true
+                  description: >
+                    Complete accessible original post, including its caption,
+                    author, media, location, engagement, and viewer state.
             taggedPeople:
               type: array
               items:

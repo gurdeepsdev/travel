@@ -694,7 +694,9 @@ components:
           type: object
           nullable: true
           description: >
-            Canonical repost object when reposted is true; null after removal.
+            Canonical repost object when reposted is true. Its repost field
+            contains the complete accessible original post, including media
+            and caption. Null after removal.
 
     ReactionType:
       type: string

@@ -373,7 +373,16 @@ EXISTS (
 
     const lastPost = paginatedRows.at(-1);
 
-    const posts = PostMapper.toResponseList(paginatedRows);
+    const posts =
+      await this.getPostsByIds({
+        postIds:
+          paginatedRows.map(
+            (post) => post.id,
+          ),
+
+        viewerUserId:
+          userId,
+      });
 
     return {
       rows: posts,
@@ -1100,9 +1109,14 @@ AND saved_item.item_type =
   * the same camelCase response as me/posts.
   */
  const mappedPosts =
-   PostMapper.toResponseList(
-     resultRows,
-   );
+   await this.getPostsByIds({
+     postIds:
+       resultRows.map(
+         (post) => post.id,
+       ),
+
+     viewerUserId,
+   });
 
  return {
    rows: mappedPosts,
@@ -1116,6 +1130,7 @@ AND saved_item.item_type =
 async getPostsByIds({
   postIds,
   viewerUserId,
+  includeRepostOriginals = true,
 }) {
   if (
     !Array.isArray(postIds) ||
@@ -1768,7 +1783,71 @@ ORDER BY ARRAY_POSITION(
     params,
   );
 
-  return PostMapper.toResponseList(rows);
+  const posts =
+    PostMapper.toResponseList(rows);
+
+  if (!includeRepostOriginals) {
+    return posts;
+  }
+
+  const originalPostIds = [
+    ...new Set(
+      posts
+        .map(
+          (post) =>
+            post.repost
+              ?.originalPostId,
+        )
+        .filter(Boolean),
+    ),
+  ];
+
+  if (originalPostIds.length === 0) {
+    return posts;
+  }
+
+  const originalPosts =
+    await this.getPostsByIds({
+      postIds:
+        originalPostIds,
+
+      viewerUserId,
+      includeRepostOriginals:
+        false,
+    });
+
+  const originalsById =
+    new Map(
+      originalPosts.map(
+        (post) => [
+          String(post.id),
+          post,
+        ]),
+    );
+
+  return posts.map(
+    (post) => {
+      if (!post.repost) {
+        return post;
+      }
+
+      return {
+        ...post,
+
+        repost: {
+          ...post.repost,
+
+          originalPost:
+            originalsById.get(
+              String(
+                post.repost
+                  .originalPostId,
+              ),
+            ) ?? null,
+        },
+      };
+    },
+  );
 }
 }
 
