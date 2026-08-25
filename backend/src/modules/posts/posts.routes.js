@@ -10,6 +10,8 @@ import PostSavesController from "./controllers/post-saves.controller.js";
 import PostCreateController from "./controllers/post-create.controller.js";
 import PostDeleteController
   from "./controllers/post-delete.controller.js";
+import PostRepostsController
+  from "./controllers/post-reposts.controller.js";
 import ReportsController
   from "../reports/controllers/reports.controller.js";
 
@@ -51,6 +53,11 @@ import {
   deletePostSchema,
 } from "./validations/post-delete.validation.js";
 
+import {
+  removePostRepostSchema,
+  setPostRepostSchema,
+} from "./validations/post-reposts.validation.js";
+
 const router = Router();
 
 // Create a post with uploaded or existing media.
@@ -68,6 +75,20 @@ router.delete(
   AuthMiddleware.authenticate,
   validate(deletePostSchema),
   PostDeleteController.deletePost,
+);
+
+router.put(
+  "/:postId/repost",
+  AuthMiddleware.authenticate,
+  validate(setPostRepostSchema),
+  PostRepostsController.setRepost,
+);
+
+router.delete(
+  "/:postId/repost",
+  AuthMiddleware.authenticate,
+  validate(removePostRepostSchema),
+  PostRepostsController.removeRepost,
 );
 
 //add reaction

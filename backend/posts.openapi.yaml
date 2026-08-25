@@ -13,6 +13,7 @@ servers:
 
 tags:
   - name: Post Reactions
+  - name: Post Reposts
   - name: Post Been There
   - name: Post Comments
   - name: Comment Likes
@@ -132,6 +133,68 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+  /posts/{postId}/repost:
+    put:
+      tags:
+        - Post Reposts
+      summary: Repost a post
+      description: >
+        Creates one repost for the authenticated user. Repeating the request
+        updates the optional message and returns the existing repost. If the
+        supplied post is itself a repost, its original post is used.
+      operationId: setPostRepost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostRepostRequest"
+            example:
+              message: Worth visiting
+      responses:
+        "200":
+          description: Post reposted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostRepostMutationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+    delete:
+      tags:
+        - Post Reposts
+      summary: Remove my repost
+      description: >
+        Removes the authenticated user's repost of the original post.
+        Repeating the request is idempotent.
+      operationId: removePostRepost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      responses:
+        "200":
+          description: Repost removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostRepostMutationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/PostNotFound"
 
@@ -605,6 +668,33 @@ components:
     EmptyObject:
       type: object
       additionalProperties: false
+
+    PostRepostRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 250
+
+    PostRepostMutationData:
+      type: object
+      required:
+        - reposted
+        - originalPostId
+        - post
+      properties:
+        reposted:
+          type: boolean
+        originalPostId:
+          type: string
+          format: uuid
+        post:
+          type: object
+          nullable: true
+          description: >
+            Canonical repost object when reposted is true; null after removal.
 
     ReactionType:
       type: string
@@ -1160,6 +1250,14 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/PostReactionMutationData"
+
+    PostRepostMutationResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/PostRepostMutationData"
 
     PostBeenThereListResponse:
       allOf:

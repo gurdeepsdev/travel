@@ -17,6 +17,7 @@ tags:
   - name: Memories
   - name: Post Creation
   - name: Post Management
+  - name: Post Reposts
   - name: Media Delivery
   - name: Visited Places
   - name: Connections
@@ -58,6 +59,8 @@ paths:
     $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1reactions"
   "/posts/{postId}/reaction":
     $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1reaction"
+  "/posts/{postId}/repost":
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1repost"
   "/posts/{postId}/been-there":
     $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1been-there"
   "/posts/{postId}/comments":

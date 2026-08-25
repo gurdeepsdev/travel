@@ -17,6 +17,7 @@ tags:
   - name: Memories
   - name: Post Creation
   - name: Post Management
+  - name: Post Reposts
   - name: Media Delivery
   - name: Visited Places
   - name: Connections
@@ -637,6 +638,95 @@ paths:
               schema:
                 $ref: "#/paths/~1posts~1%7BpostId%7D~1reaction/put/responses/200/content/applic\
                   ation~1json/schema"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+  "/posts/{postId}/repost":
+    put:
+      tags:
+        - Post Reposts
+      summary: Repost a post
+      description: >
+        Creates one repost for the authenticated user. Repeating the request
+        updates the optional message and returns the existing repost. If the
+        supplied post is itself a repost, its original post is used.
+      operationId: setPostRepost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 250
+            example:
+              message: Worth visiting
+      responses:
+        "200":
+          description: Post reposted successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/200/content/applicati\
+                      on~1json/schema/allOf/0"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - reposted
+                          - originalPostId
+                          - post
+                        properties:
+                          reposted:
+                            type: boolean
+                          originalPostId:
+                            type: string
+                            format: uuid
+                          post:
+                            type: object
+                            nullable: true
+                            description: >
+                              Canonical repost object when reposted is true;
+                              null after removal.
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+    delete:
+      tags:
+        - Post Reposts
+      summary: Remove my repost
+      description: >
+        Removes the authenticated user's repost of the original post. Repeating
+        the request is idempotent.
+      operationId: removePostRepost
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      responses:
+        "200":
+          description: Repost removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1posts~1%7BpostId%7D~1repost/put/responses/200/content/applicat\
+                  ion~1json/schema"
         "400":
           $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
         "401":
