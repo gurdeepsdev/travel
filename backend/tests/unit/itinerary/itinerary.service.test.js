@@ -8,6 +8,7 @@ const ITINERARY_ID =
 const repositoryMock = {
   create: jest.fn(),
   findOwnedById: jest.fn(),
+  listOwned: jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -26,6 +27,74 @@ describe("ItineraryService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  test(
+    "returns only the authenticated user's itineraries",
+    async () => {
+      repositoryMock.listOwned
+        .mockResolvedValue({
+          rows: [
+            {
+              id: ITINERARY_ID,
+              created_by: USER_ID,
+              title: "Delhi itinerary",
+              duration_days: 1,
+              visibility: "private",
+              trip_status: "planned",
+              ai_generated: true,
+              itinerary_json: {
+                city_id: "delhi",
+              },
+              created_at:
+                new Date(
+                  "2026-08-24T10:00:00Z",
+                ),
+              updated_at:
+                new Date(
+                  "2026-08-24T10:00:00Z",
+                ),
+            },
+          ],
+          hasMore: false,
+          lastRow: null,
+        });
+
+      const result =
+        await ItineraryService
+          .listItineraries({
+            userId: USER_ID,
+            limit: 20,
+          });
+
+      expect(
+        repositoryMock.listOwned,
+      ).toHaveBeenCalledWith({
+        userId: USER_ID,
+        limit: 20,
+        cursor: null,
+      });
+
+      expect(result)
+        .toMatchObject({
+          itineraries: [
+            {
+              id: ITINERARY_ID,
+              createdBy: USER_ID,
+            },
+          ],
+          pagination: {
+            hasMore: false,
+            nextCursor: null,
+          },
+        });
+
+      expect(
+        result.itineraries[0],
+      ).not.toHaveProperty(
+        "itineraryJson",
+      );
+    },
+  );
 
   test(
     "saves generated JSON using the authenticated owner",

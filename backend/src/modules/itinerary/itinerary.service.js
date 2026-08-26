@@ -6,6 +6,10 @@ import ErrorCodes
   from "../../shared/constants/error-codes.js";
 import HttpStatus
   from "../../shared/constants/http-status.js";
+import {
+  decodeCursor,
+  encodeCursor,
+} from "../../shared/utils/cursor.js";
 
 const OWNER_FIELDS = [
   "user id",
@@ -70,6 +74,17 @@ function mapItinerary(
   };
 }
 
+function mapItinerarySummary(
+  itinerary,
+) {
+  const mapped =
+    mapItinerary(itinerary);
+
+  delete mapped.itineraryJson;
+
+  return mapped;
+}
+
 class ItineraryService {
   createNotFoundError() {
     return new AppError({
@@ -102,6 +117,50 @@ class ItineraryService {
         mapItinerary(
           itinerary,
         ),
+    };
+  }
+
+  async listItineraries({
+    userId,
+    limit = 20,
+    cursor = null,
+  }) {
+    const decodedCursor =
+      decodeCursor(cursor);
+
+    const result =
+      await ItineraryRepository
+        .listOwned({
+          userId,
+          limit,
+          cursor:
+            decodedCursor,
+        });
+
+    const nextCursor =
+      result.hasMore &&
+      result.lastRow
+        ? encodeCursor({
+            createdAt:
+              result.lastRow
+                .cursor_created_at ??
+              result.lastRow
+                .created_at,
+            id:
+              result.lastRow.id,
+          })
+        : null;
+
+    return {
+      itineraries:
+        result.rows.map(
+          mapItinerarySummary,
+        ),
+      pagination: {
+        hasMore:
+          result.hasMore,
+        nextCursor,
+      },
     };
   }
 

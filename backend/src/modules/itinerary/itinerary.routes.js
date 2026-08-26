@@ -11,10 +11,20 @@ import ItineraryController
   from "./itinerary.controller.js";
 import {
   getItinerarySchema,
+  listItinerariesSchema,
   saveItinerarySchema,
 } from "./itinerary.validation.js";
 
 const router = Router();
+
+router.get(
+  "/",
+  AuthMiddleware.authenticate,
+  validate(
+    listItinerariesSchema,
+  ),
+  ItineraryController.listItineraries,
+);
 
 router.get(
   "/:itineraryId",

@@ -56,8 +56,59 @@ const getMySavedPostsSchema = z.object({
     .unknown()
     .optional(),
 
-  query: paginationQuerySchema,
+  query: paginationQuerySchema
+    .extend({
+      cityId: z
+        .string()
+        .trim()
+        .uuid(
+          "City ID must be a valid UUID.",
+        )
+        .optional(),
+
+      countryId: z
+        .string()
+        .trim()
+        .uuid(
+          "Country ID must be a valid UUID.",
+        )
+        .optional(),
+    })
+    .superRefine(
+      (query, context) => {
+        if (
+          query.cityId &&
+          query.countryId
+        ) {
+          context.addIssue({
+            code:
+              z.ZodIssueCode.custom,
+            message:
+              "Provide either cityId or countryId, but not both.",
+          });
+        }
+      },
+    ),
 });
+
+const getMySavedPostGroupsSchema =
+  z.object({
+    params: z
+      .object({})
+      .strict(),
+
+    body: z
+      .unknown()
+      .optional(),
+
+    query: paginationQuerySchema
+      .extend({
+        groupBy: z.enum([
+          "city",
+          "country",
+        ]),
+      }),
+  });
 
 const getUserSavedPlacesSchema = z.object({
   params: z
@@ -86,6 +137,7 @@ const getUserSavedPlacesSchema = z.object({
 export {
   DEFAULT_SAVED_CONTENT_LIMIT,
   MAX_SAVED_CONTENT_LIMIT,
+  getMySavedPostGroupsSchema,
   getMySavedPostsSchema,
   getUserSavedPlacesSchema,
 };
