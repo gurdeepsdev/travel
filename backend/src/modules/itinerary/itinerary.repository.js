@@ -1,6 +1,214 @@
 import Database from "../../database/database-manager.js";
 
 class ItineraryRepository {
+  async updateOwnedLifecycleStatus({
+    itineraryId,
+    userId,
+    status,
+  }) {
+    return Database.transaction(
+      async (client) => {
+        await client.query(
+          `
+            SELECT pg_advisory_xact_lock(
+              hashtextextended(
+                $1::text,
+                0
+              )
+            )
+          `,
+          [itineraryId],
+        );
+
+        const { rows } =
+          await client.query(
+            `
+              SELECT
+                itinerary.id,
+                itinerary.updated_at,
+                trip_record.id
+                  AS trip_id,
+                trip_record.status
+                  AS trip_status,
+                trip_record.started_at,
+                trip_record.completed_at
+              FROM itinerary.itineraries
+                AS itinerary
+              LEFT JOIN trip.trips
+                AS trip_record
+                ON trip_record.itinerary_id =
+                  itinerary.id
+              WHERE itinerary.id = $1::uuid
+                AND itinerary.created_by =
+                  $2::uuid
+                AND itinerary.deleted_at
+                  IS NULL
+              LIMIT 1
+            `,
+            [
+              itineraryId,
+              userId,
+            ],
+          );
+
+        const itinerary =
+          rows[0] ?? null;
+
+        if (!itinerary) {
+          return null;
+        }
+
+        const statusMap = {
+          UPCOMING: "UPCOMING",
+          ONGOING: "LIVE",
+          COMPLETED: "COMPLETED",
+          CANCELLED: "CANCELLED",
+        };
+        const currentStatus =
+          itinerary.trip_id
+            ? statusMap[
+                itinerary.trip_status
+              ]
+            : "SAVED";
+
+        if (currentStatus === status) {
+          return {
+            ...itinerary,
+            current_status:
+              currentStatus,
+            previous_status:
+              currentStatus,
+            updated: false,
+          };
+        }
+
+        const nextStatus = {
+          SAVED: "UPCOMING",
+          UPCOMING: "LIVE",
+          LIVE: "COMPLETED",
+        }[currentStatus];
+
+        if (nextStatus !== status) {
+          return {
+            invalid_transition: true,
+            current_status:
+              currentStatus,
+          };
+        }
+
+        if (status === "UPCOMING") {
+          const result =
+            await client.query(
+              `
+                INSERT INTO trip.trips (
+                  itinerary_id,
+                  user_id,
+                  status
+                )
+                VALUES (
+                  $1::uuid,
+                  $2::uuid,
+                  'UPCOMING'
+                )
+                RETURNING
+                  id AS trip_id,
+                  status AS trip_status,
+                  started_at,
+                  completed_at,
+                  updated_at
+              `,
+              [
+                itineraryId,
+                userId,
+              ],
+            );
+
+          return {
+            ...result.rows[0],
+            id: itinerary.id,
+            current_status: status,
+            previous_status:
+              currentStatus,
+            updated: true,
+          };
+        }
+
+        const databaseStatus =
+          status === "LIVE"
+            ? "ONGOING"
+            : "COMPLETED";
+        const itineraryStatus =
+          status === "LIVE"
+            ? "ongoing"
+            : "completed";
+
+        const tripResult =
+          await client.query(
+            `
+              UPDATE trip.trips
+              SET
+                status = $3,
+                started_at = CASE
+                  WHEN $3 = 'ONGOING'
+                    THEN COALESCE(
+                      started_at,
+                      CURRENT_TIMESTAMP
+                    )
+                  ELSE started_at
+                END,
+                completed_at = CASE
+                  WHEN $3 = 'COMPLETED'
+                    THEN CURRENT_TIMESTAMP
+                  ELSE completed_at
+                END,
+                updated_at =
+                  CURRENT_TIMESTAMP
+              WHERE itinerary_id =
+                $1::uuid
+                AND user_id = $2::uuid
+              RETURNING
+                id AS trip_id,
+                status AS trip_status,
+                started_at,
+                completed_at,
+                updated_at
+            `,
+            [
+              itineraryId,
+              userId,
+              databaseStatus,
+            ],
+          );
+
+        await client.query(
+          `
+            UPDATE itinerary.itineraries
+            SET
+              trip_status = $3,
+              updated_at =
+                CURRENT_TIMESTAMP
+            WHERE id = $1::uuid
+              AND created_by = $2::uuid
+          `,
+          [
+            itineraryId,
+            userId,
+            itineraryStatus,
+          ],
+        );
+
+        return {
+          ...tripResult.rows[0],
+          id: itinerary.id,
+          current_status: status,
+          previous_status:
+            currentStatus,
+          updated: true,
+        };
+      },
+    );
+  }
+
   async listOwned({
     userId,
     limit = 20,

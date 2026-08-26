@@ -86,6 +86,63 @@ function mapItinerarySummary(
 }
 
 class ItineraryService {
+  async updateItineraryStatus({
+    itineraryId,
+    userId,
+    status,
+  }) {
+    const result =
+      await ItineraryRepository
+        .updateOwnedLifecycleStatus({
+          itineraryId,
+          userId,
+          status,
+        });
+
+    if (!result) {
+      throw this.createNotFoundError();
+    }
+
+    if (
+      result.invalid_transition
+    ) {
+      throw new AppError({
+        code:
+          ErrorCodes.ITINERARY
+            .INVALID_STATUS_TRANSITION,
+        message:
+          `Itinerary status cannot transition from ${result.current_status} to ${status}.`,
+        statusCode:
+          HttpStatus.CONFLICT,
+        details: {
+          currentStatus:
+            result.current_status,
+          requestedStatus:
+            status,
+        },
+      });
+    }
+
+    return {
+      itineraryId:
+        result.id,
+      tripId:
+        result.trip_id,
+      previousStatus:
+        result.previous_status,
+      status:
+        result.current_status,
+      updated:
+        result.updated,
+      startedAt:
+        result.started_at,
+      completedAt:
+        result.completed_at,
+      updatedAt:
+        result.updated_at,
+    };
+  }
+
   createNotFoundError() {
     return new AppError({
       code:

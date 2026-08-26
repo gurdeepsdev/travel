@@ -9,6 +9,8 @@ const repositoryMock = {
   create: jest.fn(),
   findOwnedById: jest.fn(),
   listOwned: jest.fn(),
+  updateOwnedLifecycleStatus:
+    jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -27,6 +29,143 @@ describe("ItineraryService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  test(
+    "moves a saved itinerary to an upcoming trip",
+    async () => {
+      repositoryMock
+        .updateOwnedLifecycleStatus
+        .mockResolvedValue({
+          id: ITINERARY_ID,
+          trip_id:
+            "22222222-2222-4222-8222-222222222222",
+          previous_status: "SAVED",
+          current_status: "UPCOMING",
+          updated: true,
+          started_at: null,
+          completed_at: null,
+          updated_at:
+            new Date(
+              "2026-08-26T10:00:00Z",
+            ),
+        });
+
+      const result =
+        await ItineraryService
+          .updateItineraryStatus({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            status: "UPCOMING",
+          });
+
+      expect(
+        repositoryMock
+          .updateOwnedLifecycleStatus,
+      ).toHaveBeenCalledWith({
+        itineraryId:
+          ITINERARY_ID,
+        userId: USER_ID,
+        status: "UPCOMING",
+      });
+      expect(result).toMatchObject({
+        itineraryId:
+          ITINERARY_ID,
+        previousStatus: "SAVED",
+        status: "UPCOMING",
+        updated: true,
+      });
+    },
+  );
+
+  test(
+    "keeps repeated status updates idempotent",
+    async () => {
+      repositoryMock
+        .updateOwnedLifecycleStatus
+        .mockResolvedValue({
+          id: ITINERARY_ID,
+          trip_id:
+            "22222222-2222-4222-8222-222222222222",
+          previous_status:
+            "UPCOMING",
+          current_status:
+            "UPCOMING",
+          updated: false,
+          started_at: null,
+          completed_at: null,
+          updated_at:
+            new Date(
+              "2026-08-26T10:00:00Z",
+            ),
+        });
+
+      const result =
+        await ItineraryService
+          .updateItineraryStatus({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            status: "UPCOMING",
+          });
+
+      expect(result.updated)
+        .toBe(false);
+    },
+  );
+
+  test(
+    "rejects skipped or backward status transitions",
+    async () => {
+      repositoryMock
+        .updateOwnedLifecycleStatus
+        .mockResolvedValue({
+          invalid_transition: true,
+          current_status: "SAVED",
+        });
+
+      await expect(
+        ItineraryService
+          .updateItineraryStatus({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            status: "LIVE",
+          }),
+      ).rejects.toMatchObject({
+        code:
+          "ITINERARY.INVALID_STATUS_TRANSITION",
+        statusCode: 409,
+        details: {
+          currentStatus: "SAVED",
+          requestedStatus: "LIVE",
+        },
+      });
+    },
+  );
+
+  test(
+    "hides an unowned itinerary during status updates",
+    async () => {
+      repositoryMock
+        .updateOwnedLifecycleStatus
+        .mockResolvedValue(null);
+
+      await expect(
+        ItineraryService
+          .updateItineraryStatus({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            status: "UPCOMING",
+          }),
+      ).rejects.toMatchObject({
+        code:
+          "ITINERARY.NOT_FOUND",
+        statusCode: 404,
+      });
+    },
+  );
 
   test(
     "returns only the authenticated user's itineraries",

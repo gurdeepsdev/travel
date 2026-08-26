@@ -7,6 +7,32 @@ const MAX_ITINERARY_JSON_BYTES =
 const DEFAULT_ITINERARY_LIMIT = 20;
 const MAX_ITINERARY_LIMIT = 50;
 const MAX_CURSOR_LENGTH = 1024;
+const VAULT_DOCUMENT_TYPES = [
+  "PASSPORT",
+  "VISA",
+  "INSURANCE",
+  "FLIGHT_TICKET",
+  "TRAIN_TICKET",
+  "BUS_TICKET",
+  "HOTEL_BOOKING",
+  "DRIVING_LICENSE",
+  "ID_CARD",
+  "OTHER",
+];
+
+const optionalText = (maximum) =>
+  z.preprocess(
+    (value) =>
+      value === "" ? undefined : value,
+    z.string().trim().min(1).max(maximum)
+      .optional(),
+  );
+
+const optionalDate = z.preprocess(
+  (value) =>
+    value === "" ? undefined : value,
+  z.string().date().optional(),
+);
 
 const cursorSchema = z
   .string()
@@ -204,6 +230,90 @@ const getItinerarySchema = z
       .strict(),
   });
 
+const updateItineraryStatusSchema = z
+  .object({
+    body: z
+      .object({
+        status: z.enum([
+          "UPCOMING",
+          "LIVE",
+          "COMPLETED",
+        ]),
+      })
+      .strict(),
+
+    params: z
+      .object({
+        itineraryId: z
+          .string()
+          .trim()
+          .uuid(
+            "Itinerary ID must be a valid UUID.",
+          ),
+      })
+      .strict(),
+
+    query: z
+      .object({})
+      .strict(),
+  });
+
+const itineraryIdParamsSchema = z
+  .object({
+    itineraryId: z.string().trim().uuid(
+      "Itinerary ID must be a valid UUID.",
+    ),
+  })
+  .strict();
+
+const uploadVaultDocumentSchema = z
+  .object({
+    body: z
+      .object({
+        documentType:
+          z.enum(VAULT_DOCUMENT_TYPES),
+        title: z.string().trim()
+          .min(1).max(255),
+        documentNumber:
+          optionalText(100),
+        issueDate: optionalDate,
+        expiryDate: optionalDate,
+        issuingCountryId: z.preprocess(
+          (value) =>
+            value === "" ? undefined : value,
+          z.string().uuid().optional(),
+        ),
+        notes: optionalText(5000),
+      })
+      .strict()
+      .refine(
+        (body) =>
+          !body.issueDate ||
+          !body.expiryDate ||
+          body.expiryDate >= body.issueDate,
+        {
+          path: ["expiryDate"],
+          message:
+            "Expiry date cannot be before issue date.",
+        },
+      ),
+    params: itineraryIdParamsSchema,
+    query: z.object({}).strict(),
+  });
+
+const listVaultDocumentsSchema = z
+  .object({
+    body: z.unknown().optional(),
+    params: itineraryIdParamsSchema,
+    query: z
+      .object({
+        documentType:
+          z.enum(VAULT_DOCUMENT_TYPES)
+            .optional(),
+      })
+      .strict(),
+  });
+
 const listItinerariesSchema = z
   .object({
     body: z
@@ -248,4 +358,8 @@ export {
   getItinerarySchema,
   listItinerariesSchema,
   saveItinerarySchema,
+  updateItineraryStatusSchema,
+  uploadVaultDocumentSchema,
+  listVaultDocumentsSchema,
+  VAULT_DOCUMENT_TYPES,
 };

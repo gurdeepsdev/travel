@@ -2,7 +2,103 @@ import {
   getItinerarySchema,
   listItinerariesSchema,
   saveItinerarySchema,
+  updateItineraryStatusSchema,
+  uploadVaultDocumentSchema,
+  listVaultDocumentsSchema,
 } from "../../../src/modules/itinerary/itinerary.validation.js";
+
+describe("itinerary vault validation", () => {
+  const itineraryId =
+    "11111111-1111-4111-8111-111111111111";
+
+  test("accepts vault document metadata", () => {
+    const result =
+      uploadVaultDocumentSchema
+        .safeParse({
+          body: {
+            documentType: "PASSPORT",
+            title: "My passport",
+            issueDate: "2025-01-01",
+            expiryDate: "2035-01-01",
+          },
+          params: { itineraryId },
+          query: {},
+        });
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects reversed document dates", () => {
+    const result =
+      uploadVaultDocumentSchema
+        .safeParse({
+          body: {
+            documentType: "VISA",
+            title: "Visa",
+            issueDate: "2030-01-01",
+            expiryDate: "2029-01-01",
+          },
+          params: { itineraryId },
+          query: {},
+        });
+    expect(result.success).toBe(false);
+  });
+
+  test("accepts a document type filter", () => {
+    const result =
+      listVaultDocumentsSchema
+        .safeParse({
+          body: undefined,
+          params: { itineraryId },
+          query: {
+            documentType: "INSURANCE",
+          },
+        });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("updateItineraryStatusSchema", () => {
+  test.each([
+    "UPCOMING",
+    "LIVE",
+    "COMPLETED",
+  ])(
+    "accepts %s",
+    (status) => {
+      const result =
+        updateItineraryStatusSchema
+          .safeParse({
+            body: { status },
+            params: {
+              itineraryId:
+                "11111111-1111-4111-8111-111111111111",
+            },
+            query: {},
+          });
+
+      expect(result.success)
+        .toBe(true);
+    },
+  );
+
+  test("rejects unsupported statuses", () => {
+    const result =
+      updateItineraryStatusSchema
+        .safeParse({
+          body: {
+            status: "PLANNED",
+          },
+          params: {
+            itineraryId:
+              "11111111-1111-4111-8111-111111111111",
+          },
+          query: {},
+        });
+
+    expect(result.success)
+      .toBe(false);
+  });
+});
 
 function createPayload() {
   return {
