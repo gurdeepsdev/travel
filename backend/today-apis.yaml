@@ -122,6 +122,31 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /itineraries/completed:
+    get:
+      tags:
+        - Itineraries
+      summary: List my completed itineraries
+      description: >
+        Returns active itineraries created by the authenticated user whose
+        trip status is completed, in newest-first order.
+      operationId: listMyCompletedItineraries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Completed itineraries fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   "/itineraries/{itineraryId}":
     get:
       tags:
