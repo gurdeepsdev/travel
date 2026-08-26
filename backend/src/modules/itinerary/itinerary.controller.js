@@ -5,6 +5,35 @@ import ItineraryService
   from "./itinerary.service.js";
 
 class ItineraryController {
+  async updateItineraryStatus(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .updateItineraryStatus({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            userId:
+              req.user.id,
+            status:
+              req.validated.body
+                .status,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Itinerary status updated successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async listCompletedItineraries(
     req,
     res,

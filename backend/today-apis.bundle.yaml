@@ -1774,6 +1774,107 @@ paths:
                 details: null
                 requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
                 timestamp: 2026-08-24T10:00:00.000Z
+  "/itineraries/{itineraryId}/status":
+    patch:
+      tags:
+        - Itineraries
+      summary: Update my itinerary lifecycle status
+      description: >
+        Moves an owned itinerary through SAVED, UPCOMING, LIVE, and COMPLETED.
+        Valid transitions are SAVED to UPCOMING, UPCOMING to LIVE, and LIVE to
+        COMPLETED. Repeating the current status is idempotent.
+      operationId: updateItineraryStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: itineraryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItineraryStatusRequest"
+      responses:
+        "200":
+          description: Itinerary status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateItineraryStatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Itinerary not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Invalid itinerary status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/vault/documents":
+    post:
+      tags: [Itinerary Vault]
+      summary: Upload a private itinerary document
+      operationId: uploadItineraryVaultDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadVaultDocumentRequest"
+      responses:
+        "201":
+          description: Vault document uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultDocumentResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: Itinerary has not been moved to a trip
+        "413":
+          description: Document exceeds 25 MB
+        "415":
+          description: Unsupported document file type
+    get:
+      tags: [Itinerary Vault]
+      summary: List my itinerary vault documents
+      operationId: listItineraryVaultDocuments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - name: documentType
+          in: query
+          schema:
+            $ref: "#/components/schemas/VaultDocumentType"
+      responses:
+        "200":
+          description: Vault documents fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultDocumentListResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: Itinerary has not been moved to a trip
   /explore/countries:
     get:
       tags:
@@ -4093,6 +4194,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    ItineraryId:
+      name: itineraryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     PostId:
       name: postId
       in: path
@@ -4545,6 +4653,148 @@ components:
                 $ref: "#/components/schemas/ItinerarySummary"
             pagination:
               $ref: "#/components/schemas/Pagination"
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+    UpdateItineraryStatusRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - UPCOMING
+            - LIVE
+            - COMPLETED
+    VaultDocumentType:
+      type: string
+      enum: [PASSPORT, VISA, INSURANCE, FLIGHT_TICKET, TRAIN_TICKET, BUS_TICKET, HOTEL_BOOKING, DRIVING_LICENSE, ID_CARD, OTHER]
+    UploadVaultDocumentRequest:
+      type: object
+      additionalProperties: false
+      required: [documentFile, documentType, title]
+      properties:
+        documentFile: { type: string, format: binary }
+        documentType: { $ref: "#/components/schemas/VaultDocumentType" }
+        title: { type: string, maxLength: 255 }
+        documentNumber: { type: string, maxLength: 100 }
+        issueDate: { type: string, format: date }
+        expiryDate: { type: string, format: date }
+        issuingCountryId: { type: string, format: uuid }
+        notes: { type: string, maxLength: 5000 }
+    VaultDocumentResponse:
+      type: object
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            document: { $ref: "#/components/schemas/VaultDocument" }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+    VaultDocumentListResponse:
+      type: object
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            documents:
+              type: array
+              items: { $ref: "#/components/schemas/VaultDocument" }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+    VaultDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tripId: { type: string, format: uuid }
+        documentType: { $ref: "#/components/schemas/VaultDocumentType" }
+        title: { type: string }
+        documentNumber: { type: string, nullable: true }
+        issueDate: { type: string, format: date, nullable: true }
+        expiryDate: { type: string, format: date, nullable: true }
+        issuingCountryId: { type: string, format: uuid, nullable: true }
+        visibility: { type: string, enum: [PRIVATE] }
+        notes: { type: string, nullable: true }
+        file:
+          type: object
+          properties:
+            assetId: { type: string, format: uuid }
+            originalFilename: { type: string }
+            mimeType: { type: string }
+            extension: { type: string }
+            fileSize: { type: integer }
+            downloadUrl: { type: string, format: uri }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    UpdateItineraryStatusResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+          example: Itinerary status updated successfully.
+        data:
+          type: object
+          required:
+            - itineraryId
+            - tripId
+            - previousStatus
+            - status
+            - updated
+            - startedAt
+            - completedAt
+            - updatedAt
+          properties:
+            itineraryId:
+              type: string
+              format: uuid
+            tripId:
+              type: string
+              format: uuid
+            previousStatus:
+              type: string
+              enum:
+                - SAVED
+                - UPCOMING
+                - LIVE
+                - COMPLETED
+            status:
+              type: string
+              enum:
+                - UPCOMING
+                - LIVE
+                - COMPLETED
+            updated:
+              type: boolean
+            startedAt:
+              type: string
+              format: date-time
+              nullable: true
+            completedAt:
+              type: string
+              format: date-time
+              nullable: true
+            updatedAt:
+              type: string
+              format: date-time
         requestId:
           type: string
           format: uuid
