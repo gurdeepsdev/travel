@@ -72,6 +72,7 @@ describe("ItineraryService", () => {
         userId: USER_ID,
         limit: 20,
         cursor: null,
+        tripStatus: null,
       });
 
       expect(result)
@@ -93,6 +94,42 @@ describe("ItineraryService", () => {
       ).not.toHaveProperty(
         "itineraryJson",
       );
+    },
+  );
+
+  test(
+    "returns only completed itineraries owned by the user",
+    async () => {
+      repositoryMock.listOwned
+        .mockResolvedValue({
+          rows: [],
+          hasMore: false,
+          lastRow: null,
+        });
+
+      const result =
+        await ItineraryService
+          .listCompletedItineraries({
+            userId: USER_ID,
+            limit: 20,
+          });
+
+      expect(
+        repositoryMock.listOwned,
+      ).toHaveBeenCalledWith({
+        userId: USER_ID,
+        limit: 20,
+        cursor: null,
+        tripStatus: "completed",
+      });
+
+      expect(result).toEqual({
+        itineraries: [],
+        pagination: {
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
     },
   );
 

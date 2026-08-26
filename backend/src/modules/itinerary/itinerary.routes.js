@@ -18,6 +18,16 @@ import {
 const router = Router();
 
 router.get(
+  "/completed",
+  AuthMiddleware.authenticate,
+  validate(
+    listItinerariesSchema,
+  ),
+  ItineraryController
+    .listCompletedItineraries,
+);
+
+router.get(
   "/",
   AuthMiddleware.authenticate,
   validate(

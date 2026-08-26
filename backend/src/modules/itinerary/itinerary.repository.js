@@ -5,6 +5,7 @@ class ItineraryRepository {
     userId,
     limit = 20,
     cursor = null,
+    tripStatus = null,
   }) {
     const safeLimit = Math.min(
       Math.max(
@@ -15,21 +16,33 @@ class ItineraryRepository {
     );
 
     const params = [userId];
+    let statusCondition = "";
     let cursorCondition = "";
 
+    if (tripStatus) {
+      params.push(tripStatus);
+      statusCondition = `
+        AND LOWER(trip_status) =
+          LOWER($${params.length}::varchar)
+      `;
+    }
+
     if (cursor) {
-      params.push(
-        cursor.createdAt,
-        cursor.id,
-      );
+      params.push(cursor.createdAt);
+      const createdAtParameter =
+        params.length;
+
+      params.push(cursor.id);
+      const idParameter =
+        params.length;
 
       cursorCondition = `
         AND (
           created_at,
           id
         ) < (
-          $2::timestamp,
-          $3::uuid
+          $${createdAtParameter}::timestamp,
+          $${idParameter}::uuid
         )
       `;
     }
@@ -52,6 +65,7 @@ class ItineraryRepository {
       FROM itinerary.itineraries
       WHERE created_by = $1::uuid
         AND deleted_at IS NULL
+        ${statusCondition}
         ${cursorCondition}
       ORDER BY
         created_at DESC,

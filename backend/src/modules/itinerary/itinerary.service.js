@@ -124,6 +124,7 @@ class ItineraryService {
     userId,
     limit = 20,
     cursor = null,
+    tripStatus = null,
   }) {
     const decodedCursor =
       decodeCursor(cursor);
@@ -135,6 +136,7 @@ class ItineraryService {
           limit,
           cursor:
             decodedCursor,
+          tripStatus,
         });
 
     const nextCursor =
@@ -162,6 +164,19 @@ class ItineraryService {
         nextCursor,
       },
     };
+  }
+
+  async listCompletedItineraries({
+    userId,
+    limit = 20,
+    cursor = null,
+  }) {
+    return this.listItineraries({
+      userId,
+      limit,
+      cursor,
+      tripStatus: "completed",
+    });
   }
 
   async saveItinerary({

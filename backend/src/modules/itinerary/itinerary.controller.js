@@ -5,6 +5,35 @@ import ItineraryService
   from "./itinerary.service.js";
 
 class ItineraryController {
+  async listCompletedItineraries(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .listCompletedItineraries({
+            userId:
+              req.user.id,
+            limit:
+              req.validated.query
+                .limit,
+            cursor:
+              req.validated.query
+                .cursor,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Completed itineraries fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async listItineraries(
     req,
     res,
