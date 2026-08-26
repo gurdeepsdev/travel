@@ -5,6 +5,35 @@ import {
   import {
   buildAssetUrl,
 } from "../../users/utils/asset-url.util.js";
+
+const buildAbsoluteAssetUrl = (
+  asset,
+) => {
+  const assetUrl =
+    buildAssetUrl(asset);
+
+  if (
+    !assetUrl ||
+    /^https?:\/\//i.test(assetUrl)
+  ) {
+    return assetUrl;
+  }
+
+  const baseUrl =
+    process.env.API_PUBLIC_BASE_URL
+      ?.trim() ||
+    `http://localhost:${
+      process.env.APP_PORT || 3001
+    }`;
+
+  return `${baseUrl.replace(
+    /\/+$/,
+    "",
+  )}/${assetUrl.replace(
+    /^\/+/,
+    "",
+  )}`;
+};
   
   class PostReactionsMapper {
     static toReaction(row) {
@@ -72,9 +101,18 @@ import {
             row.profile_photo_storage_key ??
             null,
 
-          url: buildAssetUrl(
-            row.profile_photo_storage_key,
-          ),
+          url: buildAbsoluteAssetUrl({
+            assetId:
+              row.profile_photo_id,
+
+            storageProvider:
+              row.profile_photo_storage_provider,
+
+            storageKey:
+              row.profile_photo_storage_key,
+
+            isPublic: true,
+          }),
 
           mimeType:
             row.profile_photo_mime_type ??
