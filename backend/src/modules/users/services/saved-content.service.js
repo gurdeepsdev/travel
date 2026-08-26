@@ -19,6 +19,8 @@ async getMySavedPosts({
   userId,
   limit = 20,
   cursor = null,
+  cityId = null,
+  countryId = null,
 }) {
   const decodedCursor =
     decodeCursor(cursor);
@@ -29,6 +31,8 @@ async getMySavedPosts({
         userId,
         limit,
         cursor: decodedCursor,
+        cityId,
+        countryId,
       });
 
   const postIds =
@@ -63,6 +67,73 @@ async getMySavedPosts({
       posts,
       hasMore:
         savedReferences.hasMore,
+      nextCursor,
+    });
+}
+
+async getMySavedPostGroups({
+  userId,
+  groupBy,
+  limit = 20,
+  cursor = null,
+}) {
+  const decodedCursor =
+    decodeCursor(cursor);
+
+  const groupResult =
+    await SavedContentRepository
+      .listMySavedPostGroups({
+        userId,
+        groupBy,
+        limit,
+        cursor: decodedCursor,
+      });
+
+  const previewPostIds = [
+    ...new Set(
+      groupResult.rows.flatMap(
+        (row) =>
+          row.preview_post_ids ?? [],
+      ),
+    ),
+  ];
+
+  const previewPosts =
+    await PostsRepository.getPostsByIds({
+      postIds: previewPostIds,
+      viewerUserId: userId,
+    });
+
+  const postsById = new Map(
+    previewPosts.map(
+      (post) => [
+        String(post.id),
+        post,
+      ],
+    ),
+  );
+
+  const nextCursor =
+    groupResult.hasMore &&
+    groupResult.lastRow
+      ? encodeCursor({
+          createdAt:
+            groupResult.lastRow
+              .cursor_created_at ??
+            groupResult.lastRow
+              .latest_saved_at,
+          id:
+            groupResult.lastRow.id,
+        })
+      : null;
+
+  return SavedContentMapper
+    .toMySavedPostGroupsResponse({
+      rows: groupResult.rows,
+      postsById,
+      groupBy,
+      hasMore:
+        groupResult.hasMore,
       nextCursor,
     });
 }

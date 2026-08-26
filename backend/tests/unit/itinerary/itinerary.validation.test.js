@@ -1,5 +1,6 @@
 import {
   getItinerarySchema,
+  listItinerariesSchema,
   saveItinerarySchema,
 } from "../../../src/modules/itinerary/itinerary.validation.js";
 
@@ -96,6 +97,42 @@ describe("getItinerarySchema", () => {
               "not-a-uuid",
           },
           query: {},
+        });
+
+      expect(result.success)
+        .toBe(false);
+    },
+  );
+});
+
+describe("listItinerariesSchema", () => {
+  test(
+    "applies the default page limit",
+    () => {
+      const result =
+        listItinerariesSchema.safeParse({
+          body: undefined,
+          params: {},
+          query: {},
+        });
+
+      expect(result.success)
+        .toBe(true);
+      expect(result.data.query.limit)
+        .toBe(20);
+    },
+  );
+
+  test(
+    "rejects an excessive page limit",
+    () => {
+      const result =
+        listItinerariesSchema.safeParse({
+          body: undefined,
+          params: {},
+          query: {
+            limit: "51",
+          },
         });
 
       expect(result.success)

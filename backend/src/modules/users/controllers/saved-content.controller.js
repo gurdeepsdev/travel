@@ -17,6 +17,8 @@ async getMySavedPosts(
     const {
       limit,
       cursor = null,
+      cityId = null,
+      countryId = null,
     } = req.validated.query;
 
     const result =
@@ -25,12 +27,45 @@ async getMySavedPosts(
           userId: req.user.id,
           limit,
           cursor,
+          cityId,
+          countryId,
         });
 
     return Response.success(
       res,
       result,
       "Saved posts fetched successfully.",
+    );
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async getMySavedPostGroups(
+  req,
+  res,
+  next,
+) {
+  try {
+    const {
+      groupBy,
+      limit,
+      cursor = null,
+    } = req.validated.query;
+
+    const result =
+      await SavedContentService
+        .getMySavedPostGroups({
+          userId: req.user.id,
+          groupBy,
+          limit,
+          cursor,
+        });
+
+    return Response.success(
+      res,
+      result,
+      "Saved-post groups fetched successfully.",
     );
   } catch (error) {
     return next(error);

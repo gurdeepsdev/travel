@@ -3,6 +3,52 @@ import {
 } from "../utils/asset-url.util.js";
 
 class SavedContentMapper {
+static toMySavedPostGroupsResponse({
+  rows,
+  postsById,
+  groupBy,
+  hasMore,
+  nextCursor,
+}) {
+  return {
+    groupBy,
+    groups: (rows ?? []).map(
+      (row) => {
+        const previewPosts =
+          (row.preview_post_ids ?? [])
+            .map(
+              (postId) =>
+                postsById.get(
+                  String(postId),
+                ),
+            )
+            .filter(Boolean);
+
+        return {
+          id: row.id,
+          name: row.name,
+          postCount: Number(
+            row.post_count ?? 0,
+          ),
+          coverImage:
+            previewPosts[0]
+              ?.coverAsset ??
+            previewPosts[0]
+              ?.assets?.[0] ??
+            null,
+          previewPosts,
+        };
+      },
+    ),
+    pagination: {
+      hasMore:
+        hasMore === true,
+      nextCursor:
+        nextCursor ?? null,
+    },
+  };
+}
+
 static toMySavedPostsResponse({
   posts,
   hasMore,

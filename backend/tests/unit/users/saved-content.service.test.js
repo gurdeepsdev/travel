@@ -26,6 +26,9 @@ const repositoryMock = {
   listMySavedPostReferences:
     jest.fn(),
 
+  listMySavedPostGroups:
+    jest.fn(),
+
   findProfileAccessContext:
     jest.fn(),
 
@@ -133,6 +136,14 @@ describe("SavedContentService", () => {
     lastRow: null,
   });
 
+    repositoryMock
+      .listMySavedPostGroups
+      .mockResolvedValue({
+        rows: [],
+        hasMore: false,
+        lastRow: null,
+      });
+
 postsRepositoryMock
   .getPostsByIds
   .mockResolvedValue([
@@ -182,6 +193,8 @@ postsRepositoryMock
           TARGET_USER_ID,
         limit: 20,
         cursor: null,
+        cityId: null,
+        countryId: null,
       });
 
       expect(
@@ -208,6 +221,33 @@ postsRepositoryMock
           hasMore: false,
           nextCursor: null,
         },
+      });
+    },
+  );
+
+  test(
+    "filters saved posts by one city",
+    async () => {
+      const cityId =
+        "994ea28a-6ad8-4542-9740-c7d8d48696aa";
+
+      await SavedContentService
+        .getMySavedPosts({
+          userId:
+            TARGET_USER_ID,
+          cityId,
+        });
+
+      expect(
+        repositoryMock
+          .listMySavedPostReferences,
+      ).toHaveBeenCalledWith({
+        userId:
+          TARGET_USER_ID,
+        limit: 20,
+        cursor: null,
+        cityId,
+        countryId: null,
       });
     },
   );
@@ -316,6 +356,78 @@ postsRepositoryMock
     },
   );
 });
+
+  describe("getMySavedPostGroups", () => {
+    test(
+      "returns city groups with hydrated previews",
+      async () => {
+        const cityId =
+          "994ea28a-6ad8-4542-9740-c7d8d48696aa";
+
+        repositoryMock
+          .listMySavedPostGroups
+          .mockResolvedValue({
+            rows: [
+              {
+                id: cityId,
+                name: "Delhi",
+                post_count: 1,
+                preview_post_ids: [
+                  POST_ID,
+                ],
+                latest_saved_at:
+                  new Date(
+                    "2026-08-03T10:00:00Z",
+                  ),
+              },
+            ],
+            hasMore: false,
+            lastRow: null,
+          });
+
+        const result =
+          await SavedContentService
+            .getMySavedPostGroups({
+              userId:
+                TARGET_USER_ID,
+              groupBy: "city",
+              limit: 20,
+            });
+
+        expect(
+          repositoryMock
+            .listMySavedPostGroups,
+        ).toHaveBeenCalledWith({
+          userId:
+            TARGET_USER_ID,
+          groupBy: "city",
+          limit: 20,
+          cursor: null,
+        });
+
+        expect(result)
+          .toMatchObject({
+            groupBy: "city",
+            groups: [
+              {
+                id: cityId,
+                name: "Delhi",
+                postCount: 1,
+                previewPosts: [
+                  {
+                    id: POST_ID,
+                  },
+                ],
+              },
+            ],
+            pagination: {
+              hasMore: false,
+              nextCursor: null,
+            },
+          });
+      },
+    );
+  });
 
   describe("getUserSavedPlaces", () => {
     test(

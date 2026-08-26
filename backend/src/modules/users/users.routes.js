@@ -37,6 +37,7 @@ import {
     getUserPostsSchema,
   } from "./validations/user-posts.validation.js";
 import {
+  getMySavedPostGroupsSchema,
   getMySavedPostsSchema,
   getUserSavedPlacesSchema,
 } from "./validations/saved-content.validation.js";
@@ -108,6 +109,16 @@ router.get(
     validate(getMyPostsSchema),
     UsersController.getMyPosts
 );
+router.get(
+  "/me/saved-posts/groups",
+  AuthMiddleware.authenticate,
+  validate(
+    getMySavedPostGroupsSchema,
+  ),
+  SavedContentController
+    .getMySavedPostGroups,
+);
+
 router.get(
   "/me/saved-posts",
   AuthMiddleware.authenticate,

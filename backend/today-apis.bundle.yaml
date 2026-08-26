@@ -1659,6 +1659,30 @@ paths:
         "404":
           $ref: "#/paths/~1users~1%7BuserId%7D~1reports/post/responses/404"
   /itineraries:
+    get:
+      tags:
+        - Itineraries
+      summary: List my saved itineraries
+      description: >
+        Returns active itineraries created by the authenticated user in
+        newest-first order.
+      operationId: listMyItineraries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Itineraries fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
       tags:
         - Itineraries
@@ -2085,6 +2109,20 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
+        - name: cityId
+          in: query
+          required: false
+          description: Return saved posts associated with this city.
+          schema:
+            type: string
+            format: uuid
+        - name: countryId
+          in: query
+          required: false
+          description: Return saved posts associated with this country.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Saved posts fetched successfully
@@ -2138,6 +2176,40 @@ paths:
                               nextCursor:
                                 type: string
                                 nullable: true
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /users/me/saved-posts/groups:
+    get:
+      tags:
+        - Saved Content
+      summary: Group my saved posts by city or country
+      description: >
+        Returns location groups for the authenticated user's accessible saved
+        posts. Each group contains up to three hydrated preview posts. Posts
+        without a resolvable city or country are excluded from grouped results.
+      operationId: getMySavedPostGroups
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupBy
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - city
+              - country
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Saved-post groups fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedPostGroupsResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4224,6 +4296,68 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: 2026-08-17T05:33:44.704Z
   schemas:
+    SavedPostGroupsResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+          example: Saved-post groups fetched successfully.
+        data:
+          type: object
+          required:
+            - groupBy
+            - groups
+            - pagination
+          properties:
+            groupBy:
+              type: string
+              enum:
+                - city
+                - country
+            groups:
+              type: array
+              items:
+                type: object
+                required:
+                  - id
+                  - name
+                  - postCount
+                  - coverImage
+                  - previewPosts
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  postCount:
+                    type: integer
+                    minimum: 1
+                  coverImage:
+                    nullable: true
+                  previewPosts:
+                    type: array
+                    maxItems: 3
+                    items:
+                      $ref: "#/components/schemas/CreatePostData/properties/post"
+            pagination:
+              $ref: "#/components/schemas/Pagination"
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
     SaveItineraryRequest:
       type: object
       required:
@@ -4356,6 +4490,75 @@ components:
           type: string
           format: uuid
         timestamp:
+          type: string
+          format: date-time
+    ItineraryListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum:
+            - true
+        message:
+          type: string
+          example: Itineraries fetched successfully.
+        data:
+          type: object
+          required:
+            - itineraries
+            - pagination
+          properties:
+            itineraries:
+              type: array
+              items:
+                $ref: "#/components/schemas/ItinerarySummary"
+            pagination:
+              $ref: "#/components/schemas/Pagination"
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+    ItinerarySummary:
+      type: object
+      required:
+        - id
+        - createdBy
+        - title
+        - durationDays
+        - visibility
+        - tripStatus
+        - aiGenerated
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdBy:
+          type: string
+          format: uuid
+        title:
+          type: string
+        durationDays:
+          type: integer
+        visibility:
+          type: string
+        tripStatus:
+          type: string
+        aiGenerated:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
     DeletePostData:

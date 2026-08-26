@@ -12,13 +12,19 @@ class SavedContentRepository {
     userId,
     limit = 20,
     cursor = null,
+    cityId = null,
+    countryId = null,
   }) {
     const safeLimit = Math.min(
       Math.max(Number(limit) || 20, 1),
       50,
     );
 
-    const params = [userId];
+    const params = [
+      userId,
+      cityId,
+      countryId,
+    ];
 
     let cursorCondition = "";
 
@@ -31,8 +37,8 @@ class SavedContentRepository {
           saved_item.created_at,
           saved_item.id
         ) < (
-          $2::timestamp,
-          $3::uuid
+          $4::timestamp,
+          $5::uuid
         )
       `;
     }
@@ -69,6 +75,16 @@ class SavedContentRepository {
         AND owner_profile.deleted_at
           IS NULL
 
+      LEFT JOIN poi.places saved_place
+        ON saved_place.id =
+          post.place_id
+
+      LEFT JOIN poi.cities saved_city
+        ON saved_city.id = COALESCE(
+          post.city_id,
+          saved_place.city_id
+        )
+
       WHERE saved_item.user_id =
           $1::uuid
 
@@ -77,6 +93,17 @@ class SavedContentRepository {
 
         AND saved_item.is_active
           IS TRUE
+
+        AND (
+          $2::uuid IS NULL
+          OR saved_city.id = $2::uuid
+        )
+
+        AND (
+          $3::uuid IS NULL
+          OR saved_city.country_id =
+            $3::uuid
+        )
 
         AND (
           post.user_id = $1::uuid
@@ -136,6 +163,186 @@ class SavedContentRepository {
       rows: paginatedRows,
       hasMore,
       lastRow,
+    };
+  }
+
+  async listMySavedPostGroups({
+    userId,
+    groupBy,
+    limit = 20,
+    cursor = null,
+  }) {
+    const safeLimit = Math.min(
+      Math.max(Number(limit) || 20, 1),
+      50,
+    );
+
+    const groupTable =
+      groupBy === "country"
+        ? "poi.countries"
+        : "poi.cities";
+
+    const groupIdExpression =
+      groupBy === "country"
+        ? "saved_city.country_id"
+        : "saved_city.id";
+
+    const params = [userId];
+    let cursorCondition = "";
+
+    if (cursor) {
+      params.push(
+        cursor.createdAt,
+        cursor.id,
+      );
+
+      cursorCondition = `
+        WHERE (
+          grouped.latest_saved_at,
+          grouped.id
+        ) < (
+          $2::timestamp,
+          $3::uuid
+        )
+      `;
+    }
+
+    params.push(safeLimit + 1);
+
+    const sql = `
+      WITH accessible_saved_posts AS (
+        SELECT
+          saved_item.id
+            AS saved_item_id,
+          saved_item.created_at
+            AS saved_at,
+          post.id
+            AS post_id,
+          ${groupIdExpression}
+            AS group_id
+
+        FROM users.saved_items saved_item
+
+        INNER JOIN explore.posts post
+          ON saved_item.item_type = 'POST'
+          AND post.id = saved_item.item_id
+          AND post.deleted_at IS NULL
+
+        LEFT JOIN users.profiles owner_profile
+          ON owner_profile.user_id =
+            post.user_id
+          AND owner_profile.deleted_at
+            IS NULL
+
+        LEFT JOIN poi.places saved_place
+          ON saved_place.id =
+            post.place_id
+
+        LEFT JOIN poi.cities saved_city
+          ON saved_city.id = COALESCE(
+            post.city_id,
+            saved_place.city_id
+          )
+
+        WHERE saved_item.user_id =
+            $1::uuid
+          AND saved_item.item_type =
+            'POST'
+          AND saved_item.is_active
+            IS TRUE
+          AND ${groupIdExpression}
+            IS NOT NULL
+          AND (
+            post.user_id = $1::uuid
+            OR (
+              UPPER(post.visibility) =
+                'PUBLIC'
+              AND COALESCE(
+                owner_profile.is_private,
+                FALSE
+              ) IS FALSE
+              AND NOT EXISTS (
+                SELECT 1
+                FROM users.blocked_users blocked
+                WHERE (
+                  blocked.user_id = $1::uuid
+                  AND blocked.blocked_user_id =
+                    post.user_id
+                )
+                OR (
+                  blocked.user_id =
+                    post.user_id
+                  AND blocked.blocked_user_id =
+                    $1::uuid
+                )
+              )
+            )
+          )
+      ),
+
+      grouped AS (
+        SELECT
+          group_entity.id,
+          group_entity.name,
+          COUNT(*)::integer
+            AS post_count,
+          MAX(saved.saved_at)
+            AS latest_saved_at,
+          (
+            ARRAY_AGG(
+              saved.post_id
+              ORDER BY
+                saved.saved_at DESC,
+                saved.saved_item_id DESC
+            )
+          )[1:3]
+            AS preview_post_ids
+
+        FROM accessible_saved_posts saved
+
+        INNER JOIN ${groupTable}
+          group_entity
+          ON group_entity.id =
+            saved.group_id
+
+        GROUP BY
+          group_entity.id,
+          group_entity.name
+      )
+
+      SELECT
+        grouped.id,
+        grouped.name,
+        grouped.post_count,
+        grouped.latest_saved_at,
+        grouped.latest_saved_at::text
+          AS cursor_created_at,
+        grouped.preview_post_ids
+      FROM grouped
+      ${cursorCondition}
+      ORDER BY
+        grouped.latest_saved_at DESC,
+        grouped.id DESC
+      LIMIT $${params.length}
+    `;
+
+    const { rows } =
+      await Database.query(
+        sql,
+        params,
+      );
+
+    const hasMore =
+      rows.length > safeLimit;
+    const paginatedRows = hasMore
+      ? rows.slice(0, safeLimit)
+      : rows;
+
+    return {
+      rows: paginatedRows,
+      hasMore,
+      lastRow:
+        paginatedRows.at(-1) ?? null,
     };
   }
 
