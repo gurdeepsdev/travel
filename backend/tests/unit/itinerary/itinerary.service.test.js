@@ -11,6 +11,7 @@ const repositoryMock = {
   listOwned: jest.fn(),
   updateOwnedLifecycleStatus:
     jest.fn(),
+  replaceOwnedJson: jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -74,6 +75,117 @@ describe("ItineraryService", () => {
         previousStatus: "SAVED",
         status: "UPCOMING",
         updated: true,
+      });
+    },
+  );
+
+  test(
+    "replaces an owned itinerary JSON payload",
+    async () => {
+      const payload = {
+        userId:
+          "9bf9aa6d-0ab3-4563-b1c2-754cc2d38a13",
+        request_id:
+          "519e8514-6a00-43ac-b1e3-78277698f13a",
+        status: "success",
+        mode: "future",
+        city_id: "new-delhi",
+        summary: {
+          num_days: 2,
+          total_places: 0,
+        },
+        days: [
+          { day: 1, items: [] },
+          { day: 2, items: [] },
+        ],
+      };
+
+      repositoryMock.replaceOwnedJson
+        .mockImplementation(
+          async (input) => ({
+            id: ITINERARY_ID,
+            created_by: USER_ID,
+            title: input.title,
+            duration_days:
+              input.durationDays,
+            visibility: "private",
+            trip_status: "ongoing",
+            ai_generated: true,
+            itinerary_json:
+              input.itineraryJson,
+            created_at:
+              new Date(
+                "2026-08-24T10:00:00Z",
+              ),
+            updated_at:
+              new Date(
+                "2026-08-27T10:00:00Z",
+              ),
+          }),
+        );
+
+      const result =
+        await ItineraryService
+          .updateItinerary({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            payload,
+          });
+
+      expect(
+        repositoryMock.replaceOwnedJson,
+      ).toHaveBeenCalledWith({
+        itineraryId:
+          ITINERARY_ID,
+        userId: USER_ID,
+        title:
+          "New Delhi itinerary",
+        durationDays: 2,
+        itineraryJson:
+          expect.not.objectContaining({
+            userId:
+              expect.anything(),
+          }),
+      });
+      expect(result.itinerary)
+        .toMatchObject({
+          id: ITINERARY_ID,
+          tripStatus: "ongoing",
+          durationDays: 2,
+        });
+    },
+  );
+
+  test(
+    "hides an unowned itinerary update",
+    async () => {
+      repositoryMock.replaceOwnedJson
+        .mockResolvedValue(null);
+
+      await expect(
+        ItineraryService.updateItinerary({
+          itineraryId:
+            ITINERARY_ID,
+          userId: USER_ID,
+          payload: {
+            request_id:
+              "519e8514-6a00-43ac-b1e3-78277698f13a",
+            status: "success",
+            mode: "future",
+            city_id: "delhi",
+            summary: {
+              num_days: 1,
+              total_places: 0,
+            },
+            days: [
+              { day: 1, items: [] },
+            ],
+          },
+        }),
+      ).rejects.toMatchObject({
+        code: "ITINERARY.NOT_FOUND",
+        statusCode: 404,
       });
     },
   );

@@ -1,6 +1,51 @@
 import Database from "../../database/database-manager.js";
 
 class ItineraryRepository {
+  async replaceOwnedJson({
+    itineraryId,
+    userId,
+    title,
+    durationDays,
+    itineraryJson,
+  }) {
+    const { rows } =
+      await Database.query(
+        `
+          UPDATE itinerary.itineraries
+          SET
+            title = $3,
+            duration_days = $4,
+            itinerary_json = $5::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND created_by = $2::uuid
+            AND deleted_at IS NULL
+          RETURNING
+            id,
+            created_by,
+            title,
+            duration_days,
+            visibility,
+            trip_status,
+            ai_generated,
+            itinerary_json,
+            created_at,
+            updated_at
+        `,
+        [
+          itineraryId,
+          userId,
+          title,
+          durationDays,
+          JSON.stringify(
+            itineraryJson,
+          ),
+        ],
+      );
+
+    return rows[0] ?? null;
+  }
+
   async updateOwnedLifecycleStatus({
     itineraryId,
     userId,

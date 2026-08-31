@@ -189,6 +189,42 @@ paths:
                 details: null
                 requestId: 65688c65-9a2c-4efc-a2ea-3bfecdcd2b6f
                 timestamp: 2026-08-24T10:00:00.000Z
+    put:
+      tags:
+        - Itineraries
+      summary: Replace my saved itinerary data
+      description: >
+        Replaces the complete itinerary JSON for an active itinerary owned by
+        the authenticated user. Lifecycle status, visibility, and trip records
+        are preserved.
+      operationId: updateItinerary
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveItineraryRequest"
+      responses:
+        "200":
+          description: Itinerary updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveItineraryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Itinerary not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   "/itineraries/{itineraryId}/status":
     patch:
       tags:

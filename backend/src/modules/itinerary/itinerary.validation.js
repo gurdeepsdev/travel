@@ -266,6 +266,13 @@ const itineraryIdParamsSchema = z
   })
   .strict();
 
+const updateItinerarySchema = z
+  .object({
+    body: itineraryPayloadSchema,
+    params: itineraryIdParamsSchema,
+    query: z.object({}).strict(),
+  });
+
 const uploadVaultDocumentSchema = z
   .object({
     body: z
@@ -362,4 +369,5 @@ export {
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
   VAULT_DOCUMENT_TYPES,
+  updateItinerarySchema,
 };

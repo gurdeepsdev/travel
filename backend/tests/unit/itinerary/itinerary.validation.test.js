@@ -5,7 +5,36 @@ import {
   updateItineraryStatusSchema,
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
+  updateItinerarySchema,
 } from "../../../src/modules/itinerary/itinerary.validation.js";
+
+describe("updateItinerarySchema", () => {
+  test("accepts a complete replacement payload", () => {
+    const result = updateItinerarySchema.safeParse({
+      body: createPayload(),
+      params: {
+        itineraryId:
+          "11111111-1111-4111-8111-111111111111",
+      },
+      query: {},
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects a partial payload", () => {
+    const result = updateItinerarySchema.safeParse({
+      body: { city_id: "delhi" },
+      params: {
+        itineraryId:
+          "11111111-1111-4111-8111-111111111111",
+      },
+      query: {},
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("itinerary vault validation", () => {
   const itineraryId =

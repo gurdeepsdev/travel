@@ -86,6 +86,43 @@ function mapItinerarySummary(
 }
 
 class ItineraryService {
+  async updateItinerary({
+    itineraryId,
+    userId,
+    payload,
+  }) {
+    const itineraryJson =
+      removeClientOwnerFields(
+        payload,
+      );
+
+    const itinerary =
+      await ItineraryRepository
+        .replaceOwnedJson({
+          itineraryId,
+          userId,
+          title:
+            buildTitle(
+              itineraryJson.city_id,
+            ),
+          durationDays:
+            itineraryJson.summary
+              .num_days,
+          itineraryJson,
+        });
+
+    if (!itinerary) {
+      throw this.createNotFoundError();
+    }
+
+    return {
+      itinerary:
+        mapItinerary(
+          itinerary,
+        ),
+    };
+  }
+
   async updateItineraryStatus({
     itineraryId,
     userId,

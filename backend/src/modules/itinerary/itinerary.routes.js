@@ -20,6 +20,7 @@ import {
   updateItineraryStatusSchema,
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
+  updateItinerarySchema,
 } from "./itinerary.validation.js";
 
 const router = Router();
@@ -50,6 +51,13 @@ router.get(
     getItinerarySchema,
   ),
   ItineraryController.getItinerary,
+);
+
+router.put(
+  "/:itineraryId",
+  AuthMiddleware.authenticate,
+  validate(updateItinerarySchema),
+  ItineraryController.updateItinerary,
 );
 
 router.patch(
