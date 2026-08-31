@@ -93,6 +93,17 @@ const postCreateRepositoryMock = {
 const inspectPostMediaFilesMock =
   jest.fn();
 
+const enqueueVideoAssetsMock =
+  jest.fn();
+
+jest.unstable_mockModule(
+  "../../../src/modules/media/video-processing.queue.js",
+  () => ({
+    enqueueVideoAssets:
+      enqueueVideoAssetsMock,
+  }),
+);
+
 jest.unstable_mockModule(
   "../../../src/database/database-manager.js",
   () => ({
@@ -289,7 +300,10 @@ describe(
   "PostCreateService",
   () => {
     beforeEach(() => {
-      jest.clearAllMocks();
+    jest.clearAllMocks();
+
+    enqueueVideoAssetsMock
+      .mockResolvedValue();
 
       databaseMock
         .transaction

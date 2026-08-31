@@ -121,6 +121,17 @@ class MemoriesRepository {
         asset.original_width,
         asset.original_height,
         asset.duration_seconds,
+        asset.processing_status,
+        (
+          SELECT variant.storage_key
+          FROM media.asset_variants variant
+          WHERE variant.asset_id = asset.id
+            AND variant.variant_name =
+              'thumbnail'
+            AND variant.format = 'jpg'
+            AND variant.quality = 85
+          LIMIT 1
+        ) AS thumbnail_storage_key,
         asset.is_public,
         asset.created_at
           AS asset_created_at
@@ -215,6 +226,17 @@ class MemoriesRepository {
         asset.original_width,
         asset.original_height,
         asset.duration_seconds,
+        asset.processing_status,
+        (
+          SELECT variant.storage_key
+          FROM media.asset_variants variant
+          WHERE variant.asset_id = asset.id
+            AND variant.variant_name =
+              'thumbnail'
+            AND variant.format = 'jpg'
+            AND variant.quality = 85
+          LIMIT 1
+        ) AS thumbnail_storage_key,
         asset.is_public,
         asset.created_at
           AS asset_created_at

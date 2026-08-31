@@ -19,6 +19,7 @@ class MediaRepository {
           asset.mime_type,
           asset.extension,
           asset.file_size,
+          asset.processing_status,
           asset.is_public,
           asset.created_at
 
@@ -45,6 +46,55 @@ class MediaRepository {
         viewerUserId,
       ],
     );
+
+    return rows[0] ?? null;
+  }
+
+  async findThumbnailDeliveryContext({
+    assetId,
+    viewerUserId = null,
+  }) {
+    const { rows } =
+      await Database.query(
+        `
+          SELECT
+            asset.id,
+            asset.uploaded_by,
+            asset.storage_provider,
+            asset.processing_status,
+            asset.is_public,
+            variant.storage_key,
+            variant.file_size
+
+          FROM media.assets asset
+
+          INNER JOIN media.asset_variants variant
+            ON variant.asset_id = asset.id
+            AND variant.variant_name =
+              'thumbnail'
+            AND variant.format = 'jpg'
+            AND variant.quality = 85
+
+          WHERE asset.id = $1::uuid
+            AND asset.deleted_at IS NULL
+            AND asset.processing_status =
+              'READY'
+            AND (
+              asset.is_public IS TRUE
+              OR (
+                $2::uuid IS NOT NULL
+                AND asset.uploaded_by =
+                  $2::uuid
+              )
+            )
+
+          LIMIT 1
+        `,
+        [
+          assetId,
+          viewerUserId,
+        ],
+      );
 
     return rows[0] ?? null;
   }
@@ -106,6 +156,7 @@ class MediaRepository {
               asset.original_width,
               asset.original_height,
               asset.duration_seconds,
+              asset.processing_status,
               asset.is_public,
               asset.created_at,
               asset.deleted_at
@@ -167,6 +218,7 @@ class MediaRepository {
                   original_width,
                   original_height,
                   duration_seconds,
+                  processing_status,
                   is_public,
                   created_at,
                   deleted_at
@@ -217,6 +269,9 @@ class MediaRepository {
                 original_width = NULL,
                 original_height = NULL,
                 duration_seconds = NULL,
+                processing_status = $11,
+                processing_error = NULL,
+                processed_at = NULL,
                 is_public = $10,
                 deleted_at = NULL,
                 updated_at =
@@ -236,6 +291,7 @@ class MediaRepository {
                 original_width,
                 original_height,
                 duration_seconds,
+                processing_status,
                 is_public,
                 created_at,
                 deleted_at
@@ -251,6 +307,10 @@ class MediaRepository {
               upload.fileSize,
               upload.checksum,
               isPublic === true,
+              upload.mimeType
+                .startsWith("video/")
+                  ? "PROCESSING"
+                  : "READY",
             ],
           );
 
@@ -290,6 +350,7 @@ class MediaRepository {
               original_width,
               original_height,
               duration_seconds,
+              processing_status,
               uploaded_by,
               is_public
             )
@@ -305,6 +366,7 @@ class MediaRepository {
               NULL,
               NULL,
               NULL,
+              $11,
               $9,
               $10
             )
@@ -320,6 +382,7 @@ class MediaRepository {
               original_width,
               original_height,
               duration_seconds,
+              processing_status,
               is_public,
               created_at,
               deleted_at
@@ -335,6 +398,10 @@ class MediaRepository {
             upload.checksum,
             userId,
             isPublic === true,
+            upload.mimeType
+              .startsWith("video/")
+                ? "PROCESSING"
+                : "READY",
           ],
         );
 
@@ -386,6 +453,7 @@ class MediaRepository {
           asset.original_width,
           asset.original_height,
           asset.duration_seconds,
+          asset.processing_status,
           asset.is_public,
           asset.created_at
 

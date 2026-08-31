@@ -197,6 +197,7 @@
 
 
 import {
+    buildAssetThumbnailUrl,
     buildAssetUrl,
   } from "../utils/asset-url.util.js";
   
@@ -220,6 +221,10 @@ import {
           : null;
   
       let mediaType = null;
+
+      const processingStatus =
+        asset.processingStatus ??
+        "READY";
   
       if (mimeType?.startsWith("image/")) {
         mediaType = "img";
@@ -242,6 +247,8 @@ import {
             : null,
   
         mediaType,
+
+        processingStatus,
   
         storageProvider:
           asset.storageProvider ?? null,
@@ -252,7 +259,9 @@ import {
         storageKey:
           asset.storageKey ?? null,
   
-      url: buildAssetUrl({
+      url: processingStatus ===
+        "READY"
+        ? buildAssetUrl({
           assetId:
             asset.id,
 
@@ -265,7 +274,24 @@ import {
           isPublic:
             asset.isPublic ===
             true,
-        }),
+          })
+        : null,
+
+        thumbnailUrl:
+          processingStatus ===
+            "READY"
+            ? buildAssetThumbnailUrl({
+                assetId:
+                  asset.id,
+                storageProvider:
+                  asset.storageProvider,
+                thumbnailStorageKey:
+                  asset.thumbnailStorageKey,
+                isPublic:
+                  asset.isPublic === true,
+              })
+            : null,
+
         originalFilename:
           asset.originalFilename ?? null,
   

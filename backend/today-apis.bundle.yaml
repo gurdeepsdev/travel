@@ -2557,6 +2557,35 @@ paths:
           $ref: "#/components/responses/MediaAssetNotFound"
         "503":
           $ref: "#/components/responses/MediaContentUnavailable"
+  "/media/assets/{assetId}/thumbnail":
+    get:
+      tags:
+        - Media Delivery
+      summary: Get a processed video thumbnail
+      operationId: getMediaAssetThumbnail
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: "#/components/parameters/AssetId"
+      responses:
+        "200":
+          description: JPEG video thumbnail
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/MediaAssetNotFound"
+        "503":
+          $ref: "#/components/responses/MediaContentUnavailable"
   "/users/{username}/saved-places":
     get:
       tags:
@@ -6189,8 +6218,10 @@ components:
         - width
         - height
         - durationSeconds
+        - processingStatus
         - isPublic
         - url
+        - thumbnailUrl
         - createdAt
       properties:
         id:
@@ -6217,6 +6248,13 @@ components:
         durationSeconds:
           type: integer
           nullable: true
+        processingStatus:
+          type: string
+          enum:
+            - PROCESSING
+            - READY
+            - FAILED
+          description: Videos expose a URL only when this value is READY.
         isPublic:
           type: boolean
         url:
@@ -6226,6 +6264,10 @@ components:
             Absolute public URL for public remote assets, or the authenticated
             media-delivery URL for local assets. Private non-local assets return
             null until signed URL delivery is available.
+        thumbnailUrl:
+          type: string
+          nullable: true
+          description: JPEG thumbnail URL for a processed video.
         createdAt:
           type: string
           format: date-time
@@ -6474,6 +6516,9 @@ components:
                   url:
                     type: string
                     nullable: true
+                  thumbnailUrl:
+                    type: string
+                    nullable: true
                   originalFilename:
                     type: string
                     nullable: true
@@ -6495,6 +6540,12 @@ components:
                   durationSeconds:
                     type: number
                     nullable: true
+                  processingStatus:
+                    type: string
+                    enum:
+                      - PROCESSING
+                      - READY
+                      - FAILED
                   isPublic:
                     type: boolean
                   createdAt:

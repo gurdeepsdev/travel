@@ -1,13 +1,11 @@
 import {
+  buildAssetThumbnailUrl,
   buildAssetUrl,
 } from "../utils/asset-url.util.js";
 
-const buildAbsoluteAssetUrl = (
-  asset,
+const buildAbsoluteUrl = (
+  assetUrl,
 ) => {
-  const assetUrl =
-    buildAssetUrl(asset);
-
   if (
     !assetUrl ||
     /^https?:\/\//i.test(assetUrl)
@@ -34,6 +32,12 @@ const buildAbsoluteAssetUrl = (
     "",
   )}`;
 };
+
+const buildAbsoluteAssetUrl = (
+  asset,
+) => buildAbsoluteUrl(
+  buildAssetUrl(asset),
+);
 
 class MemoriesMapper {
   static toMemory(row) {
@@ -90,10 +94,18 @@ class MemoriesMapper {
           row.duration_seconds ??
           null,
 
+        processingStatus:
+          row.processing_status ??
+          "READY",
+
         isPublic,
 
         url:
-          buildAbsoluteAssetUrl({
+          (
+            row.processing_status ??
+            "READY"
+          ) === "READY"
+            ? buildAbsoluteAssetUrl({
             assetId:
               row.asset_id,
 
@@ -104,7 +116,26 @@ class MemoriesMapper {
               row.storage_key,
 
             isPublic,
-          }),
+              })
+            : null,
+
+        thumbnailUrl:
+          (
+            row.processing_status ??
+            "READY"
+          ) === "READY"
+            ? buildAbsoluteUrl(
+                buildAssetThumbnailUrl({
+                  assetId:
+                    row.asset_id,
+                  storageProvider:
+                    row.storage_provider,
+                  thumbnailStorageKey:
+                    row.thumbnail_storage_key,
+                  isPublic,
+                }),
+              )
+            : null,
 
         createdAt:
           row.asset_created_at ??

@@ -6,6 +6,10 @@ import HttpStatus from "../../../shared/constants/http-status.js";
 
 import StorageManager from "../../../providers/storage/storage-manager.js";
 
+import {
+  enqueueVideoAssets,
+} from "../../media/video-processing.queue.js";
+
 import MediaRepository from "../../media/media.repository.js";
 
 import UserPostsRepository from "../../users/repositories/posts.repository.js";
@@ -630,6 +634,10 @@ class PostCreateService {
               postId:
                 post.id,
 
+              uploadedAssets:
+                uploadedResolution
+                  .assets,
+
               unusedStoredObjects:
                 uploadedResolution
                   .unusedStoredObjects,
@@ -702,6 +710,33 @@ class PostCreateService {
       logMessage:
         "Failed to clean superseded post media after commit.",
     });
+
+    try {
+      await enqueueVideoAssets(
+        transactionResult
+          .uploadedAssets,
+      );
+    } catch (error) {
+      logger?.error(
+        {
+          postId:
+            transactionResult
+              .postId,
+
+          error: {
+            name:
+              error.name,
+
+            message:
+              error.message,
+
+            stack:
+              error.stack,
+          },
+        },
+        "Failed to enqueue post video processing.",
+      );
+    }
 
     const createdPosts =
       await UserPostsRepository

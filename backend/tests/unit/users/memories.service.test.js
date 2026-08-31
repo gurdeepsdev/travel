@@ -42,6 +42,17 @@ const mediaRepositoryMock = {
 const inspectMemoryMediaFileMock =
   jest.fn();
 
+const enqueueVideoAssetsMock =
+  jest.fn();
+
+jest.unstable_mockModule(
+  "../../../src/modules/media/video-processing.queue.js",
+  () => ({
+    enqueueVideoAssets:
+      enqueueVideoAssetsMock,
+  }),
+);
+
 const repositoryMock = {
   save: jest.fn(),
   listMine: jest.fn(),
@@ -161,6 +172,9 @@ function createMemoryRow(
 describe("MemoriesService", () => {
     beforeEach(() => {
     jest.clearAllMocks();
+
+    enqueueVideoAssetsMock
+      .mockResolvedValue();
 
     databaseMock
       .transaction
@@ -532,10 +546,16 @@ describe("MemoriesService", () => {
               id:
                 ASSET_ID,
 
-              originalFilename:
-                "photo.jpg",
+            originalFilename:
+              "photo.jpg",
 
-              mimeType:
+            processingStatus:
+              "READY",
+
+            thumbnailUrl:
+              null,
+
+            mimeType:
                 "image/jpeg",
 
               extension:
