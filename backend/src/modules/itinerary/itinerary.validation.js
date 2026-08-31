@@ -266,6 +266,32 @@ const itineraryIdParamsSchema = z
   })
   .strict();
 
+const updateItinerarySchema = z
+  .object({
+    body: itineraryPayloadSchema,
+    params: itineraryIdParamsSchema,
+    query: z.object({}).strict(),
+  });
+
+const updateItineraryNameSchema = z
+  .object({
+    body: z
+      .object({
+        name: z.string().trim()
+          .min(
+            1,
+            "Itinerary name is required.",
+          )
+          .max(
+            255,
+            "Itinerary name cannot exceed 255 characters.",
+          ),
+      })
+      .strict(),
+    params: itineraryIdParamsSchema,
+    query: z.object({}).strict(),
+  });
+
 const uploadVaultDocumentSchema = z
   .object({
     body: z
@@ -348,6 +374,10 @@ const listItinerariesSchema = z
 
         cursor:
           cursorSchema.optional(),
+
+        status: z.enum([
+          "PLANNED",
+        ]).optional(),
       })
       .strict(),
   });
@@ -362,4 +392,6 @@ export {
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
   VAULT_DOCUMENT_TYPES,
+  updateItinerarySchema,
+  updateItineraryNameSchema,
 };

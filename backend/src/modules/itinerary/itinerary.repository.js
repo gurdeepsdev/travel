@@ -1,6 +1,213 @@
 import Database from "../../database/database-manager.js";
 
 class ItineraryRepository {
+  async getOrCreateOwnedPublicShare({
+    itineraryId,
+    userId,
+    shareToken,
+  }) {
+    return Database.transaction(
+      async (client) => {
+        await client.query(
+          `
+            SELECT pg_advisory_xact_lock(
+              hashtextextended(
+                $1::text,
+                0
+              )
+            )
+          `,
+          [itineraryId],
+        );
+
+        const itineraryResult =
+          await client.query(
+            `
+              SELECT id
+              FROM itinerary.itineraries
+              WHERE id = $1::uuid
+                AND created_by = $2::uuid
+                AND deleted_at IS NULL
+              LIMIT 1
+            `,
+            [itineraryId, userId],
+          );
+
+        if (!itineraryResult.rows[0]) {
+          return null;
+        }
+
+        const existingResult =
+          await client.query(
+            `
+              SELECT
+                id,
+                itinerary_id,
+                share_token,
+                access_type,
+                expires_at,
+                created_at
+              FROM itinerary.itinerary_shares
+              WHERE itinerary_id = $1::uuid
+                AND created_by = $2::uuid
+                AND access_type = 'public'
+                AND is_active = TRUE
+                AND (
+                  expires_at IS NULL
+                  OR expires_at >
+                    CURRENT_TIMESTAMP
+                )
+              ORDER BY created_at DESC
+              LIMIT 1
+              FOR UPDATE
+            `,
+            [itineraryId, userId],
+          );
+
+        if (existingResult.rows[0]) {
+          return existingResult.rows[0];
+        }
+
+        const createdResult =
+          await client.query(
+            `
+              INSERT INTO itinerary.itinerary_shares (
+                itinerary_id,
+                share_token,
+                access_type,
+                created_by
+              )
+              VALUES (
+                $1::uuid,
+                $3,
+                'public',
+                $2::uuid
+              )
+              RETURNING
+                id,
+                itinerary_id,
+                share_token,
+                access_type,
+                expires_at,
+                created_at
+            `,
+            [
+              itineraryId,
+              userId,
+              shareToken,
+            ],
+          );
+
+        return createdResult.rows[0];
+      },
+    );
+  }
+
+  async updateOwnedName({
+    itineraryId,
+    userId,
+    name,
+  }) {
+    const { rows } =
+      await Database.query(
+        `
+          UPDATE itinerary.itineraries
+          SET
+            title = $3,
+            updated_at =
+              CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND created_by = $2::uuid
+            AND deleted_at IS NULL
+          RETURNING
+            id,
+            title,
+            updated_at
+        `,
+        [
+          itineraryId,
+          userId,
+          name,
+        ],
+      );
+
+    return rows[0] ?? null;
+  }
+
+  async softDeleteOwned({
+    itineraryId,
+    userId,
+  }) {
+    const { rows } =
+      await Database.query(
+        `
+          UPDATE itinerary.itineraries
+          SET
+            deleted_at =
+              CURRENT_TIMESTAMP,
+            updated_at =
+              CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND created_by = $2::uuid
+            AND deleted_at IS NULL
+          RETURNING
+            id,
+            deleted_at
+        `,
+        [
+          itineraryId,
+          userId,
+        ],
+      );
+
+    return rows[0] ?? null;
+  }
+
+  async replaceOwnedJson({
+    itineraryId,
+    userId,
+    title,
+    durationDays,
+    itineraryJson,
+  }) {
+    const { rows } =
+      await Database.query(
+        `
+          UPDATE itinerary.itineraries
+          SET
+            title = $3,
+            duration_days = $4,
+            itinerary_json = $5::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND created_by = $2::uuid
+            AND deleted_at IS NULL
+          RETURNING
+            id,
+            created_by,
+            title,
+            duration_days,
+            visibility,
+            trip_status,
+            ai_generated,
+            itinerary_json,
+            created_at,
+            updated_at
+        `,
+        [
+          itineraryId,
+          userId,
+          title,
+          durationDays,
+          JSON.stringify(
+            itineraryJson,
+          ),
+        ],
+      );
+
+    return rows[0] ?? null;
+  }
+
   async updateOwnedLifecycleStatus({
     itineraryId,
     userId,

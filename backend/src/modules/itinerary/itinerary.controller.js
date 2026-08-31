@@ -5,6 +5,110 @@ import ItineraryService
   from "./itinerary.service.js";
 
 class ItineraryController {
+  async createShareLink(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .createShareLink({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            userId: req.user.id,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Itinerary share link created successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async updateItineraryName(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .updateItineraryName({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            userId: req.user.id,
+            name:
+              req.validated.body.name,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Itinerary name updated successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async deleteItinerary(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .deleteItinerary({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            userId: req.user.id,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Itinerary deleted successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async updateItinerary(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .updateItinerary({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            userId: req.user.id,
+            payload:
+              req.validated.body,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Itinerary updated successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async updateItineraryStatus(
     req,
     res,
@@ -80,6 +184,11 @@ class ItineraryController {
             cursor:
               req.validated.query
                 .cursor,
+            tripStatus:
+              req.validated.query
+                .status
+                ?.toLowerCase() ??
+              null,
           });
 
       return Response.success(

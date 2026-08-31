@@ -10,6 +10,12 @@ import {
   decodeCursor,
   encodeCursor,
 } from "../../shared/utils/cursor.js";
+import {
+  randomBytes,
+} from "node:crypto";
+import {
+  buildItineraryShareUrl,
+} from "./itinerary-share-url.util.js";
 
 const OWNER_FIELDS = [
   "user id",
@@ -86,6 +92,132 @@ function mapItinerarySummary(
 }
 
 class ItineraryService {
+  async createShareLink({
+    itineraryId,
+    userId,
+  }) {
+    const share =
+      await ItineraryRepository
+        .getOrCreateOwnedPublicShare({
+          itineraryId,
+          userId,
+          shareToken:
+            randomBytes(32)
+              .toString("base64url"),
+        });
+
+    if (!share) {
+      throw this.createNotFoundError();
+    }
+
+    return {
+      itineraryId:
+        share.itinerary_id,
+      share: {
+        id: share.id,
+        url:
+          buildItineraryShareUrl(
+            share.share_token,
+          ),
+        accessType:
+          share.access_type,
+        expiresAt:
+          share.expires_at,
+        createdAt:
+          share.created_at,
+      },
+    };
+  }
+
+  async updateItineraryName({
+    itineraryId,
+    userId,
+    name,
+  }) {
+    const itinerary =
+      await ItineraryRepository
+        .updateOwnedName({
+          itineraryId,
+          userId,
+          name,
+        });
+
+    if (!itinerary) {
+      throw this.createNotFoundError();
+    }
+
+    return {
+      itinerary: {
+        id: itinerary.id,
+        name: itinerary.title,
+        updatedAt:
+          itinerary.updated_at,
+      },
+    };
+  }
+
+  async deleteItinerary({
+    itineraryId,
+    userId,
+  }) {
+    const itinerary =
+      await ItineraryRepository
+        .softDeleteOwned({
+          itineraryId,
+          userId,
+        });
+
+    if (!itinerary) {
+      throw this.createNotFoundError();
+    }
+
+    return {
+      deleted: true,
+      itinerary: {
+        id: itinerary.id,
+        deletedAt:
+          itinerary.deleted_at,
+      },
+    };
+  }
+
+  async updateItinerary({
+    itineraryId,
+    userId,
+    payload,
+  }) {
+    const itineraryJson =
+      removeClientOwnerFields(
+        payload,
+      );
+
+    const itinerary =
+      await ItineraryRepository
+        .replaceOwnedJson({
+          itineraryId,
+          userId,
+          title:
+            buildTitle(
+              itineraryJson.city_id,
+            ),
+          durationDays:
+            itineraryJson.summary
+              .num_days,
+          itineraryJson,
+        });
+
+    if (!itinerary) {
+      throw this.createNotFoundError();
+    }
+
+    return {
+      itinerary:
+        mapItinerary(
+          itinerary,
+        ),
+    };
+  }
+
   async updateItineraryStatus({
     itineraryId,
     userId,

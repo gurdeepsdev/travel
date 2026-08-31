@@ -5,7 +5,70 @@ import {
   updateItineraryStatusSchema,
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
+  updateItinerarySchema,
+  updateItineraryNameSchema,
 } from "../../../src/modules/itinerary/itinerary.validation.js";
+
+describe("updateItineraryNameSchema", () => {
+  const params = {
+    itineraryId:
+      "11111111-1111-4111-8111-111111111111",
+  };
+
+  test("accepts a trimmed itinerary name", () => {
+    const result =
+      updateItineraryNameSchema.safeParse({
+        body: {
+          name: "  Himachal Adventure  ",
+        },
+        params,
+        query: {},
+      });
+
+    expect(result.success).toBe(true);
+    expect(result.data.body.name)
+      .toBe("Himachal Adventure");
+  });
+
+  test("rejects an empty itinerary name", () => {
+    const result =
+      updateItineraryNameSchema.safeParse({
+        body: { name: "   " },
+        params,
+        query: {},
+      });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("updateItinerarySchema", () => {
+  test("accepts a complete replacement payload", () => {
+    const result = updateItinerarySchema.safeParse({
+      body: createPayload(),
+      params: {
+        itineraryId:
+          "11111111-1111-4111-8111-111111111111",
+      },
+      query: {},
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects a partial payload", () => {
+    const result = updateItinerarySchema.safeParse({
+      body: { city_id: "delhi" },
+      params: {
+        itineraryId:
+          "11111111-1111-4111-8111-111111111111",
+      },
+      query: {},
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("itinerary vault validation", () => {
   const itineraryId =
@@ -228,6 +291,42 @@ describe("listItinerariesSchema", () => {
           params: {},
           query: {
             limit: "51",
+          },
+        });
+
+      expect(result.success)
+        .toBe(false);
+    },
+  );
+
+  test(
+    "accepts the planned status filter",
+    () => {
+      const result =
+        listItinerariesSchema.safeParse({
+          body: undefined,
+          params: {},
+          query: {
+            status: "PLANNED",
+          },
+        });
+
+      expect(result.success)
+        .toBe(true);
+      expect(result.data.query.status)
+        .toBe("PLANNED");
+    },
+  );
+
+  test(
+    "rejects unsupported list statuses",
+    () => {
+      const result =
+        listItinerariesSchema.safeParse({
+          body: undefined,
+          params: {},
+          query: {
+            status: "ONGOING",
           },
         });
 
