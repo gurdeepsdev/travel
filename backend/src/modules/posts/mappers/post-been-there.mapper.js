@@ -1,6 +1,6 @@
 import {
-  buildAssetUrl,
-} from "../../users/utils/asset-url.util.js";
+  buildProfilePhotoUrl,
+} from "./profile-photo-url.mapper.js";
 
 class PostBeenThereMapper {
     static toResponse({
@@ -36,9 +36,14 @@ static toListItem(row) {
             row.profile_photo_storage_key ??
             null,
 
-          url: buildAssetUrl(
-            row.profile_photo_storage_key,
-          ),
+          url: buildProfilePhotoUrl({
+            assetId:
+              row.profile_photo_id,
+            storageProvider:
+              row.profile_photo_storage_provider,
+            storageKey:
+              row.profile_photo_storage_key,
+          }),
 
           mimeType:
             row.profile_photo_mime_type ??
