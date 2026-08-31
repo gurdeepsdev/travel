@@ -1675,11 +1675,14 @@ paths:
         - name: status
           in: query
           required: false
-          description: Set to PLANNED to return only planned itineraries.
+          description: Filter itineraries by their current lifecycle status.
           schema:
             type: string
             enum:
               - PLANNED
+              - UPCOMING
+              - LIVE
+              - COMPLETED
       responses:
         "200":
           description: Itineraries fetched successfully
@@ -5052,6 +5055,7 @@ components:
         - visibility
         - tripStatus
         - aiGenerated
+        - itineraryJson
         - createdAt
         - updatedAt
       properties:
@@ -5069,8 +5073,15 @@ components:
           type: string
         tripStatus:
           type: string
+          enum:
+            - planned
+            - upcoming
+            - live
+            - completed
         aiGenerated:
           type: boolean
+        itineraryJson:
+          $ref: "#/components/schemas/SaveItineraryRequest"
         createdAt:
           type: string
           format: date-time

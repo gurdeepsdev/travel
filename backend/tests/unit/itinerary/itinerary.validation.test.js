@@ -319,6 +319,27 @@ describe("listItinerariesSchema", () => {
   );
 
   test(
+    "accepts active itinerary status filters",
+    () => {
+      for (const status of [
+        "UPCOMING",
+        "LIVE",
+        "COMPLETED",
+      ]) {
+        const result =
+          listItinerariesSchema.safeParse({
+            body: undefined,
+            params: {},
+            query: { status },
+          });
+
+        expect(result.success)
+          .toBe(true);
+      }
+    },
+  );
+
+  test(
     "rejects unsupported list statuses",
     () => {
       const result =
@@ -326,7 +347,7 @@ describe("listItinerariesSchema", () => {
           body: undefined,
           params: {},
           query: {
-            status: "ONGOING",
+            status: "CANCELLED",
           },
         });
 

@@ -377,6 +377,9 @@ const listItinerariesSchema = z
 
         status: z.enum([
           "PLANNED",
+          "UPCOMING",
+          "LIVE",
+          "COMPLETED",
         ]).optional(),
       })
       .strict(),
