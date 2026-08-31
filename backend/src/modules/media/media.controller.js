@@ -53,6 +53,49 @@ class MediaController {
       return next(error);
     }
   }
+
+  async getAssetThumbnail(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const { assetId } =
+        req.validated.params;
+
+      const {
+        filePath,
+        cacheControl,
+      } = await MediaService
+        .getLocalAssetThumbnail({
+          assetId,
+          viewerUserId:
+            req.user?.id ?? null,
+        });
+
+      res.set({
+        "Cache-Control":
+          cacheControl,
+        "Content-Type":
+          "image/jpeg",
+        "Content-Disposition":
+          "inline",
+      });
+
+      return res.sendFile(
+        filePath,
+        (error) => {
+          if (error) {
+            return next(error);
+          }
+
+          return undefined;
+        },
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 export default new MediaController();

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon src/server.js",
     "start": "node src/server.js",
+    "start:video-worker": "node src/workers/video-processing.worker.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "cross-env NODE_ENV=test OTP_PROVIDER=fake NODE_OPTIONS=--experimental-vm-modules jest --config jest.config.cjs --passWithNoTests",

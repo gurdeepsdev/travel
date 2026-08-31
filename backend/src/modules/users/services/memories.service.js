@@ -4,6 +4,10 @@ import HttpStatus from "../../../shared/constants/http-status.js";
 
 import Database from "../../../database/database-manager.js";
 import StorageManager from "../../../providers/storage/storage-manager.js";
+
+import {
+  enqueueVideoAssets,
+} from "../../media/video-processing.queue.js";
 import MediaRepository from "../../media/media.repository.js";
 
 import {
@@ -343,6 +347,10 @@ class MemoriesService {
             return {
               memory,
 
+              uploadedAssets:
+                uploadedResolution
+                  .assets,
+
               unusedStoredObjects:
                 uploadedResolution
                   .unusedStoredObjects,
@@ -399,6 +407,33 @@ class MemoriesService {
 
       logger,
     });
+
+    try {
+      await enqueueVideoAssets(
+        transactionResult
+          .uploadedAssets,
+      );
+    } catch (error) {
+      logger?.error(
+        {
+          memoryId:
+            transactionResult
+              .memory.id,
+
+          error: {
+            name:
+              error.name,
+
+            message:
+              error.message,
+
+            stack:
+              error.stack,
+          },
+        },
+        "Failed to enqueue memory video processing.",
+      );
+    }
 
     return MemoriesMapper
       .toSaveResponse({

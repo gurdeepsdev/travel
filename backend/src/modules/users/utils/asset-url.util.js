@@ -123,3 +123,42 @@ export const buildAssetUrl = (
     ? `${normalizedBaseUrl}/${normalizedStorageKey}`
     : null;
 };
+
+export const buildAssetThumbnailUrl = (
+  input,
+) => {
+  const {
+    assetId,
+    storageProvider,
+    isPublic,
+  } = normalizeOptions(input);
+
+  const thumbnailStorageKey =
+    input?.thumbnailStorageKey ??
+    null;
+
+  if (!thumbnailStorageKey) {
+    return null;
+  }
+
+  if (
+    String(
+      storageProvider ?? "",
+    ).trim().toLowerCase() ===
+      "local"
+  ) {
+    return assetId
+      ? `/api/v1/media/assets/${encodeURIComponent(
+          assetId,
+        )}/thumbnail`
+      : null;
+  }
+
+  return buildAssetUrl({
+    assetId,
+    storageProvider,
+    storageKey:
+      thumbnailStorageKey,
+    isPublic,
+  });
+};

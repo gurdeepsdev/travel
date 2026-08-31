@@ -11,6 +11,9 @@ const USER_ID =
 const repositoryMock = {
   findDeliveryContext:
     jest.fn(),
+
+  findThumbnailDeliveryContext:
+    jest.fn(),
 };
 
 const accessMock =
@@ -109,6 +112,14 @@ describe(
         .mockResolvedValue(
           undefined,
         );
+
+      repositoryMock
+        .findThumbnailDeliveryContext
+        .mockResolvedValue({
+          ...createAsset(),
+          storage_key:
+            "posts/user/video.thumbnail.jpg",
+        });
     });
 
     test(
@@ -186,6 +197,37 @@ describe(
         ).toBe(
           "private, no-store",
         );
+      },
+    );
+
+    test(
+      "returns an authorized local video thumbnail",
+      async () => {
+        const result =
+          await MediaService
+            .getLocalAssetThumbnail({
+              assetId:
+                ASSET_ID,
+              viewerUserId:
+                USER_ID,
+            });
+
+        expect(
+          repositoryMock
+            .findThumbnailDeliveryContext,
+        ).toHaveBeenCalledWith({
+          assetId:
+            ASSET_ID,
+          viewerUserId:
+            USER_ID,
+        });
+
+        expect(result).toMatchObject({
+          filePath:
+            "/absolute/uploads/posts/user/photo.png",
+          cacheControl:
+            "public, max-age=3600",
+        });
       },
     );
 

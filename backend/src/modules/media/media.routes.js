@@ -25,4 +25,14 @@ router.get(
     .getAssetContent,
 );
 
+router.get(
+  "/assets/:assetId/thumbnail",
+  optionalAuthMiddleware,
+  validate(
+    getAssetContentSchema,
+  ),
+  MediaController
+    .getAssetThumbnail,
+);
+
 export default router;

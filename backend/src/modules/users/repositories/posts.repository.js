@@ -173,6 +173,16 @@ COALESCE(
           'width', asset.original_width,
           'height', asset.original_height,
           'durationSeconds', asset.duration_seconds,
+          'processingStatus', asset.processing_status,
+          'thumbnailStorageKey', (
+            SELECT variant.storage_key
+            FROM media.asset_variants variant
+            WHERE variant.asset_id = asset.id
+              AND variant.variant_name = 'thumbnail'
+              AND variant.format = 'jpg'
+              AND variant.quality = 85
+            LIMIT 1
+          ),
           'isPublic', asset.is_public,
           'createdAt', asset.created_at
         )
@@ -728,6 +738,20 @@ async getUserPosts({
 
              'durationSeconds',
                asset.duration_seconds,
+
+             'processingStatus',
+               asset.processing_status,
+
+             'thumbnailStorageKey',
+               (
+                 SELECT variant.storage_key
+                 FROM media.asset_variants variant
+                 WHERE variant.asset_id = asset.id
+                   AND variant.variant_name = 'thumbnail'
+                   AND variant.format = 'jpg'
+                   AND variant.quality = 85
+                 LIMIT 1
+               ),
 
              'isPublic',
                asset.is_public,
@@ -1408,6 +1432,20 @@ async getPostsByIds({
 
              'durationSeconds',
                asset.duration_seconds,
+
+             'processingStatus',
+               asset.processing_status,
+
+             'thumbnailStorageKey',
+               (
+                 SELECT variant.storage_key
+                 FROM media.asset_variants variant
+                 WHERE variant.asset_id = asset.id
+                   AND variant.variant_name = 'thumbnail'
+                   AND variant.format = 'jpg'
+                   AND variant.quality = 85
+                 LIMIT 1
+               ),
 
              'isPublic',
                asset.is_public,
