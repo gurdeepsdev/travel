@@ -80,17 +80,6 @@ function mapItinerary(
   };
 }
 
-function mapItinerarySummary(
-  itinerary,
-) {
-  const mapped =
-    mapItinerary(itinerary);
-
-  delete mapped.itineraryJson;
-
-  return mapped;
-}
-
 class ItineraryService {
   async createShareLink({
     itineraryId,
@@ -345,7 +334,7 @@ class ItineraryService {
     return {
       itineraries:
         result.rows.map(
-          mapItinerarySummary,
+          mapItinerary,
         ),
       pagination: {
         hasMore:
@@ -364,7 +353,7 @@ class ItineraryService {
       userId,
       limit,
       cursor,
-      tripStatus: "completed",
+      tripStatus: "COMPLETED",
     });
   }
 

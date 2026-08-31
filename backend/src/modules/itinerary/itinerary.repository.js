@@ -434,11 +434,21 @@ class ItineraryRepository {
     let statusCondition = "";
     let cursorCondition = "";
 
-    if (tripStatus) {
-      params.push(tripStatus);
+    if (tripStatus === "PLANNED") {
       statusCondition = `
-        AND LOWER(trip_status) =
-          LOWER($${params.length}::varchar)
+        AND trip_record.id IS NULL
+      `;
+    } else if (tripStatus) {
+      const databaseStatus = {
+        UPCOMING: "UPCOMING",
+        LIVE: "ONGOING",
+        COMPLETED: "COMPLETED",
+      }[tripStatus];
+
+      params.push(databaseStatus);
+      statusCondition = `
+        AND trip_record.status =
+          $${params.length}::varchar
       `;
     }
 
@@ -453,8 +463,8 @@ class ItineraryRepository {
 
       cursorCondition = `
         AND (
-          created_at,
-          id
+          itinerary_record.created_at,
+          itinerary_record.id
         ) < (
           $${createdAtParameter}::timestamp,
           $${idParameter}::uuid
@@ -466,25 +476,42 @@ class ItineraryRepository {
 
     const sql = `
       SELECT
-        id,
-        created_by,
-        title,
-        duration_days,
-        visibility,
-        trip_status,
-        ai_generated,
-        created_at,
-        updated_at,
-        created_at::text
+        itinerary_record.id,
+        itinerary_record.created_by,
+        itinerary_record.title,
+        itinerary_record.duration_days,
+        itinerary_record.visibility,
+        CASE
+          WHEN trip_record.status =
+            'ONGOING'
+            THEN 'live'
+          WHEN trip_record.status IS NOT NULL
+            THEN LOWER(
+              trip_record.status
+            )
+          ELSE 'planned'
+        END AS trip_status,
+        itinerary_record.ai_generated,
+        itinerary_record.itinerary_json,
+        itinerary_record.created_at,
+        itinerary_record.updated_at,
+        itinerary_record.created_at::text
           AS cursor_created_at
       FROM itinerary.itineraries
-      WHERE created_by = $1::uuid
-        AND deleted_at IS NULL
+        AS itinerary_record
+      LEFT JOIN trip.trips
+        AS trip_record
+        ON trip_record.itinerary_id =
+          itinerary_record.id
+      WHERE itinerary_record.created_by =
+          $1::uuid
+        AND itinerary_record.deleted_at
+          IS NULL
         ${statusCondition}
         ${cursorCondition}
       ORDER BY
-        created_at DESC,
-        id DESC
+        itinerary_record.created_at DESC,
+        itinerary_record.id DESC
       LIMIT $${params.length}
     `;
 

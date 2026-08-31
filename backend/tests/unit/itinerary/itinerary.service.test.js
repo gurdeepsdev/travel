@@ -521,9 +521,11 @@ describe("ItineraryService", () => {
 
       expect(
         result.itineraries[0],
-      ).not.toHaveProperty(
-        "itineraryJson",
-      );
+      ).toMatchObject({
+        itineraryJson: {
+          city_id: "delhi",
+        },
+      });
     },
   );
 
@@ -550,7 +552,7 @@ describe("ItineraryService", () => {
         userId: USER_ID,
         limit: 20,
         cursor: null,
-        tripStatus: "completed",
+        tripStatus: "COMPLETED",
       });
 
       expect(result).toEqual({
@@ -578,7 +580,7 @@ describe("ItineraryService", () => {
           .listItineraries({
             userId: USER_ID,
             limit: 20,
-            tripStatus: "planned",
+            tripStatus: "PLANNED",
           });
 
       expect(
@@ -587,7 +589,7 @@ describe("ItineraryService", () => {
         userId: USER_ID,
         limit: 20,
         cursor: null,
-        tripStatus: "planned",
+        tripStatus: "PLANNED",
       });
       expect(result).toEqual({
         itineraries: [],
@@ -595,6 +597,38 @@ describe("ItineraryService", () => {
           hasMore: false,
           nextCursor: null,
         },
+      });
+    },
+  );
+
+  test.each([
+    "UPCOMING",
+    "LIVE",
+    "COMPLETED",
+  ])(
+    "passes the %s itinerary filter to the repository",
+    async (tripStatus) => {
+      repositoryMock.listOwned
+        .mockResolvedValue({
+          rows: [],
+          hasMore: false,
+          lastRow: null,
+        });
+
+      await ItineraryService
+        .listItineraries({
+          userId: USER_ID,
+          limit: 20,
+          tripStatus,
+        });
+
+      expect(
+        repositoryMock.listOwned,
+      ).toHaveBeenCalledWith({
+        userId: USER_ID,
+        limit: 20,
+        cursor: null,
+        tripStatus,
       });
     },
   );

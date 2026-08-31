@@ -187,8 +187,7 @@ class ItineraryController {
             tripStatus:
               req.validated.query
                 .status
-                ?.toLowerCase() ??
-              null,
+                ?? null,
           });
 
       return Response.success(
