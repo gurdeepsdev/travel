@@ -2,38 +2,9 @@ import {
     POST_REACTION_VALUES,
   } from "../post-reactions.constants.js";
 
-  import {
-  buildAssetUrl,
-} from "../../users/utils/asset-url.util.js";
-
-const buildAbsoluteAssetUrl = (
-  asset,
-) => {
-  const assetUrl =
-    buildAssetUrl(asset);
-
-  if (
-    !assetUrl ||
-    /^https?:\/\//i.test(assetUrl)
-  ) {
-    return assetUrl;
-  }
-
-  const baseUrl =
-    process.env.API_PUBLIC_BASE_URL
-      ?.trim() ||
-    `http://localhost:${
-      process.env.APP_PORT || 3001
-    }`;
-
-  return `${baseUrl.replace(
-    /\/+$/,
-    "",
-  )}/${assetUrl.replace(
-    /^\/+/,
-    "",
-  )}`;
-};
+import {
+  buildProfilePhotoUrl,
+} from "./profile-photo-url.mapper.js";
   
   class PostReactionsMapper {
     static toReaction(row) {
@@ -101,7 +72,7 @@ const buildAbsoluteAssetUrl = (
             row.profile_photo_storage_key ??
             null,
 
-          url: buildAbsoluteAssetUrl({
+          url: buildProfilePhotoUrl({
             assetId:
               row.profile_photo_id,
 
