@@ -87,6 +87,14 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          description: Set to PLANNED to return only planned itineraries.
+          schema:
+            type: string
+            enum:
+              - PLANNED
       responses:
         "200":
           description: Itineraries fetched successfully
@@ -225,6 +233,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Itineraries
+      summary: Delete my itinerary
+      description: >
+        Soft-deletes an active itinerary owned by the authenticated user.
+        Missing, already-deleted, and unowned itineraries return the same
+        not-found response.
+      operationId: deleteItinerary
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      responses:
+        "200":
+          description: Itinerary deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteItineraryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Itinerary not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   "/itineraries/{itineraryId}/status":
     patch:
       tags:
@@ -269,6 +307,72 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
           description: Invalid itinerary status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/name":
+    patch:
+      tags:
+        - Itineraries
+      summary: Update my itinerary name
+      description: >
+        Updates only the display name of an active itinerary owned by the
+        authenticated user.
+      operationId: updateItineraryName
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItineraryNameRequest"
+      responses:
+        "200":
+          description: Itinerary name updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateItineraryNameResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Itinerary not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/share":
+    post:
+      tags:
+        - Itineraries
+      summary: Create my itinerary share link
+      description: >
+        Returns the active public share link for an itinerary owned by the
+        authenticated user. Repeated calls reuse the same active link.
+      operationId: createItineraryShareLink
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      responses:
+        "200":
+          description: Itinerary share link created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryShareLinkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Itinerary not found
           content:
             application/json:
               schema:
@@ -3122,6 +3226,149 @@ components:
             - UPCOMING
             - LIVE
             - COMPLETED
+    UpdateItineraryNameRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+    UpdateItineraryNameResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Itinerary name updated successfully.
+        data:
+          type: object
+          required:
+            - itinerary
+          properties:
+            itinerary:
+              type: object
+              required:
+                - id
+                - name
+                - updatedAt
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                updatedAt:
+                  type: string
+                  format: date-time
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+    ItineraryShareLinkResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Itinerary share link created successfully.
+        data:
+          type: object
+          required:
+            - itineraryId
+            - share
+          properties:
+            itineraryId:
+              type: string
+              format: uuid
+            share:
+              type: object
+              required:
+                - id
+                - url
+                - accessType
+                - expiresAt
+                - createdAt
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                url:
+                  type: string
+                  format: uri
+                  example: https://artictern.com/i/7G9sQW9qW3H2N8nJ
+                accessType:
+                  type: string
+                  enum: [public]
+                expiresAt:
+                  type: string
+                  format: date-time
+                  nullable: true
+                createdAt:
+                  type: string
+                  format: date-time
+    DeleteItineraryResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - requestId
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        message:
+          type: string
+          example: Itinerary deleted successfully.
+        data:
+          type: object
+          required:
+            - deleted
+            - itinerary
+          properties:
+            deleted:
+              type: boolean
+              enum: [true]
+            itinerary:
+              type: object
+              required:
+                - id
+                - deletedAt
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                deletedAt:
+                  type: string
+                  format: date-time
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
     VaultDocumentType:
       type: string
       enum:

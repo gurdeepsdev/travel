@@ -6,12 +6,16 @@ const ITINERARY_ID =
   "11111111-1111-4111-8111-111111111111";
 
 const repositoryMock = {
+  getOrCreateOwnedPublicShare:
+    jest.fn(),
   create: jest.fn(),
   findOwnedById: jest.fn(),
   listOwned: jest.fn(),
   updateOwnedLifecycleStatus:
     jest.fn(),
   replaceOwnedJson: jest.fn(),
+  softDeleteOwned: jest.fn(),
+  updateOwnedName: jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -30,6 +34,181 @@ describe("ItineraryService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  test(
+    "creates an owned itinerary share link",
+    async () => {
+      repositoryMock
+        .getOrCreateOwnedPublicShare
+        .mockResolvedValue({
+          id:
+            "22222222-2222-4222-8222-222222222222",
+          itinerary_id:
+            ITINERARY_ID,
+          share_token: "share-token",
+          access_type: "public",
+          expires_at: null,
+          created_at:
+            new Date(
+              "2026-08-31T10:00:00Z",
+            ),
+        });
+
+      const result =
+        await ItineraryService
+          .createShareLink({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          });
+
+      expect(result).toMatchObject({
+        itineraryId: ITINERARY_ID,
+        share: {
+          url:
+            "https://artictern.com/i/share-token",
+          accessType: "public",
+          expiresAt: null,
+        },
+      });
+    },
+  );
+
+  test(
+    "hides an unowned itinerary share request",
+    async () => {
+      repositoryMock
+        .getOrCreateOwnedPublicShare
+        .mockResolvedValue(null);
+
+      await expect(
+        ItineraryService
+          .createShareLink({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          }),
+      ).rejects.toMatchObject({
+        code: "ITINERARY.NOT_FOUND",
+        statusCode: 404,
+      });
+    },
+  );
+
+  test(
+    "updates an owned itinerary name",
+    async () => {
+      repositoryMock.updateOwnedName
+        .mockResolvedValue({
+          id: ITINERARY_ID,
+          title: "Himachal Adventure",
+          updated_at:
+            new Date(
+              "2026-08-31T10:00:00Z",
+            ),
+        });
+
+      const result =
+        await ItineraryService
+          .updateItineraryName({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            name: "Himachal Adventure",
+          });
+
+      expect(
+        repositoryMock.updateOwnedName,
+      ).toHaveBeenCalledWith({
+        itineraryId:
+          ITINERARY_ID,
+        userId: USER_ID,
+        name: "Himachal Adventure",
+      });
+      expect(result.itinerary)
+        .toMatchObject({
+          id: ITINERARY_ID,
+          name: "Himachal Adventure",
+        });
+    },
+  );
+
+  test(
+    "hides an unowned itinerary name update",
+    async () => {
+      repositoryMock.updateOwnedName
+        .mockResolvedValue(null);
+
+      await expect(
+        ItineraryService
+          .updateItineraryName({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+            name: "Private Trip",
+          }),
+      ).rejects.toMatchObject({
+        code: "ITINERARY.NOT_FOUND",
+        statusCode: 404,
+      });
+    },
+  );
+
+  test(
+    "soft-deletes an owned itinerary",
+    async () => {
+      repositoryMock.softDeleteOwned
+        .mockResolvedValue({
+          id: ITINERARY_ID,
+          deleted_at:
+            new Date(
+              "2026-08-31T10:00:00Z",
+            ),
+        });
+
+      const result =
+        await ItineraryService
+          .deleteItinerary({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          });
+
+      expect(
+        repositoryMock.softDeleteOwned,
+      ).toHaveBeenCalledWith({
+        itineraryId:
+          ITINERARY_ID,
+        userId: USER_ID,
+      });
+      expect(result).toMatchObject({
+        deleted: true,
+        itinerary: {
+          id: ITINERARY_ID,
+        },
+      });
+    },
+  );
+
+  test(
+    "hides missing, deleted, and unowned itinerary deletes",
+    async () => {
+      repositoryMock.softDeleteOwned
+        .mockResolvedValue(null);
+
+      await expect(
+        ItineraryService
+          .deleteItinerary({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          }),
+      ).rejects.toMatchObject({
+        code: "ITINERARY.NOT_FOUND",
+        statusCode: 404,
+      });
+    },
+  );
 
   test(
     "moves a saved itinerary to an upcoming trip",
@@ -374,6 +553,42 @@ describe("ItineraryService", () => {
         tripStatus: "completed",
       });
 
+      expect(result).toEqual({
+        itineraries: [],
+        pagination: {
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
+    },
+  );
+
+  test(
+    "returns only planned itineraries owned by the user",
+    async () => {
+      repositoryMock.listOwned
+        .mockResolvedValue({
+          rows: [],
+          hasMore: false,
+          lastRow: null,
+        });
+
+      const result =
+        await ItineraryService
+          .listItineraries({
+            userId: USER_ID,
+            limit: 20,
+            tripStatus: "planned",
+          });
+
+      expect(
+        repositoryMock.listOwned,
+      ).toHaveBeenCalledWith({
+        userId: USER_ID,
+        limit: 20,
+        cursor: null,
+        tripStatus: "planned",
+      });
       expect(result).toEqual({
         itineraries: [],
         pagination: {

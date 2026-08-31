@@ -21,6 +21,7 @@ import {
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
   updateItinerarySchema,
+  updateItineraryNameSchema,
 } from "./itinerary.validation.js";
 
 const router = Router();
@@ -60,6 +61,13 @@ router.put(
   ItineraryController.updateItinerary,
 );
 
+router.delete(
+  "/:itineraryId",
+  AuthMiddleware.authenticate,
+  validate(getItinerarySchema),
+  ItineraryController.deleteItinerary,
+);
+
 router.patch(
   "/:itineraryId/status",
   AuthMiddleware.authenticate,
@@ -68,6 +76,21 @@ router.patch(
   ),
   ItineraryController
     .updateItineraryStatus,
+);
+
+router.patch(
+  "/:itineraryId/name",
+  AuthMiddleware.authenticate,
+  validate(updateItineraryNameSchema),
+  ItineraryController
+    .updateItineraryName,
+);
+
+router.post(
+  "/:itineraryId/share",
+  AuthMiddleware.authenticate,
+  validate(getItinerarySchema),
+  ItineraryController.createShareLink,
 );
 
 router.post(
