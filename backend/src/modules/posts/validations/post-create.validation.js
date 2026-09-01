@@ -267,21 +267,24 @@ const mediaOrderSchema =
 
 const createPostBodySchema = z
   .object({
-    caption: z
-      .string({
-        error:
-          "Caption must be a string.",
-      })
-      .trim()
-      .min(
-        1,
-        "Caption cannot be empty.",
-      )
-      .max(
-        MAX_POST_CAPTION_LENGTH,
-        `Caption cannot exceed ${MAX_POST_CAPTION_LENGTH} characters.`,
-      )
-      .optional(),
+    caption: z.preprocess(
+      (value) =>
+        typeof value === "string" &&
+        value.trim() === ""
+          ? undefined
+          : value,
+      z
+        .string({
+          error:
+            "Caption must be a string.",
+        })
+        .trim()
+        .max(
+          MAX_POST_CAPTION_LENGTH,
+          `Caption cannot exceed ${MAX_POST_CAPTION_LENGTH} characters.`,
+        )
+        .optional(),
+    ),
 
     visibility: z
       .enum(

@@ -6489,8 +6489,8 @@ components:
       properties:
         caption:
           type: string
-          minLength: 1
           maxLength: 250
+          description: Optional. Blank multipart values are treated as omitted.
         visibility:
           type: string
           enum:
