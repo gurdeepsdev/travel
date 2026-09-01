@@ -107,6 +107,36 @@ const getOutgoingConnectionRequestsSchema =
 const getMyConnectionsSchema =
   getIncomingConnectionRequestsSchema;
 
+const getUserConnectionsSchema =
+  getIncomingConnectionRequestsSchema.extend({
+    params: z
+      .object({
+        username: z
+          .string({
+            error:
+              "Username must be a string.",
+          })
+          .trim()
+          .min(
+            3,
+            "Username must contain at least 3 characters.",
+          )
+          .max(
+            50,
+            "Username cannot exceed 50 characters.",
+          )
+          .regex(
+            /^[a-zA-Z0-9_]+$/,
+            "Username can contain only letters, numbers, and underscores.",
+          )
+          .transform(
+            (username) =>
+              username.toLowerCase(),
+          ),
+      })
+      .strict(),
+  });
+
   /*
  * Connection suggestions use the same request-level
  * pagination contract as connection lists.
@@ -213,6 +243,7 @@ export {
   getIncomingConnectionRequestsSchema,
   getOutgoingConnectionRequestsSchema,
     getMyConnectionsSchema,
+      getUserConnectionsSchema,
       getConnectionSuggestionsSchema,
 
   respondToConnectionRequestSchema,

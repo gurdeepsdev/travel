@@ -51,6 +51,7 @@ import {
   getConnectionSuggestionsSchema,
   getIncomingConnectionRequestsSchema,
   getMyConnectionsSchema,
+  getUserConnectionsSchema,
   getOutgoingConnectionRequestsSchema,
   removeConnectionSchema,
   respondToConnectionRequestSchema,
@@ -304,6 +305,16 @@ router.get(
     getUserProfileSchema,
   ),
   UsersController.getUserProfile,
+);
+
+router.get(
+  "/:username/connections",
+  optionalAuthMiddleware,
+  validate(
+    getUserConnectionsSchema,
+  ),
+  ConnectionsController
+    .getUserConnections,
 );
 
 router.get(

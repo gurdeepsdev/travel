@@ -2,6 +2,64 @@ import Database
   from "../../../database/database-manager.js";
 
 class ConnectionsRepository {
+  async findConnectionsTarget({
+    username,
+    viewerUserId = null,
+  }) {
+    const sql = `
+      SELECT
+        target_user.id AS user_id,
+        target_profile.is_private,
+
+        CASE
+          WHEN $2::uuid IS NULL THEN FALSE
+          ELSE EXISTS (
+            SELECT 1
+            FROM users.blocked_users blocked
+            WHERE (
+              blocked.user_id = $2::uuid
+              AND blocked.blocked_user_id = target_user.id
+            ) OR (
+              blocked.user_id = target_user.id
+              AND blocked.blocked_user_id = $2::uuid
+            )
+          )
+        END AS is_blocked,
+
+        CASE
+          WHEN $2::uuid IS NULL THEN FALSE
+          ELSE EXISTS (
+            SELECT 1
+            FROM users.connections connection
+            WHERE connection.user_low_id =
+                LEAST($2::uuid, target_user.id)
+              AND connection.user_high_id =
+                GREATEST($2::uuid, target_user.id)
+          )
+        END AS is_connected
+
+      FROM auth.users target_user
+      INNER JOIN users.profiles target_profile
+        ON target_profile.user_id = target_user.id
+       AND target_profile.deleted_at IS NULL
+      WHERE LOWER(target_profile.username) =
+          LOWER($1::text)
+        AND target_user.status = 'ACTIVE'
+      LIMIT 1
+    `;
+
+    const { rows } =
+      await Database.query(
+        sql,
+        [
+          username,
+          viewerUserId,
+        ],
+      );
+
+    return rows[0] ?? null;
+  }
+
   /**
    * Creates or returns an outgoing pending request.
    *
@@ -1498,6 +1556,7 @@ request.sender_user_id
    */
   async listConnections({
     userId,
+    viewerUserId = userId,
     limit = 20,
     cursor = null,
   }) {
@@ -1512,6 +1571,7 @@ request.sender_user_id
 
     const params = [
       userId,
+      viewerUserId,
     ];
 
     let cursorWhere = "";
@@ -1530,8 +1590,8 @@ request.sender_user_id
           connection.connected_at,
           connection.id
         ) < (
-          $2::timestamp,
-          $3::uuid
+          $3::timestamp,
+          $4::uuid
         )
       `;
     }
@@ -1632,8 +1692,10 @@ request.sender_user_id
             AS blocked
 
           WHERE (
-            blocked.user_id =
-              $1::uuid
+            $2::uuid IS NOT NULL
+
+            AND blocked.user_id =
+              $2::uuid
 
             AND blocked.blocked_user_id =
               connection_user.id
@@ -1643,7 +1705,7 @@ request.sender_user_id
               connection_user.id
 
             AND blocked.blocked_user_id =
-              $1::uuid
+              $2::uuid
           )
         )
 

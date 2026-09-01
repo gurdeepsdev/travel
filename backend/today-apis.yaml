@@ -1207,6 +1207,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  "/users/{username}/connections":
+    get:
+      tags:
+        - Connections
+      summary: List a user's accepted connections
+      operationId: getUserConnections
+      description: >
+        Returns accepted connections visible on the requested profile using
+        stable cursor pagination. Authentication is optional. Public profiles
+        are visible to everyone. Private profiles are visible only to their
+        owner and accepted connections. Profiles across a block relationship
+        are hidden, and blocked users are excluded from the returned list.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 50
+            pattern: ^[a-zA-Z0-9_]+$
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/0"
+        - $ref: "#/paths/~1users~1me~1connections/get/parameters/1"
+      responses:
+        "200":
+          description: Connections fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/paths/~1users~1me~1connections/get/responses/200/content/application~1json/schema"
+        "400":
+          $ref: "#/paths/~1users~1me~1connections/get/responses/400"
+        "404":
+          description: Profile was not found or is hidden by privacy or block rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   "/users/{username}":
     get:
       tags:

@@ -162,6 +162,50 @@ class ConnectionsController {
     }
   }
 
+  /**
+   * Lists the accepted connections visible on another
+   * user's profile.
+   *
+   * Route:
+   * GET /api/v1/users/:username/connections
+   */
+  async getUserConnections(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const {
+        username,
+      } = req.validated.params;
+
+      const {
+        limit,
+        cursor = null,
+      } = req.validated.query;
+
+      const result =
+        await ConnectionsService
+          .getUserConnections({
+            username,
+
+            viewerUserId:
+              req.user?.id ?? null,
+
+            limit,
+            cursor,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Connections fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
 
   /**
    * Lists ranked connection suggestions for the
