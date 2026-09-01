@@ -258,6 +258,77 @@ class ExploreService {
         nextCursor,
       });
   }
+
+  async getVideos({
+    viewerUserId = null,
+    limit = 20,
+    cursor = null,
+  }) {
+    const isAuthenticated =
+      Boolean(viewerUserId);
+
+    const effectiveLimit =
+      isAuthenticated
+        ? Math.min(
+            Math.max(
+              Number(limit) || 20,
+              1,
+            ),
+            50,
+          )
+        : 20;
+
+    const decodedCursor =
+      isAuthenticated
+        ? decodeCursor(cursor)
+        : null;
+
+    const postResult =
+      await ExploreRepository
+        .listVideoPostIds({
+          viewerUserId,
+          limit:
+            effectiveLimit,
+          cursor:
+            decodedCursor,
+        });
+
+    const posts =
+      await PostsRepository
+        .getPostsByIds({
+          postIds:
+            postResult.rows.map(
+              (row) => row.id,
+            ),
+          viewerUserId,
+        });
+
+    const hasMore =
+      isAuthenticated &&
+      postResult.hasMore === true;
+
+    const lastRow =
+      postResult.lastRow;
+
+    const nextCursor =
+      hasMore && lastRow
+        ? encodeCursor({
+            createdAt:
+              lastRow
+                .cursor_created_at ??
+              lastRow.created_at,
+            id:
+              lastRow.id,
+          })
+        : null;
+
+    return ExploreMapper
+      .toPostFeedResponse({
+        posts,
+        hasMore,
+        nextCursor,
+      });
+  }
 }
 
 export default new ExploreService();

@@ -190,6 +190,45 @@ const getExploreFeedSchema =
       ),
   });
 
+const getExploreVideosSchema =
+  z.object({
+    params: z
+      .object({})
+      .strict(),
+
+    body: z
+      .unknown()
+      .optional(),
+
+    query: z
+      .object({
+        limit: z.coerce
+          .number({
+            error:
+              "Limit must be a number.",
+          })
+          .int(
+            "Limit must be an integer.",
+          )
+          .min(
+            1,
+            "Limit must be at least 1.",
+          )
+          .max(
+            MAX_POST_LIMIT,
+            `Limit cannot exceed ${MAX_POST_LIMIT}.`,
+          )
+          .default(
+            DEFAULT_POST_LIMIT,
+          ),
+
+        cursor:
+          cursorSchema
+            .optional(),
+      })
+      .strict(),
+  });
+
 
 const getExploreCitiesSchema =
   z.object({
@@ -427,6 +466,7 @@ export {
   EXPLORE_CITY_CATEGORIES,
   getExploreCountriesSchema,
   getExploreFeedSchema,
+  getExploreVideosSchema,
   getExploreCitiesSchema,
   getExploreCityPlacesSchema,
   getExplorePlacesSchema,

@@ -502,6 +502,31 @@ class ExploreMapper {
       },
     };
   }
+
+  static toPostFeedResponse({
+    posts,
+    hasMore,
+    nextCursor,
+  }) {
+    return {
+      items:
+        (posts ?? []).map(
+          (post, index) => ({
+            type: "POST",
+            post,
+            position:
+              index + 1,
+          }),
+        ),
+
+      pagination: {
+        hasMore:
+          hasMore === true,
+        nextCursor:
+          nextCursor ?? null,
+      },
+    };
+  }
 }
 
 export default ExploreMapper;

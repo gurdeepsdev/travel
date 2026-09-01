@@ -22,6 +22,7 @@ import {
   getExploreCitiesSchema,
   getExploreCityPlacesSchema,
   getExploreFeedSchema,
+  getExploreVideosSchema,
   getExplorePlacesSchema,
 } from "./validations/explore.validation.js";
 
@@ -83,6 +84,15 @@ router.get(
     getExploreFeedSchema,
   ),
   ExploreController.getFeed,
+);
+
+router.get(
+  "/videos",
+  optionalAuthMiddleware,
+  validate(
+    getExploreVideosSchema,
+  ),
+  ExploreController.getVideos,
 );
 
 export default router;

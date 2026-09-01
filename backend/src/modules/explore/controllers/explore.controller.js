@@ -161,6 +161,37 @@ class ExploreController {
       return next(error);
     }
   }
+
+  async getVideos(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const {
+        limit = 20,
+        cursor = null,
+      } = req.validated.query;
+
+      const result =
+        await ExploreService
+          .getVideos({
+            viewerUserId:
+              req.user?.id ??
+              null,
+            limit,
+            cursor,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Explore videos fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 export default new ExploreController();

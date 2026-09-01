@@ -787,6 +787,144 @@ class ExploreRepository {
         null,
     };
   }
+
+  async listVideoPostIds({
+    viewerUserId = null,
+    limit = 20,
+    cursor = null,
+  }) {
+    const safeLimit =
+      Math.max(
+        1,
+        Math.min(
+          Number(limit) || 20,
+          50,
+        ),
+      );
+
+    const params = [
+      viewerUserId,
+    ];
+
+    let cursorCondition = "";
+
+    if (
+      cursor?.createdAt &&
+      cursor?.id
+    ) {
+      params.push(
+        cursor.createdAt,
+        cursor.id,
+      );
+
+      cursorCondition = `
+        AND (
+          post.created_at,
+          post.id
+        ) < (
+          $2::timestamp,
+          $3::uuid
+        )
+      `;
+    }
+
+    params.push(
+      safeLimit + 1,
+    );
+
+    const limitParameterIndex =
+      params.length;
+
+    const { rows } =
+      await Database.query(
+        `
+          SELECT
+            post.id,
+            post.created_at,
+            post.created_at::text
+              AS cursor_created_at
+
+          FROM explore.posts post
+
+          INNER JOIN auth.users author_user
+            ON author_user.id = post.user_id
+            AND author_user.status = 'ACTIVE'
+
+          INNER JOIN users.profiles author_profile
+            ON author_profile.user_id =
+              author_user.id
+            AND author_profile.deleted_at
+              IS NULL
+
+          WHERE UPPER(post.visibility) =
+              'PUBLIC'
+            AND post.deleted_at IS NULL
+            AND COALESCE(
+              author_profile.is_private,
+              FALSE
+            ) IS FALSE
+            AND EXISTS (
+              SELECT 1
+              FROM explore.post_assets post_asset
+              INNER JOIN media.assets asset
+                ON asset.id = post_asset.asset_id
+                AND asset.deleted_at IS NULL
+                AND asset.mime_type LIKE 'video/%'
+                AND COALESCE(
+                  asset.processing_status,
+                  'READY'
+                ) = 'READY'
+              WHERE post_asset.post_id = post.id
+            )
+            AND (
+              $1::uuid IS NULL
+              OR NOT EXISTS (
+                SELECT 1
+                FROM users.blocked_users blocked
+                WHERE (
+                  blocked.user_id = $1::uuid
+                  AND blocked.blocked_user_id =
+                    post.user_id
+                )
+                OR (
+                  blocked.user_id = post.user_id
+                  AND blocked.blocked_user_id =
+                    $1::uuid
+                )
+              )
+            )
+
+          ${cursorCondition}
+
+          ORDER BY
+            post.created_at DESC,
+            post.id DESC
+
+          LIMIT $${limitParameterIndex}
+        `,
+        params,
+      );
+
+    const hasMore =
+      rows.length > safeLimit;
+
+    const paginatedRows =
+      hasMore
+        ? rows.slice(
+            0,
+            safeLimit,
+          )
+        : rows;
+
+    return {
+      rows:
+        paginatedRows,
+      hasMore,
+      lastRow:
+        paginatedRows.at(-1) ??
+        null,
+    };
+  }
 }
 
 export default new ExploreRepository();

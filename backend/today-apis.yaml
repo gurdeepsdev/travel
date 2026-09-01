@@ -519,6 +519,40 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /explore/videos:
+    get:
+      tags:
+        - Explore
+      summary: Get Explore video posts
+      description: >
+        Returns public Explore posts containing at least one processed video.
+        Each item uses the same complete post representation as the Explore
+        feed. Authentication is optional; authenticated viewers receive opaque
+        cursor pagination.
+      operationId: getExploreVideos
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Explore videos fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExploreVideosResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /explore/cities:
     get:
       tags:
@@ -3934,6 +3968,23 @@ components:
                       - $ref: "#/components/schemas/ExplorePlacesFeedItem"
                     discriminator:
                       propertyName: type
+                pagination:
+                  $ref: "#/components/schemas/Pagination"
+    ExploreVideosResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required:
+                - items
+                - pagination
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ExplorePostFeedItem"
                 pagination:
                   $ref: "#/components/schemas/Pagination"
     ExploreCitiesResponse:
