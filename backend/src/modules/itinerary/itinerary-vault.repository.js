@@ -100,6 +100,45 @@ class ItineraryVaultRepository {
     );
     return rows;
   }
+
+  async deleteOwned({
+    itineraryId,
+    documentId,
+    userId,
+  }) {
+    const { rows } =
+      await Database.query(
+        `
+          UPDATE trip.trip_documents document
+          SET
+            deleted_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+          FROM trip.trips trip_record,
+            itinerary.itineraries itinerary
+          WHERE document.id = $2::uuid
+            AND document.owner_id = $3::uuid
+            AND document.deleted_at IS NULL
+            AND trip_record.id = document.trip_id
+            AND trip_record.user_id = $3::uuid
+            AND itinerary.id = $1::uuid
+            AND itinerary.id =
+              trip_record.itinerary_id
+            AND itinerary.created_by = $3::uuid
+            AND itinerary.deleted_at IS NULL
+          RETURNING
+            document.id,
+            itinerary.id AS itinerary_id,
+            document.deleted_at
+        `,
+        [
+          itineraryId,
+          documentId,
+          userId,
+        ],
+      );
+
+    return rows[0] ?? null;
+  }
 }
 
 export default new ItineraryVaultRepository();

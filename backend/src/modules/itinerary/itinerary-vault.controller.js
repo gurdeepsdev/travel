@@ -47,6 +47,30 @@ class ItineraryVaultController {
       return next(error);
     }
   }
+
+  async deleteDocument(req, res, next) {
+    try {
+      const result =
+        await ItineraryVaultService
+          .deleteDocument({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            documentId:
+              req.validated.params
+                .documentId,
+            userId: req.user.id,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Vault document deleted successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 export default new ItineraryVaultController();

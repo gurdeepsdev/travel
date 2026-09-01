@@ -20,6 +20,7 @@ import {
   updateItineraryStatusSchema,
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
+  deleteVaultDocumentSchema,
   updateItinerarySchema,
   updateItineraryNameSchema,
 } from "./itinerary.validation.js";
@@ -108,6 +109,14 @@ router.get(
   validate(listVaultDocumentsSchema),
   ItineraryVaultController
     .listDocuments,
+);
+
+router.delete(
+  "/:itineraryId/vault/documents/:documentId",
+  AuthMiddleware.authenticate,
+  validate(deleteVaultDocumentSchema),
+  ItineraryVaultController
+    .deleteDocument,
 );
 
 router.post(

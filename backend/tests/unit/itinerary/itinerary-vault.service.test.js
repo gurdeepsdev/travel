@@ -4,6 +4,7 @@ const repositoryMock = {
   findOwnedItineraryTrip: jest.fn(),
   listOwned: jest.fn(),
   create: jest.fn(),
+  deleteOwned: jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -19,6 +20,8 @@ const itineraryId =
   "11111111-1111-4111-8111-111111111111";
 const userId =
   "63aae149-8f8f-4b30-b30d-211da764c080";
+const documentId =
+  "33333333-3333-4333-8333-333333333333";
 
 describe("ItineraryVaultService", () => {
   beforeEach(() => {
@@ -102,6 +105,54 @@ describe("ItineraryVaultService", () => {
     await expect(
       service.listDocuments({
         itineraryId,
+        userId,
+      }),
+    ).rejects.toMatchObject({
+      code: "ITINERARY.NOT_FOUND",
+      statusCode: 404,
+    });
+  });
+
+  test("soft-deletes an owned vault document", async () => {
+    repositoryMock.deleteOwned
+      .mockResolvedValue({
+        id: documentId,
+        itinerary_id: itineraryId,
+        deleted_at:
+          "2026-09-01T10:00:00.000Z",
+      });
+
+    const result =
+      await service.deleteDocument({
+        itineraryId,
+        documentId,
+        userId,
+      });
+
+    expect(repositoryMock.deleteOwned)
+      .toHaveBeenCalledWith({
+        itineraryId,
+        documentId,
+        userId,
+      });
+    expect(result).toEqual({
+      document: {
+        id: documentId,
+        itineraryId,
+        deletedAt:
+          "2026-09-01T10:00:00.000Z",
+      },
+    });
+  });
+
+  test("hides missing or unowned vault documents", async () => {
+    repositoryMock.deleteOwned
+      .mockResolvedValue(null);
+
+    await expect(
+      service.deleteDocument({
+        itineraryId,
+        documentId,
         userId,
       }),
     ).rejects.toMatchObject({
