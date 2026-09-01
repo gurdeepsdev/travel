@@ -32,6 +32,9 @@ const exploreRepositoryMock = {
 
   listFeedPostIds:
     jest.fn(),
+
+  listVideoPostIds:
+    jest.fn(),
 };
 
 const postsRepositoryMock = {
@@ -742,6 +745,98 @@ describe(
                 null,
             },
           ],
+        });
+      },
+    );
+
+    test(
+      "returns video posts with the Explore post envelope",
+      async () => {
+        exploreRepositoryMock
+          .listVideoPostIds
+          .mockResolvedValue({
+            rows: [
+              {
+                id:
+                  POST_ID,
+                cursor_created_at:
+                  CREATED_AT,
+              },
+            ],
+            hasMore: true,
+            lastRow: {
+              id:
+                POST_ID,
+              cursor_created_at:
+                CREATED_AT,
+            },
+          });
+
+        postsRepositoryMock
+          .getPostsByIds
+          .mockResolvedValue([
+            {
+              id:
+                POST_ID,
+              assets: [
+                {
+                  mediaType:
+                    "video",
+                },
+              ],
+            },
+          ]);
+
+        const result =
+          await ExploreService
+            .getVideos({
+              viewerUserId:
+                VIEWER_USER_ID,
+              limit: 10,
+            });
+
+        expect(
+          exploreRepositoryMock
+            .listVideoPostIds,
+        ).toHaveBeenCalledWith({
+          viewerUserId:
+            VIEWER_USER_ID,
+          limit: 10,
+          cursor: null,
+        });
+
+        expect(result.items).toEqual([
+          {
+            type: "POST",
+            post: {
+              id:
+                POST_ID,
+              assets: [
+                {
+                  mediaType:
+                    "video",
+                },
+              ],
+            },
+            position: 1,
+          },
+        ]);
+
+        expect(result.pagination)
+          .toMatchObject({
+            hasMore: true,
+          });
+
+        expect(
+          decodeCursor(
+            result.pagination
+              .nextCursor,
+          ),
+        ).toEqual({
+          createdAt:
+            CREATED_AT,
+          id:
+            POST_ID,
         });
       },
     );
