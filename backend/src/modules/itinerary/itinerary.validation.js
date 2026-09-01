@@ -340,6 +340,27 @@ const listVaultDocumentsSchema = z
       .strict(),
   });
 
+const deleteVaultDocumentSchema = z
+  .object({
+    body: z
+      .object({})
+      .strict()
+      .optional(),
+    params: itineraryIdParamsSchema
+      .extend({
+        documentId: z
+          .string({
+            error:
+              "Document ID must be a string.",
+          })
+          .trim()
+          .uuid(
+            "Document ID must be a valid UUID.",
+          ),
+      }),
+    query: z.object({}).strict(),
+  });
+
 const listItinerariesSchema = z
   .object({
     body: z
@@ -394,6 +415,7 @@ export {
   updateItineraryStatusSchema,
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
+  deleteVaultDocumentSchema,
   VAULT_DOCUMENT_TYPES,
   updateItinerarySchema,
   updateItineraryNameSchema,

@@ -73,6 +73,14 @@ class ItineraryVaultService {
     });
   }
 
+  createDocumentNotFoundError() {
+    return new AppError({
+      code: ErrorCodes.ITINERARY.NOT_FOUND,
+      message: "Vault document not found.",
+      statusCode: HttpStatus.NOT_FOUND,
+    });
+  }
+
   async uploadDocument({
     itineraryId,
     userId,
@@ -215,6 +223,38 @@ class ItineraryVaultService {
     return {
       documents:
         documents.map(mapDocument),
+    };
+  }
+
+  async deleteDocument({
+    itineraryId,
+    documentId,
+    userId,
+  }) {
+    const deletedDocument =
+      await ItineraryVaultRepository
+        .deleteOwned({
+          itineraryId,
+          documentId,
+          userId,
+        });
+
+    if (!deletedDocument) {
+      throw this
+        .createDocumentNotFoundError();
+    }
+
+    return {
+      document: {
+        id:
+          deletedDocument.id,
+        itineraryId:
+          deletedDocument
+            .itinerary_id,
+        deletedAt:
+          deletedDocument
+            .deleted_at,
+      },
     };
   }
 }
