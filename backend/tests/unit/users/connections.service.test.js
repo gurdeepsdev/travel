@@ -41,6 +41,9 @@ const repositoryMock = {
       listConnections:
     jest.fn(),
 
+      findConnectionsTarget:
+    jest.fn(),
+
       removeConnection:
     jest.fn(),
 
@@ -896,6 +899,192 @@ describe(
 
               statusCode:
                 500,
+            });
+          },
+        );
+      },
+    );
+
+        describe(
+      "getUserConnections",
+      () => {
+        test(
+          "returns connections for a public profile to an anonymous viewer",
+          async () => {
+            const row =
+              createConnectionRow();
+
+            repositoryMock
+              .findConnectionsTarget
+              .mockResolvedValue({
+                user_id:
+                  SENDER_USER_ID,
+
+                is_private:
+                  false,
+
+                is_blocked:
+                  false,
+
+                is_connected:
+                  false,
+              });
+
+            repositoryMock
+              .listConnections
+              .mockResolvedValue({
+                rows: [row],
+                hasMore: false,
+                lastRow: row,
+              });
+
+            const result =
+              await ConnectionsService
+                .getUserConnections({
+                  username:
+                    "public_user",
+
+                  viewerUserId:
+                    null,
+
+                  limit:
+                    20,
+                });
+
+            expect(
+              repositoryMock.listConnections,
+            ).toHaveBeenCalledWith({
+              userId:
+                SENDER_USER_ID,
+
+              viewerUserId:
+                null,
+
+              limit:
+                20,
+
+              cursor:
+                null,
+            });
+
+            expect(result.connections)
+              .toHaveLength(1);
+          },
+        );
+
+        test.each([
+          [
+            "missing profile",
+            null,
+            null,
+          ],
+          [
+            "blocked profile",
+            {
+              user_id:
+                SENDER_USER_ID,
+
+              is_private:
+                false,
+
+              is_blocked:
+                true,
+
+              is_connected:
+                false,
+            },
+            RECEIVER_USER_ID,
+          ],
+          [
+            "private unconnected profile",
+            {
+              user_id:
+                SENDER_USER_ID,
+
+              is_private:
+                true,
+
+              is_blocked:
+                false,
+
+              is_connected:
+                false,
+            },
+            RECEIVER_USER_ID,
+          ],
+        ])(
+          "hides a %s",
+          async (
+            _label,
+            target,
+            viewerUserId,
+          ) => {
+            repositoryMock
+              .findConnectionsTarget
+              .mockResolvedValue(
+                target,
+              );
+
+            await expect(
+              ConnectionsService
+                .getUserConnections({
+                  username:
+                    "hidden_user",
+
+                  viewerUserId,
+                }),
+            ).rejects.toMatchObject({
+              code:
+                "USER.NOT_FOUND",
+
+              statusCode:
+                404,
+            });
+
+            expect(
+              repositoryMock.listConnections,
+            ).not.toHaveBeenCalled();
+          },
+        );
+
+        test(
+          "allows an accepted connection to view a private profile",
+          async () => {
+            repositoryMock
+              .findConnectionsTarget
+              .mockResolvedValue({
+                user_id:
+                  SENDER_USER_ID,
+
+                is_private:
+                  true,
+
+                is_blocked:
+                  false,
+
+                is_connected:
+                  true,
+              });
+
+            repositoryMock
+              .listConnections
+              .mockResolvedValue({
+                rows: [],
+                hasMore: false,
+                lastRow: null,
+              });
+
+            await expect(
+              ConnectionsService
+                .getUserConnections({
+                  username:
+                    "private_user",
+
+                  viewerUserId:
+                    RECEIVER_USER_ID,
+                }),
+            ).resolves.toMatchObject({
+              connections: [],
             });
           },
         );
@@ -2415,5 +2604,4 @@ describe(
     
   },
 );
-
 

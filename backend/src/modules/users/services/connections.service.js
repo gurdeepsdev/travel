@@ -13,6 +13,9 @@ import ConnectionsMapper
 import ConnectionsRepository
   from "../repositories/connections.repository.js";
 
+import UserNotFoundError
+  from "../../../core/errors/users/user-not-found.error.js";
+
   import {
   decodeCursor,
   encodeCursor,
@@ -307,6 +310,78 @@ class ConnectionsService {
       await ConnectionsRepository
         .listConnections({
           userId,
+          limit,
+
+          cursor:
+            decodedCursor,
+        });
+
+    const nextCursor =
+      listResult.hasMore &&
+      listResult.lastRow
+        ? encodeCursor({
+            createdAt:
+              listResult.lastRow
+                .cursor_connected_at ??
+              listResult.lastRow
+                .connected_at,
+
+            id:
+              listResult.lastRow.id,
+          })
+        : null;
+
+    return ConnectionsMapper
+      .toConnectionsListResponse({
+        rows:
+          listResult.rows,
+
+        hasMore:
+          listResult.hasMore,
+
+        nextCursor,
+      });
+  }
+
+  async getUserConnections({
+    username,
+    viewerUserId = null,
+    limit = 20,
+    cursor = null,
+  }) {
+    const target =
+      await ConnectionsRepository
+        .findConnectionsTarget({
+          username,
+          viewerUserId,
+        });
+
+    const isOwner =
+      viewerUserId ===
+      target?.user_id;
+
+    if (
+      !target ||
+      target.is_blocked === true ||
+      (
+        target.is_private === true &&
+        !isOwner &&
+        target.is_connected !== true
+      )
+    ) {
+      throw new UserNotFoundError();
+    }
+
+    const decodedCursor =
+      decodeCursor(cursor);
+
+    const listResult =
+      await ConnectionsRepository
+        .listConnections({
+          userId:
+            target.user_id,
+
+          viewerUserId,
           limit,
 
           cursor:
