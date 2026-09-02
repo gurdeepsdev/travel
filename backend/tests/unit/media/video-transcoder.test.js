@@ -23,8 +23,13 @@ describe(
         expect(args).toEqual(
           expect.arrayContaining([
             "libx264",
+            "23",
+            "2000k",
+            "4000k",
             "yuv420p",
+            "scale=w='min(iw,if(gt(iw,ih),1280,720))':h='min(ih,if(gt(iw,ih),720,1280))':force_original_aspect_ratio=decrease:force_divisible_by=2",
             "aac",
+            "128k",
             "+faststart",
             "mp4",
           ]),
