@@ -55,7 +55,10 @@ import {
         likeCount: Number(
           row.like_count ?? 0,
         ),
-  
+
+        viewerHasLiked:
+          row.viewer_has_liked === true,
+
         createdAt: row.created_at,
         updatedAt: row.updated_at,
   

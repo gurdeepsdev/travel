@@ -107,6 +107,7 @@ describe("PostCommentsService", () => {
               createCommentRow({
                 reply_count: "1",
                 viewer_is_author: true,
+                viewer_has_liked: true,
                 relationship_status:
                   "SELF",
               }),
@@ -155,6 +156,7 @@ describe("PostCommentsService", () => {
                 "This place looks amazing!",
               replyCount: 1,
               viewerIsAuthor: true,
+              viewerHasLiked: true,
               author: {
                 id: USER_ID,
                 username: "traveller",

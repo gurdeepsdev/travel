@@ -1112,6 +1112,7 @@ paths:
                               - parentCommentId
                               - isReply
                               - likeCount
+                              - viewerHasLiked
                               - createdAt
                               - updatedAt
                               - author
@@ -1134,6 +1135,11 @@ paths:
                               likeCount:
                                 type: integer
                                 minimum: 0
+                              viewerHasLiked:
+                                type: boolean
+                                description: >
+                                  Whether the authenticated viewer has liked this
+                                  comment. False for anonymous viewers.
                               createdAt:
                                 type: string
                                 format: date-time
@@ -6651,9 +6657,10 @@ components:
             - PUBLIC
             - PRIVATE
           description: >
-            Optional. Defaults to PRIVATE when the creator's profile is private,
-            otherwise PUBLIC. The stored value remains unchanged by later
-            profile-privacy updates.
+            Accepted for client compatibility. Creation derives visibility from
+            the creator's current profile: private accounts create PRIVATE posts
+            and public accounts create PUBLIC posts. The stored value remains
+            unchanged by later profile-privacy updates.
         placeId:
           type: string
           format: uuid
