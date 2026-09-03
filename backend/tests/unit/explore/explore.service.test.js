@@ -165,6 +165,22 @@ describe(
         });
 
         expect(
+          postsRepositoryMock
+            .getPostsByIds,
+        ).toHaveBeenCalledWith({
+          postIds: [
+            POST_ID,
+            SECOND_POST_ID,
+          ],
+
+          viewerUserId:
+            null,
+
+          allowPrivatePosts:
+            false,
+        });
+
+        expect(
           result.items.map(
             (item) =>
               item.type,
@@ -250,6 +266,21 @@ describe(
         ).toBe(
           true,
         );
+
+        expect(
+          postsRepositoryMock
+            .getPostsByIds,
+        ).toHaveBeenCalledWith({
+          postIds: [
+            POST_ID,
+          ],
+
+          viewerUserId:
+            VIEWER_USER_ID,
+
+          allowPrivatePosts:
+            true,
+        });
 
         expect(
           decodeCursor(
@@ -803,6 +834,21 @@ describe(
             VIEWER_USER_ID,
           limit: 10,
           cursor: null,
+        });
+
+        expect(
+          postsRepositoryMock
+            .getPostsByIds,
+        ).toHaveBeenCalledWith({
+          postIds: [
+            POST_ID,
+          ],
+
+          viewerUserId:
+            VIEWER_USER_ID,
+
+          allowPrivatePosts:
+            true,
         });
 
         expect(result.items).toEqual([

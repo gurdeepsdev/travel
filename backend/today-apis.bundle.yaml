@@ -333,6 +333,10 @@ paths:
       tags:
         - Posts
       summary: Get a user's accessible posts
+      description: >
+        Returns PUBLIC posts for public profiles. For private profiles, the
+        owner and accepted connections receive both PUBLIC and PRIVATE posts;
+        anonymous, unconnected, pending, and blocked viewers receive no posts.
       operationId: getUserPosts
       security:
         - {}
@@ -2086,8 +2090,11 @@ paths:
         - Explore
       summary: Get the composite Explore feed
       description: >
-        Returns public posts with popular-city and nearby-place discovery
-        modules inserted on the first page. Authentication is optional.
+        Returns accessible posts with popular-city and nearby-place discovery
+        modules inserted on the first page. Public-profile PUBLIC posts are
+        visible to everyone. An authenticated owner or accepted connection can
+        also see PUBLIC and PRIVATE posts from a private profile.
+        Authentication is optional.
         Anonymous viewers receive at most 20 posts without a next cursor.
         Authenticated viewers receive opaque cursor pagination.
       operationId: getExploreFeed
@@ -2145,10 +2152,12 @@ paths:
         - Explore
       summary: Get Explore video posts
       description: >
-        Returns public Explore posts containing at least one processed video.
-        Each item uses the same complete post representation as the Explore
-        feed. Authentication is optional; authenticated viewers receive opaque
-        cursor pagination.
+        Returns accessible Explore posts containing at least one processed
+        video. Public-profile PUBLIC posts are visible to everyone. An
+        authenticated owner or accepted connection can also see PUBLIC and
+        PRIVATE video posts from a private profile. Each item uses the same
+        complete post representation as the Explore feed. Authentication is
+        optional; authenticated viewers receive opaque cursor pagination.
       operationId: getExploreVideos
       security:
         - {}
