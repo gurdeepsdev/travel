@@ -710,17 +710,53 @@ class ExploreRepository {
        AND author_profile.deleted_at
           IS NULL
 
-      WHERE UPPER(
-        post.visibility
-      ) = 'PUBLIC'
-
-        AND post.deleted_at
+      WHERE post.deleted_at
           IS NULL
 
-        AND COALESCE(
-          author_profile.is_private,
-          FALSE
-        ) IS FALSE
+        AND (
+          (
+            COALESCE(
+              author_profile.is_private,
+              FALSE
+            ) IS FALSE
+
+            AND UPPER(
+              post.visibility
+            ) = 'PUBLIC'
+          )
+
+          OR (
+            $1::uuid IS NOT NULL
+
+            AND COALESCE(
+              author_profile.is_private,
+              FALSE
+            ) IS TRUE
+
+            AND (
+              post.user_id = $1::uuid
+
+              OR EXISTS (
+                SELECT 1
+
+                FROM users.connections
+                  AS connection
+
+                WHERE connection.user_low_id =
+                    LEAST(
+                      $1::uuid,
+                      post.user_id
+                    )
+
+                  AND connection.user_high_id =
+                    GREATEST(
+                      $1::uuid,
+                      post.user_id
+                    )
+              )
+            )
+          )
+        )
 
         AND (
           $1::uuid
@@ -856,13 +892,42 @@ class ExploreRepository {
             AND author_profile.deleted_at
               IS NULL
 
-          WHERE UPPER(post.visibility) =
-              'PUBLIC'
-            AND post.deleted_at IS NULL
-            AND COALESCE(
-              author_profile.is_private,
-              FALSE
-            ) IS FALSE
+          WHERE post.deleted_at IS NULL
+            AND (
+              (
+                COALESCE(
+                  author_profile.is_private,
+                  FALSE
+                ) IS FALSE
+                AND UPPER(post.visibility) =
+                  'PUBLIC'
+              )
+              OR (
+                $1::uuid IS NOT NULL
+                AND COALESCE(
+                  author_profile.is_private,
+                  FALSE
+                ) IS TRUE
+                AND (
+                  post.user_id = $1::uuid
+                  OR EXISTS (
+                    SELECT 1
+                    FROM users.connections
+                      AS connection
+                    WHERE connection.user_low_id =
+                        LEAST(
+                          $1::uuid,
+                          post.user_id
+                        )
+                      AND connection.user_high_id =
+                        GREATEST(
+                          $1::uuid,
+                          post.user_id
+                        )
+                  )
+                )
+              )
+            )
             AND EXISTS (
               SELECT 1
               FROM explore.post_assets post_asset

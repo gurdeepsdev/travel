@@ -180,10 +180,6 @@ import {
       /*
        * A private profile is available to its owner
        * and currently connected authenticated users.
-       *
-       * PostsRepository still limits non-owners to
-       * PUBLIC posts, so PRIVATE posts remain
-       * owner-only.
        */
       if (
         profile.is_private &&
@@ -208,6 +204,11 @@ import {
         await PostsRepository.getUserPosts({
           targetUserId,
           viewerUserId,
+          allowPrivatePosts:
+            !isOwner &&
+            profile.is_private === true &&
+            relationshipContext
+              .is_connected === true,
           limit: safeLimit,
           cursor:
             decodedCursor,

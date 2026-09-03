@@ -242,6 +242,9 @@ describe(
           viewerUserId:
             OWNER_USER_ID,
 
+          allowPrivatePosts:
+            false,
+
           limit:
             20,
 
@@ -290,6 +293,9 @@ describe(
 
           viewerUserId:
             null,
+
+          allowPrivatePosts:
+            false,
 
           limit:
             20,
@@ -488,6 +494,9 @@ describe(
 
           viewerUserId:
             VIEWER_USER_ID,
+
+          allowPrivatePosts:
+            true,
 
           limit:
             10,

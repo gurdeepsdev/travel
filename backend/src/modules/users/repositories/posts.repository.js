@@ -432,6 +432,7 @@ EXISTS (
 async getUserPosts({
  targetUserId,
  viewerUserId = null,
+ allowPrivatePosts = false,
  limit = 20,
  cursor = null,
 }) {
@@ -446,6 +447,7 @@ async getUserPosts({
  const params = [
    targetUserId,
    normalizedViewerUserId,
+   allowPrivatePosts === true,
  ];
 
  let cursorCondition = "";
@@ -1082,6 +1084,7 @@ AND saved_item.item_type =
 
      AND (
        $2::uuid = post.user_id
+       OR $3::boolean IS TRUE
        OR post.visibility = 'PUBLIC'
      )
 
@@ -1140,6 +1143,7 @@ AND saved_item.item_type =
        ),
 
      viewerUserId,
+     allowPrivatePosts,
    });
 
  return {
@@ -1154,6 +1158,7 @@ AND saved_item.item_type =
 async getPostsByIds({
   postIds,
   viewerUserId,
+  allowPrivatePosts = false,
   includeRepostOriginals = true,
 }) {
   if (
@@ -1169,6 +1174,7 @@ async getPostsByIds({
   const params = [
     postIds,
     normalizedViewerUserId,
+    allowPrivatePosts === true,
   ];
 
   const query = `
@@ -1778,6 +1784,8 @@ AND saved_item.item_type =
 
   AND (
     post.user_id = $2::uuid
+
+    OR $3::boolean IS TRUE
 
     OR (
       UPPER(post.visibility) =
