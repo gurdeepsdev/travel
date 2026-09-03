@@ -176,8 +176,6 @@ describe(
           viewerUserId:
             null,
 
-          allowPrivatePosts:
-            false,
         });
 
         expect(
@@ -278,8 +276,6 @@ describe(
           viewerUserId:
             VIEWER_USER_ID,
 
-          allowPrivatePosts:
-            true,
         });
 
         expect(
@@ -847,8 +843,6 @@ describe(
           viewerUserId:
             VIEWER_USER_ID,
 
-          allowPrivatePosts:
-            true,
         });
 
         expect(result.items).toEqual([

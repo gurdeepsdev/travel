@@ -432,7 +432,6 @@ EXISTS (
 async getUserPosts({
  targetUserId,
  viewerUserId = null,
- allowPrivatePosts = false,
  limit = 20,
  cursor = null,
 }) {
@@ -447,7 +446,6 @@ async getUserPosts({
  const params = [
    targetUserId,
    normalizedViewerUserId,
-   allowPrivatePosts === true,
  ];
 
  let cursorCondition = "";
@@ -1084,8 +1082,15 @@ AND saved_item.item_type =
 
      AND (
        $2::uuid = post.user_id
-       OR $3::boolean IS TRUE
        OR post.visibility = 'PUBLIC'
+       OR EXISTS (
+         SELECT 1
+         FROM users.connections connection
+         WHERE connection.user_low_id =
+             LEAST($2::uuid, post.user_id)
+           AND connection.user_high_id =
+             GREATEST($2::uuid, post.user_id)
+       )
      )
 
      ${cursorCondition}
@@ -1143,7 +1148,6 @@ AND saved_item.item_type =
        ),
 
      viewerUserId,
-     allowPrivatePosts,
    });
 
  return {
@@ -1158,7 +1162,6 @@ AND saved_item.item_type =
 async getPostsByIds({
   postIds,
   viewerUserId,
-  allowPrivatePosts = false,
   includeRepostOriginals = true,
 }) {
   if (
@@ -1174,7 +1177,6 @@ async getPostsByIds({
   const params = [
     postIds,
     normalizedViewerUserId,
-    allowPrivatePosts === true,
   ];
 
   const query = `
@@ -1785,34 +1787,33 @@ AND saved_item.item_type =
   AND (
     post.user_id = $2::uuid
 
-    OR $3::boolean IS TRUE
+    OR UPPER(post.visibility) =
+      'PUBLIC'
 
-    OR (
-      UPPER(post.visibility) =
-        'PUBLIC'
+    OR EXISTS (
+      SELECT 1
+      FROM users.connections connection
+      WHERE connection.user_low_id =
+          LEAST($2::uuid, post.user_id)
+        AND connection.user_high_id =
+          GREATEST($2::uuid, post.user_id)
+    )
+  )
 
-      AND COALESCE(
-        profile.is_private,
-        FALSE
-      ) IS FALSE
-
-      AND NOT EXISTS (
-        SELECT 1
-        FROM users.blocked_users blocked
-        WHERE (
-          blocked.user_id =
-            $2::uuid
-
-          AND blocked.blocked_user_id =
-            post.user_id
-        )
-        OR (
-          blocked.user_id =
-            post.user_id
-
-          AND blocked.blocked_user_id =
-            $2::uuid
-        )
+  AND (
+    $2::uuid IS NULL
+    OR NOT EXISTS (
+      SELECT 1
+      FROM users.blocked_users blocked
+      WHERE (
+        blocked.user_id = $2::uuid
+        AND blocked.blocked_user_id =
+          post.user_id
+      )
+      OR (
+        blocked.user_id = post.user_id
+        AND blocked.blocked_user_id =
+          $2::uuid
       )
     )
   )

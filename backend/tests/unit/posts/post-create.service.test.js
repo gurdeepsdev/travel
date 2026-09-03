@@ -65,6 +65,9 @@ const userPostsRepositoryMock = {
 };
 
 const postCreateRepositoryMock = {
+  findCreatorPrivacy:
+    jest.fn(),
+
   findEligiblePlace:
     jest.fn(),
 
@@ -339,6 +342,10 @@ describe(
         .mockResolvedValue([]);
 
       postCreateRepositoryMock
+        .findCreatorPrivacy
+        .mockResolvedValue(false);
+
+      postCreateRepositoryMock
         .findEligiblePlace
         .mockResolvedValue({
           id:
@@ -505,6 +512,56 @@ describe(
           post:
             createCanonicalPost(),
         });
+      },
+    );
+
+    test(
+      "defaults a new post to private for a private creator",
+      async () => {
+        postCreateRepositoryMock
+          .findCreatorPrivacy
+          .mockResolvedValue(true);
+
+        await PostCreateService
+          .createPost(
+            createRequest({
+              visibility:
+                undefined,
+            }),
+          );
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            visibility:
+              "PRIVATE",
+          }),
+        );
+      },
+    );
+
+    test(
+      "defaults a new post to public for a public creator",
+      async () => {
+        await PostCreateService
+          .createPost(
+            createRequest({
+              visibility:
+                undefined,
+            }),
+          );
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            visibility:
+              "PUBLIC",
+          }),
+        );
       },
     );
 

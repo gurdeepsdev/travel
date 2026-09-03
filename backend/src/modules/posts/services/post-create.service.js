@@ -436,6 +436,21 @@ class PostCreateService {
       transactionResult =
         await Database.transaction(
           async (client) => {
+            const creatorIsPrivate =
+              await PostCreateRepository
+                .findCreatorPrivacy({
+                  client,
+                  userId,
+                });
+
+            const effectiveVisibility =
+              visibility ??
+              (
+                creatorIsPrivate
+                  ? "PRIVATE"
+                  : "PUBLIC"
+              );
+
             const location = placeId
               ? await PostCreateRepository
                   .findEligiblePlace({
@@ -493,7 +508,7 @@ class PostCreateService {
                     normalizedItineraryIds,
 
                   postVisibility:
-                    visibility,
+                    effectiveVisibility,
                 });
 
             if (
@@ -543,7 +558,7 @@ class PostCreateService {
                   userId,
 
                   isPublic:
-                    visibility ===
+                    effectiveVisibility ===
                     "PUBLIC",
 
                   uploads:
@@ -563,7 +578,7 @@ class PostCreateService {
               });
 
             if (
-              visibility ===
+              effectiveVisibility ===
                 "PUBLIC" &&
               orderedAssetIds.length >
                 0
@@ -583,7 +598,8 @@ class PostCreateService {
                   client,
                   userId,
                   caption,
-                  visibility,
+                  visibility:
+                    effectiveVisibility,
 
                   placeId:
                     location.place_id,

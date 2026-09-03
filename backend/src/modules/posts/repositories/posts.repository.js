@@ -15,11 +15,6 @@ class PostsRepository {
         post.user_id,
         post.visibility,
 
-        COALESCE(
-          profile.is_private,
-          false
-        ) AS owner_profile_is_private,
-
         EXISTS (
           SELECT 1
           FROM users.blocked_users blocked
@@ -32,13 +27,18 @@ class PostsRepository {
             blocked.user_id = post.user_id
             AND blocked.blocked_user_id = $2
           )
-        ) AS has_block_relationship
+        ) AS has_block_relationship,
+
+        EXISTS (
+          SELECT 1
+          FROM users.connections connection
+          WHERE connection.user_low_id =
+              LEAST($2::uuid, post.user_id)
+            AND connection.user_high_id =
+              GREATEST($2::uuid, post.user_id)
+        ) AS is_connected
 
       FROM explore.posts post
-
-      LEFT JOIN users.profiles profile
-        ON profile.user_id = post.user_id
-        AND profile.deleted_at IS NULL
 
      WHERE post.id = $1
   AND post.deleted_at IS NULL
@@ -51,6 +51,66 @@ LIMIT 1
     ]);
 
     return rows[0] ?? null;
+  }
+
+  async updateVisibilityOwned({
+    postId,
+    userId,
+    visibility,
+  }) {
+    return Database.transaction(
+      async (client) => {
+        const { rows } =
+          await client.query(
+            `
+              UPDATE explore.posts
+              SET
+                visibility = $3,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE id = $1::uuid
+                AND user_id = $2::uuid
+                AND deleted_at IS NULL
+              RETURNING
+                id,
+                visibility,
+                updated_at
+            `,
+            [postId, userId, visibility],
+          );
+
+        const post = rows[0] ?? null;
+
+        if (!post) {
+          return null;
+        }
+
+        await client.query(
+          `
+            UPDATE media.assets asset
+            SET is_public = EXISTS (
+              SELECT 1
+              FROM explore.post_assets usage
+              INNER JOIN explore.posts used_post
+                ON used_post.id = usage.post_id
+                AND used_post.deleted_at IS NULL
+                AND UPPER(used_post.visibility) =
+                  'PUBLIC'
+              WHERE usage.asset_id = asset.id
+            )
+            WHERE asset.id IN (
+              SELECT asset_id
+              FROM explore.post_assets
+              WHERE post_id = $1::uuid
+            )
+              AND asset.uploaded_by = $2::uuid
+              AND asset.deleted_at IS NULL
+          `,
+          [postId, userId],
+        );
+
+        return post;
+      },
+    );
   }
 
     async softDeleteOwned({

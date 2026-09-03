@@ -1,4 +1,24 @@
 class PostCreateRepository {
+  async findCreatorPrivacy({
+    client,
+    userId,
+  }) {
+    const { rows } =
+      await client.query(
+        `
+          SELECT is_private
+          FROM users.profiles
+          WHERE user_id = $1::uuid
+            AND deleted_at IS NULL
+          LIMIT 1
+        `,
+        [userId],
+      );
+
+    return rows[0]?.is_private ===
+      true;
+  }
+
   async findEligiblePlace({
     client,
     placeId,

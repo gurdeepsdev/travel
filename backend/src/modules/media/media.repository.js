@@ -37,6 +37,50 @@ class MediaRepository {
               AND asset.uploaded_by =
                 $2::uuid
             )
+
+            OR (
+              $2::uuid IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM explore.post_assets usage
+                INNER JOIN explore.posts post
+                  ON post.id = usage.post_id
+                  AND post.deleted_at IS NULL
+                WHERE usage.asset_id = asset.id
+                  AND (
+                    UPPER(post.visibility) =
+                      'PUBLIC'
+                    OR EXISTS (
+                      SELECT 1
+                      FROM users.connections connection
+                      WHERE connection.user_low_id =
+                          LEAST(
+                            $2::uuid,
+                            post.user_id
+                          )
+                        AND connection.user_high_id =
+                          GREATEST(
+                            $2::uuid,
+                            post.user_id
+                          )
+                    )
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM users.blocked_users blocked
+                    WHERE (
+                      blocked.user_id = $2::uuid
+                      AND blocked.blocked_user_id =
+                        post.user_id
+                    )
+                    OR (
+                      blocked.user_id = post.user_id
+                      AND blocked.blocked_user_id =
+                        $2::uuid
+                    )
+                  )
+              )
+            )
           )
 
         LIMIT 1
@@ -85,6 +129,49 @@ class MediaRepository {
                 $2::uuid IS NOT NULL
                 AND asset.uploaded_by =
                   $2::uuid
+              )
+              OR (
+                $2::uuid IS NOT NULL
+                AND EXISTS (
+                  SELECT 1
+                  FROM explore.post_assets usage
+                  INNER JOIN explore.posts post
+                    ON post.id = usage.post_id
+                    AND post.deleted_at IS NULL
+                  WHERE usage.asset_id = asset.id
+                    AND (
+                      UPPER(post.visibility) =
+                        'PUBLIC'
+                      OR EXISTS (
+                        SELECT 1
+                        FROM users.connections connection
+                        WHERE connection.user_low_id =
+                            LEAST(
+                              $2::uuid,
+                              post.user_id
+                            )
+                          AND connection.user_high_id =
+                            GREATEST(
+                              $2::uuid,
+                              post.user_id
+                            )
+                      )
+                    )
+                    AND NOT EXISTS (
+                      SELECT 1
+                      FROM users.blocked_users blocked
+                      WHERE (
+                        blocked.user_id = $2::uuid
+                        AND blocked.blocked_user_id =
+                          post.user_id
+                      )
+                      OR (
+                        blocked.user_id = post.user_id
+                        AND blocked.blocked_user_id =
+                          $2::uuid
+                      )
+                    )
+                )
               )
             )
 

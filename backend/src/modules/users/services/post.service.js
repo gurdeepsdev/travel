@@ -177,38 +177,10 @@ import {
         };
       }
 
-      /*
-       * A private profile is available to its owner
-       * and currently connected authenticated users.
-       */
-      if (
-        profile.is_private &&
-        !isOwner &&
-        relationshipContext.is_connected !==
-          true
-      ) {
-        return {
-          posts: [],
-
-          pagination: {
-            hasMore:
-              false,
-
-            nextCursor:
-              null,
-          },
-        };
-      }
-  
       const result =
         await PostsRepository.getUserPosts({
           targetUserId,
           viewerUserId,
-          allowPrivatePosts:
-            !isOwner &&
-            profile.is_private === true &&
-            relationshipContext
-              .is_connected === true,
           limit: safeLimit,
           cursor:
             decodedCursor,
