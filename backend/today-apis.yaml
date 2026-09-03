@@ -1291,11 +1291,12 @@ paths:
       summary: Get a user profile by username
       description: >
         Returns another user's public profile. Authentication is optional.
-        Private profiles are available only to the profile owner or an accepted
-        connection. Profiles across a block relationship are hidden. The
-        response includes userId, isPrivate, savedItems, shareUrl, and the
-        viewer's current relationship state when authenticated. It does not
-        expose private verification evidence.
+        Private profiles return a limited preview containing identity, profile
+        photo, post/connection/visited-place counts, up to five preferred
+        visited collections, and relationship state. Owners and accepted
+        connections receive the complete profile. Profiles across a block
+        relationship remain hidden. Private verification evidence is never
+        exposed.
       operationId: getUserProfile
       security:
         - bearerAuth: []
@@ -4600,7 +4601,7 @@ components:
           type: string
           format: uuid
           nullable: true
-    PublicProfile:
+    FullPublicProfile:
       type: object
       required:
         - userId
@@ -4662,6 +4663,62 @@ components:
           type: array
           items:
             type: object
+    PrivateProfilePreviewStats:
+      type: object
+      required:
+        - connections
+        - posts
+        - visitedPlaces
+      properties:
+        connections:
+          type: integer
+          minimum: 0
+        posts:
+          type: integer
+          minimum: 0
+        visitedPlaces:
+          type: integer
+          minimum: 0
+    PrivateProfilePreview:
+      type: object
+      required:
+        - userId
+        - username
+        - displayName
+        - profilePhoto
+        - isPrivate
+        - stats
+        - preferredVisitedCollections
+        - relationship
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        profilePhoto:
+          $ref: "#/components/schemas/ProfileMedia"
+        isPrivate:
+          type: boolean
+          enum:
+            - true
+        stats:
+          $ref: "#/components/schemas/PrivateProfilePreviewStats"
+        preferredVisitedCollections:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+        relationship:
+          $ref: "#/components/schemas/ProfileRelationship"
+    PublicProfile:
+      oneOf:
+        - $ref: "#/components/schemas/FullPublicProfile"
+        - $ref: "#/components/schemas/PrivateProfilePreview"
     PublicProfileResponse:
       allOf:
         - $ref: "#/components/schemas/SuccessBase"

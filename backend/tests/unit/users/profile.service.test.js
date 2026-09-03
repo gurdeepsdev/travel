@@ -84,6 +84,9 @@ const profileMapperMock = {
 
       toPublicResponse:
     jest.fn(),
+
+  toPrivatePreview:
+    jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -478,6 +481,14 @@ databaseMock
       },
     };
 
+    const mappedPrivatePreview = {
+      username:
+        OTHER_USERNAME,
+
+      isPrivate:
+        true,
+    };
+
     beforeEach(() => {
       profilesRepositoryMock
         .findDetailedByUsername
@@ -489,6 +500,12 @@ databaseMock
         .toPublicResponse
         .mockReturnValue(
           mappedPublicProfile,
+        );
+
+      profileMapperMock
+        .toPrivatePreview
+        .mockReturnValue(
+          mappedPrivatePreview,
         );
 
       connectionsRepositoryMock
@@ -545,7 +562,7 @@ databaseMock
     );
 
     test(
-      "hides a private profile anonymously",
+      "returns a limited private profile anonymously",
       async () => {
         profilesRepositoryMock
           .findDetailedByUsername
@@ -565,13 +582,29 @@ databaseMock
               viewerUserId:
                 null,
             }),
-        ).rejects.toMatchObject({
-          code:
-            "USER.NOT_FOUND",
+        ).resolves.toEqual(
+          mappedPrivatePreview,
+        );
 
-          statusCode:
-            404,
-        });
+        expect(
+          profileMapperMock
+            .toPrivatePreview,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            is_private:
+              true,
+          }),
+          {
+            status:
+              "NONE",
+
+            connectionId:
+              null,
+
+            requestId:
+              null,
+          },
+        );
       },
     );
 
@@ -613,7 +646,7 @@ databaseMock
     );
 
     test(
-      "hides a private profile from an unconnected viewer",
+      "returns a limited private profile to an unconnected viewer",
       async () => {
         profilesRepositoryMock
           .findDetailedByUsername
@@ -633,10 +666,76 @@ databaseMock
               viewerUserId:
                 USER_ID,
             }),
-        ).rejects.toMatchObject({
-          code:
-            "USER.NOT_FOUND",
-        });
+        ).resolves.toEqual(
+          mappedPrivatePreview,
+        );
+
+        expect(
+          profileMapperMock
+            .toPrivatePreview,
+        ).toHaveBeenCalledWith(
+          expect.any(Object),
+          {
+            status:
+              "NONE",
+
+            connectionId:
+              null,
+
+            requestId:
+              null,
+          },
+        );
+      },
+    );
+
+    test(
+      "returns pending connection state in a private preview",
+      async () => {
+        profilesRepositoryMock
+          .findDetailedByUsername
+          .mockResolvedValue({
+            ...publicProfileRow,
+
+            is_private:
+              true,
+          });
+
+        connectionsRepositoryMock
+          .getRelationshipContext
+          .mockResolvedValue({
+            is_connected:
+              false,
+
+            is_blocked:
+              false,
+
+            pending_request_id:
+              "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1",
+
+            pending_sender_user_id:
+              USER_ID,
+          });
+
+        await ProfileService
+          .getUserProfile({
+            username:
+              OTHER_USERNAME,
+
+            viewerUserId:
+              USER_ID,
+          });
+
+        expect(
+          profileMapperMock
+            .toPrivatePreview,
+        ).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.objectContaining({
+            status:
+              "OUTGOING_PENDING",
+          }),
+        );
       },
     );
 

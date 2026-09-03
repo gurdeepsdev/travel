@@ -141,6 +141,58 @@ class ProfileMapper {
     };
   }
 
+  toPrivatePreview(
+    profile,
+    relationship,
+  ) {
+    return {
+      userId:
+        profile.user_id,
+
+      username:
+        profile.username ?? null,
+
+      displayName:
+        profile.display_name ?? null,
+
+      profilePhoto:
+        this.#mapMedia(
+          profile,
+          "profile_photo",
+        ),
+
+      isPrivate:
+        true,
+
+      stats: {
+        connections:
+          this.#toNonNegativeInteger(
+            profile.connections_count,
+          ),
+
+        posts:
+          this.#toNonNegativeInteger(
+            profile.posts_count,
+          ),
+
+        visitedPlaces:
+          this.#toNonNegativeInteger(
+            profile.visited_places_count,
+          ),
+      },
+
+      preferredVisitedCollections:
+        this.#mapPreferredVisitedCollections(
+          profile.preferred_visited_collections,
+        ).slice(0, 5),
+
+      relationship:
+        this.#mapRelationship(
+          relationship,
+        ),
+    };
+  }
+
   #mapRelationship(
     relationship,
   ) {

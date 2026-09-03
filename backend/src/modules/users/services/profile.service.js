@@ -184,7 +184,20 @@ class ProfileService {
 
     if (!viewerUserId) {
       if (profile.is_private) {
-        throw new UserNotFoundError();
+        return profileMapper
+          .toPrivatePreview(
+            profile,
+            {
+              status:
+                "NONE",
+
+              connectionId:
+                null,
+
+              requestId:
+                null,
+            },
+          );
       }
 
       return profileMapper
@@ -203,23 +216,31 @@ class ProfileService {
             profile.user_id,
         });
 
-    if (
-      relationship.is_blocked ||
-      (
-        profile.is_private &&
-        !relationship.is_connected
-      )
-    ) {
+    if (relationship.is_blocked) {
       throw new UserNotFoundError();
+    }
+
+    const mappedRelationship =
+      this.createProfileRelationship({
+        viewerUserId,
+        relationship,
+      });
+
+    if (
+      profile.is_private &&
+      !relationship.is_connected
+    ) {
+      return profileMapper
+        .toPrivatePreview(
+          profile,
+          mappedRelationship,
+        );
     }
 
        return profileMapper
       .toPublicResponse(
         profile,
-        this.createProfileRelationship({
-          viewerUserId,
-          relationship,
-        }),
+        mappedRelationship,
       );
   }
 
