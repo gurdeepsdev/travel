@@ -229,6 +229,14 @@ async deleteAuthorized({
           AND post_comment.user_id = $2::uuid
         ) AS viewer_is_author,
 
+        EXISTS (
+          SELECT 1
+          FROM explore.comment_likes viewer_like
+          WHERE viewer_like.comment_id =
+            post_comment.id
+            AND viewer_like.user_id = $2::uuid
+        ) AS viewer_has_liked,
+
         CASE
           WHEN $2::uuid IS NULL
           THEN 'NONE'

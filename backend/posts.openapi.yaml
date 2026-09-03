@@ -1152,6 +1152,7 @@ components:
         - parentCommentId
         - isReply
         - likeCount
+        - viewerHasLiked
         - createdAt
         - updatedAt
         - author
@@ -1179,6 +1180,12 @@ components:
         likeCount:
           type: integer
           minimum: 0
+
+        viewerHasLiked:
+          type: boolean
+          description: >
+            Whether the authenticated viewer has liked this comment. False for
+            anonymous viewers.
 
         createdAt:
           type: string

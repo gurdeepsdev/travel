@@ -516,7 +516,7 @@ describe(
     );
 
     test(
-      "defaults a new post to private for a private creator",
+      "forces a new post to private for a private creator",
       async () => {
         postCreateRepositoryMock
           .findCreatorPrivacy
@@ -526,7 +526,7 @@ describe(
           .createPost(
             createRequest({
               visibility:
-                undefined,
+                "PUBLIC",
             }),
           );
 
@@ -543,13 +543,13 @@ describe(
     );
 
     test(
-      "defaults a new post to public for a public creator",
+      "forces a new post to public for a public creator",
       async () => {
         await PostCreateService
           .createPost(
             createRequest({
               visibility:
-                undefined,
+                "PRIVATE",
             }),
           );
 

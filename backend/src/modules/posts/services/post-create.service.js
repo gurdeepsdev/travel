@@ -275,7 +275,6 @@ class PostCreateService {
   async createPost({
     userId,
     caption,
-    visibility,
     placeId,
     googleId,
     existingAssetIds,
@@ -444,12 +443,9 @@ class PostCreateService {
                 });
 
             const effectiveVisibility =
-              visibility ??
-              (
-                creatorIsPrivate
-                  ? "PRIVATE"
-                  : "PUBLIC"
-              );
+              creatorIsPrivate
+                ? "PRIVATE"
+                : "PUBLIC";
 
             const location = placeId
               ? await PostCreateRepository
