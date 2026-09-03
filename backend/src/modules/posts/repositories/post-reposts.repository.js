@@ -80,7 +80,6 @@ class PostRepostsRepository {
             `
               UPDATE explore.posts
               SET
-                visibility = 'PUBLIC',
                 deleted_at = NULL,
                 updated_at = CURRENT_TIMESTAMP
               WHERE id = $1::uuid
@@ -120,11 +119,19 @@ class PostRepostsRepository {
                 $2::uuid,
                 NULL,
                 original.post_type,
-                'PUBLIC',
+                CASE
+                  WHEN profile.is_private
+                    THEN 'PRIVATE'
+                  ELSE 'PUBLIC'
+                END,
                 original.place_id,
                 original.city_id
 
               FROM explore.posts original
+
+              INNER JOIN users.profiles profile
+                ON profile.user_id = $2::uuid
+                AND profile.deleted_at IS NULL
 
               WHERE original.id = $1::uuid
                 AND original.deleted_at

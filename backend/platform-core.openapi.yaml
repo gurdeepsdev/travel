@@ -232,9 +232,10 @@ paths:
       tags: [Posts]
       summary: Get a user's accessible posts
       description: >
-        Returns PUBLIC posts for public profiles. For private profiles, the
-        owner and accepted connections receive both PUBLIC and PRIVATE posts;
-        anonymous, unconnected, pending, and blocked viewers receive no posts.
+        Returns posts according to their stored visibility. PUBLIC posts are
+        visible to everyone. PRIVATE posts are visible to the owner and accepted
+        connections. Later profile-privacy changes do not rewrite existing post
+        visibility. Blocked viewers receive no posts.
       operationId: getUserPosts
       security:
         - {}

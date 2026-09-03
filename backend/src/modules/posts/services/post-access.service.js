@@ -39,9 +39,11 @@ class PostAccessService {
         .toUpperCase();
 
     const canInteract =
-      visibility === "PUBLIC" &&
-      !post.owner_profile_is_private &&
-      !post.has_block_relationship;
+      !post.has_block_relationship &&
+      (
+        visibility === "PUBLIC" ||
+        post.is_connected === true
+      );
 
     if (!canInteract) {
       throw this.createNotFoundError();

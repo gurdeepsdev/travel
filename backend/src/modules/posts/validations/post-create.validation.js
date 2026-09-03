@@ -297,7 +297,7 @@ const createPostBodySchema = z
             "Visibility must be PUBLIC or PRIVATE.",
         },
       )
-      .default("PUBLIC"),
+      .optional(),
 
     placeId:
       uuidSchema({

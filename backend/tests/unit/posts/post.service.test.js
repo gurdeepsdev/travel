@@ -216,7 +216,7 @@ describe(
     );
 
     test(
-      "hides a private profile from an anonymous viewer",
+      "returns stored public posts from a private profile to an anonymous viewer",
       async () => {
         profilesRepositoryMock
           .findByUsername
@@ -245,25 +245,24 @@ describe(
         expect(
           postsRepositoryMock
             .getUserPosts,
-        ).not.toHaveBeenCalled();
+        ).toHaveBeenCalledWith({
+          targetUserId:
+            OWNER_USER_ID,
+          viewerUserId:
+            null,
+          limit:
+            20,
+          cursor:
+            null,
+        });
 
-        expect(result)
-          .toEqual({
-            posts: [],
-
-            pagination: {
-              hasMore:
-                false,
-
-              nextCursor:
-                null,
-            },
-          });
+        expect(result.posts)
+          .toHaveLength(1);
       },
     );
 
     test(
-      "hides a private profile from an unconnected viewer",
+      "returns only repository-authorized posts to an unconnected viewer",
       async () => {
         profilesRepositoryMock
           .findByUsername
@@ -308,10 +307,19 @@ describe(
         expect(
           postsRepositoryMock
             .getUserPosts,
-        ).not.toHaveBeenCalled();
+        ).toHaveBeenCalledWith({
+          targetUserId:
+            OWNER_USER_ID,
+          viewerUserId:
+            VIEWER_USER_ID,
+          limit:
+            20,
+          cursor:
+            null,
+        });
 
         expect(result.posts)
-          .toEqual([]);
+          .toHaveLength(1);
       },
     );
 

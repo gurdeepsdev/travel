@@ -14,6 +14,7 @@ servers:
 tags:
   - name: Post Reactions
   - name: Post Reposts
+  - name: Post Management
   - name: Post Been There
   - name: Post Comments
   - name: Comment Likes
@@ -191,6 +192,92 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PostRepostMutationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/PostNotFound"
+
+  /posts/{postId}/visibility:
+    patch:
+      tags:
+        - Post Management
+      summary: Update an owned post's visibility
+      description: >
+        Changes the stored visibility of an active post owned by the
+        authenticated user. PUBLIC posts are visible to everyone. PRIVATE
+        posts are visible only to the owner and accepted connections.
+      operationId: updatePostVisibility
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/PostId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - visibility
+              properties:
+                visibility:
+                  type: string
+                  enum:
+                    - PUBLIC
+                    - PRIVATE
+            example:
+              visibility: PRIVATE
+      responses:
+        "200":
+          description: Post visibility updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - post
+                    properties:
+                      post:
+                        type: object
+                        required:
+                          - id
+                          - visibility
+                          - updatedAt
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          visibility:
+                            type: string
+                            enum:
+                              - PUBLIC
+                              - PRIVATE
+                          updatedAt:
+                            type: string
+                            format: date-time
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

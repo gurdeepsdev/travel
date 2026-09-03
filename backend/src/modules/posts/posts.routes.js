@@ -10,6 +10,8 @@ import PostSavesController from "./controllers/post-saves.controller.js";
 import PostCreateController from "./controllers/post-create.controller.js";
 import PostDeleteController
   from "./controllers/post-delete.controller.js";
+import PostVisibilityController
+  from "./controllers/post-visibility.controller.js";
 import PostRepostsController
   from "./controllers/post-reposts.controller.js";
 import ReportsController
@@ -52,6 +54,9 @@ import {
 import {
   deletePostSchema,
 } from "./validations/post-delete.validation.js";
+import {
+  updatePostVisibilitySchema,
+} from "./validations/post-visibility.validation.js";
 
 import {
   removePostRepostSchema,
@@ -75,6 +80,16 @@ router.delete(
   AuthMiddleware.authenticate,
   validate(deletePostSchema),
   PostDeleteController.deletePost,
+);
+
+router.patch(
+  "/:postId/visibility",
+  AuthMiddleware.authenticate,
+  validate(
+    updatePostVisibilitySchema,
+  ),
+  PostVisibilityController
+    .updateVisibility,
 );
 
 router.put(

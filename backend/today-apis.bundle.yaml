@@ -334,9 +334,10 @@ paths:
         - Posts
       summary: Get a user's accessible posts
       description: >
-        Returns PUBLIC posts for public profiles. For private profiles, the
-        owner and accepted connections receive both PUBLIC and PRIVATE posts;
-        anonymous, unconnected, pending, and blocked viewers receive no posts.
+        Returns posts according to their stored visibility. PUBLIC posts are
+        visible to everyone. PRIVATE posts are visible to the owner and accepted
+        connections. Later profile-privacy changes do not rewrite existing post
+        visibility. Blocked viewers receive no posts.
       operationId: getUserPosts
       security:
         - {}
@@ -733,6 +734,92 @@ paths:
               schema:
                 $ref: "#/paths/~1posts~1%7BpostId%7D~1repost/put/responses/200/content/applicat\
                   ion~1json/schema"
+        "400":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
+        "401":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/401"
+        "404":
+          $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/404"
+  "/posts/{postId}/visibility":
+    patch:
+      tags:
+        - Post Management
+      summary: Update an owned post's visibility
+      description: >
+        Changes the stored visibility of an active post owned by the
+        authenticated user. PUBLIC posts are visible to everyone. PRIVATE
+        posts are visible only to the owner and accepted connections.
+      operationId: updatePostVisibility
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/parameters/0"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - visibility
+              properties:
+                visibility:
+                  type: string
+                  enum:
+                    - PUBLIC
+                    - PRIVATE
+            example:
+              visibility: PRIVATE
+      responses:
+        "200":
+          description: Post visibility updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                  - requestId
+                  - timestamp
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - post
+                    properties:
+                      post:
+                        type: object
+                        required:
+                          - id
+                          - visibility
+                          - updatedAt
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          visibility:
+                            type: string
+                            enum:
+                              - PUBLIC
+                              - PRIVATE
+                          updatedAt:
+                            type: string
+                            format: date-time
+                  requestId:
+                    type: string
+                    format: uuid
+                  timestamp:
+                    type: string
+                    format: date-time
         "400":
           $ref: "#/paths/~1posts~1%7BpostId%7D~1saved/put/responses/400"
         "401":
@@ -2091,9 +2178,10 @@ paths:
       summary: Get the composite Explore feed
       description: >
         Returns accessible posts with popular-city and nearby-place discovery
-        modules inserted on the first page. Public-profile PUBLIC posts are
-        visible to everyone. An authenticated owner or accepted connection can
-        also see PUBLIC and PRIVATE posts from a private profile.
+        modules inserted on the first page. Stored PUBLIC posts are visible to
+        everyone. Stored PRIVATE posts are visible to the owner and accepted
+        connections. Later profile-privacy changes do not rewrite post
+        visibility.
         Authentication is optional.
         Anonymous viewers receive at most 20 posts without a next cursor.
         Authenticated viewers receive opaque cursor pagination.
@@ -2153,9 +2241,9 @@ paths:
       summary: Get Explore video posts
       description: >
         Returns accessible Explore posts containing at least one processed
-        video. Public-profile PUBLIC posts are visible to everyone. An
-        authenticated owner or accepted connection can also see PUBLIC and
-        PRIVATE video posts from a private profile. Each item uses the same
+        video. Stored PUBLIC posts are visible to everyone. Stored PRIVATE
+        posts are visible to the owner and accepted connections. Later
+        profile-privacy changes do not rewrite post visibility. Each item uses the same
         complete post representation as the Explore feed. Authentication is
         optional; authenticated viewers receive opaque cursor pagination.
       operationId: getExploreVideos
@@ -6562,7 +6650,10 @@ components:
           enum:
             - PUBLIC
             - PRIVATE
-          default: PUBLIC
+          description: >
+            Optional. Defaults to PRIVATE when the creator's profile is private,
+            otherwise PUBLIC. The stored value remains unchanged by later
+            profile-privacy updates.
         placeId:
           type: string
           format: uuid

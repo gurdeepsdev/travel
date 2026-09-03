@@ -714,24 +714,11 @@ class ExploreRepository {
           IS NULL
 
         AND (
-          (
-            COALESCE(
-              author_profile.is_private,
-              FALSE
-            ) IS FALSE
-
-            AND UPPER(
-              post.visibility
-            ) = 'PUBLIC'
-          )
+          UPPER(post.visibility) =
+            'PUBLIC'
 
           OR (
             $1::uuid IS NOT NULL
-
-            AND COALESCE(
-              author_profile.is_private,
-              FALSE
-            ) IS TRUE
 
             AND (
               post.user_id = $1::uuid
@@ -894,20 +881,12 @@ class ExploreRepository {
 
           WHERE post.deleted_at IS NULL
             AND (
-              (
-                COALESCE(
-                  author_profile.is_private,
-                  FALSE
-                ) IS FALSE
-                AND UPPER(post.visibility) =
-                  'PUBLIC'
-              )
+              UPPER(post.visibility) =
+                'PUBLIC'
+
               OR (
                 $1::uuid IS NOT NULL
-                AND COALESCE(
-                  author_profile.is_private,
-                  FALSE
-                ) IS TRUE
+
                 AND (
                   post.user_id = $1::uuid
                   OR EXISTS (

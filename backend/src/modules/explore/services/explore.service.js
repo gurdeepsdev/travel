@@ -221,8 +221,6 @@ class ExploreService {
             ),
 
           viewerUserId,
-          allowPrivatePosts:
-            isAuthenticated,
         });
 
     const hasMore =
@@ -303,9 +301,6 @@ class ExploreService {
               (row) => row.id,
             ),
           viewerUserId,
-
-          allowPrivatePosts:
-            isAuthenticated,
         });
 
     const hasMore =
