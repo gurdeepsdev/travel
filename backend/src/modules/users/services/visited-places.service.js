@@ -241,8 +241,43 @@ function isPreferenceLimitError(
   );
 }
 class VisitedPlacesService {
+  async getVerification({
+    userId,
+    verificationId,
+  }) {
+    const verification =
+      await VisitedPlacesRepository
+        .findVerificationById({
+          userId,
+          verificationId,
+        });
+
+    if (!verification) {
+      throw new AppError({
+        code:
+          ErrorCodes.VISITED_PLACE
+            .VERIFICATION_NOT_FOUND,
+        message:
+          "Visit verification was not found.",
+        statusCode:
+          HttpStatus.NOT_FOUND,
+        details:
+          null,
+      });
+    }
+
+    return {
+      verification:
+        VisitedPlacesMapper
+          .toVerificationDetail(
+            verification,
+          ),
+    };
+  }
+
   async submitVerification({
     userId,
+    locationId = null,
     placeId = null,
     googlePlaceId = null,
     googleCityPlaceId = null,
@@ -251,6 +286,31 @@ class VisitedPlacesService {
     verificationPhotoFile,
     logger = null,
   }) {
+    let cityId = null;
+
+    if (locationId) {
+      const resolvedLocation =
+        await VisitedPlacesRepository
+          .resolveVerificationLocation({
+            locationId,
+          });
+
+      if (!resolvedLocation) {
+        throw createPlaceNotAvailableError();
+      }
+
+      if (
+        resolvedLocation.location_type ===
+          "CITY"
+      ) {
+        cityId =
+          resolvedLocation.location_id;
+      } else {
+        placeId =
+          resolvedLocation.location_id;
+      }
+    }
+
     let inspectedEvidence;
 
     try {
@@ -305,15 +365,19 @@ class VisitedPlacesService {
           };
 
     const isCityOnlyVerification =
-      !placeId &&
-      !googlePlaceId &&
-      Boolean(googleCityPlaceId);
+      Boolean(cityId) ||
+      (
+        !placeId &&
+        !googlePlaceId &&
+        Boolean(googleCityPlaceId)
+      );
 
     const context =
       isCityOnlyVerification
         ? await VisitedPlacesRepository
             .findCityVerificationContext({
               userId,
+              cityId,
               googleCityPlaceId,
               evidenceSha256:
                 inspectedEvidence.checksum,

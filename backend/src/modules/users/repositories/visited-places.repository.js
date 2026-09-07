@@ -2,6 +2,130 @@ import Database
   from "../../../database/database-manager.js";
 
 class VisitedPlacesRepository {
+  async findVerificationById({
+    userId,
+    verificationId,
+  }) {
+    const sql = `
+      SELECT
+        'PLACE'::varchar AS target_type,
+        visited_place.id AS verification_id,
+        visited_place.verification_status,
+        visited_place.verification_details,
+        visited_place.created_at,
+        visited_place.updated_at,
+        place.id AS location_id,
+        place.name AS location_name,
+        city.id AS city_id,
+        city.name AS city_name,
+        country.id AS country_id,
+        country.name AS country_name,
+        asset.id AS asset_id,
+        asset.storage_provider,
+        asset.storage_key,
+        asset.is_public,
+        asset.original_filename,
+        asset.mime_type,
+        asset.extension,
+        asset.file_size
+      FROM users.visited_places visited_place
+      INNER JOIN poi.places place
+        ON place.id = visited_place.place_id
+      INNER JOIN poi.cities city
+        ON city.id = place.city_id
+      INNER JOIN poi.countries country
+        ON country.id = place.country_id
+      LEFT JOIN media.assets asset
+        ON asset.id = visited_place.verification_asset_id
+        AND asset.deleted_at IS NULL
+      WHERE visited_place.id = $2::uuid
+        AND visited_place.user_id = $1::uuid
+
+      UNION ALL
+
+      SELECT
+        'CITY'::varchar AS target_type,
+        user_collection.id AS verification_id,
+        CASE
+          WHEN user_collection.verification_status IS TRUE
+            THEN 'VERIFIED'
+          ELSE 'PENDING'
+        END::varchar AS verification_status,
+        '{}'::jsonb AS verification_details,
+        user_collection.created_at,
+        user_collection.updated_at,
+        city.id AS location_id,
+        city.name AS location_name,
+        city.id AS city_id,
+        city.name AS city_name,
+        country.id AS country_id,
+        country.name AS country_name,
+        asset.id AS asset_id,
+        asset.storage_provider,
+        asset.storage_key,
+        asset.is_public,
+        asset.original_filename,
+        asset.mime_type,
+        asset.extension,
+        asset.file_size
+      FROM users.collection user_collection
+      INNER JOIN poi.cities city
+        ON city.id = user_collection.city_id
+      INNER JOIN poi.countries country
+        ON country.id = city.country_id
+      LEFT JOIN media.assets asset
+        ON asset.id = user_collection.verification_asset_id
+        AND asset.deleted_at IS NULL
+      WHERE user_collection.id = $2::uuid
+        AND user_collection.user_id = $1::uuid
+
+      LIMIT 1
+    `;
+
+    const { rows } = await Database.query(
+      sql,
+      [
+        userId,
+        verificationId,
+      ],
+    );
+
+    return rows[0] ?? null;
+  }
+
+  async resolveVerificationLocation({
+    locationId,
+  }) {
+    const sql = `
+      SELECT
+        'PLACE'::varchar AS location_type,
+        place.id AS location_id
+      FROM poi.places place
+      WHERE place.id::text = $1::varchar
+        OR place.provider_id = $1::varchar
+
+      UNION ALL
+
+      SELECT
+        'CITY'::varchar AS location_type,
+        city.id AS location_id
+      FROM poi.cities city
+      WHERE city.id::text = $1::varchar
+        OR city.provider_id = $1::varchar
+
+      LIMIT 1
+    `;
+
+    const { rows } = await Database.query(
+      sql,
+      [
+        locationId,
+      ],
+    );
+
+    return rows[0] ?? null;
+  }
+
   async savePendingVisit({
     client,
     userId,
@@ -131,7 +255,8 @@ class VisitedPlacesRepository {
   async findCityVerificationContext({
     client = Database,
     userId,
-    googleCityPlaceId,
+    cityId = null,
+    googleCityPlaceId = null,
     evidenceSha256,
   }) {
     const sql = `
@@ -173,15 +298,22 @@ class VisitedPlacesRepository {
         SELECT visited_place.id
         FROM users.visited_places
           AS visited_place
-        WHERE $3::varchar IS NOT NULL
+        WHERE $4::varchar IS NOT NULL
           AND visited_place.evidence_sha256 =
-            $3::varchar
+            $4::varchar
         LIMIT 1
       ) AS duplicate_evidence
         ON TRUE
 
-      WHERE city.provider = 'GOOGLE_PLACES'
-        AND city.provider_id = $2::varchar
+      WHERE (
+          $2::uuid IS NOT NULL
+          AND city.id = $2::uuid
+        )
+        OR (
+          $3::varchar IS NOT NULL
+          AND city.provider = 'GOOGLE_PLACES'
+          AND city.provider_id = $3::varchar
+        )
 
       LIMIT 1
     `;
@@ -190,6 +322,7 @@ class VisitedPlacesRepository {
       sql,
       [
         userId,
+        cityId,
         googleCityPlaceId,
         evidenceSha256,
       ],
