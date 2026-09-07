@@ -5,6 +5,32 @@ import VisitedPlacesService
   from "../services/visited-places.service.js";
 
 class VisitedPlacesController {
+  async getVerification(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await VisitedPlacesService
+          .getVerification({
+            userId:
+              req.user.id,
+            verificationId:
+              req.validated.params
+                .verificationId,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Visit verification fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   /**
    * Verifies a historical gallery photo and,
    * when accepted, records its attraction and city.
@@ -19,6 +45,7 @@ class VisitedPlacesController {
   ) {
     try {
       const {
+        locationId,
         placeId,
         googlePlaceId,
         googleCityPlaceId,
@@ -31,6 +58,8 @@ class VisitedPlacesController {
           .submitVerification({
             userId:
               req.user.id,
+
+            locationId,
 
             placeId,
 

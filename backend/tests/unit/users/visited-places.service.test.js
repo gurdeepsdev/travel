@@ -62,6 +62,12 @@ const mediaRepositoryMock = {
 };
 
 const repositoryMock = {
+  findVerificationById:
+    jest.fn(),
+
+  resolveVerificationLocation:
+    jest.fn(),
+
   findVerificationContext:
     jest.fn(),
 
@@ -88,6 +94,9 @@ const repositoryMock = {
 };
 
 const mapperMock = {
+  toVerificationDetail:
+    jest.fn(),
+
   toVerificationResponse:
     jest.fn(),
 
@@ -330,6 +339,77 @@ function submit(
 }
 
 describe(
+  "VisitedPlacesService getVerification",
+  () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test(
+      "returns one owned verification",
+      async () => {
+        const row = {
+          verification_id:
+            "b1000000-0000-4000-8000-000000000001",
+          verification_status:
+            "PENDING",
+        };
+        const mapped = {
+          id:
+            row.verification_id,
+          status:
+            "PENDING",
+        };
+
+        repositoryMock
+          .findVerificationById
+          .mockResolvedValue(row);
+        mapperMock
+          .toVerificationDetail
+          .mockReturnValue(mapped);
+
+        await expect(
+          VisitedPlacesService
+            .getVerification({
+              userId:
+                USER_ID,
+              verificationId:
+                row.verification_id,
+            }),
+        ).resolves.toEqual({
+          verification:
+            mapped,
+        });
+      },
+    );
+
+    test(
+      "hides missing or unowned verifications",
+      async () => {
+        repositoryMock
+          .findVerificationById
+          .mockResolvedValue(null);
+
+        await expect(
+          VisitedPlacesService
+            .getVerification({
+              userId:
+                USER_ID,
+              verificationId:
+                "b1000000-0000-4000-8000-000000000001",
+            }),
+        ).rejects.toMatchObject({
+          code:
+            "VISITED_PLACE.VERIFICATION_NOT_FOUND",
+          statusCode:
+            404,
+        });
+      },
+    );
+  },
+);
+
+describe(
   "VisitedPlacesService submitVerification",
   () => {
     beforeEach(() => {
@@ -408,6 +488,10 @@ describe(
         .mockResolvedValue(
           createContext(),
         );
+
+      repositoryMock
+        .resolveVerificationLocation
+        .mockResolvedValue(null);
 
       evaluateEvidenceMock
         .mockReturnValue({
@@ -569,6 +653,76 @@ describe(
             null,
         });
     });
+
+    test(
+      "resolves a unified internal place location ID",
+      async () => {
+        repositoryMock
+          .resolveVerificationLocation
+          .mockResolvedValue({
+            location_type:
+              "PLACE",
+            location_id:
+              PLACE_ID,
+          });
+
+        await submit({
+          locationId:
+            PLACE_ID,
+          placeId:
+            null,
+        });
+
+        expect(
+          repositoryMock
+            .findVerificationContext,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            placeId:
+              PLACE_ID,
+            googlePlaceId:
+              null,
+          }),
+        );
+      },
+    );
+
+    test(
+      "resolves a unified Google city location ID",
+      async () => {
+        repositoryMock
+          .resolveVerificationLocation
+          .mockResolvedValue({
+            location_type:
+              "CITY",
+            location_id:
+              CITY_ID,
+          });
+
+        await submit({
+          locationId:
+            GOOGLE_CITY_PLACE_ID,
+          placeId:
+            null,
+          uploadSource:
+            "GALLERY",
+        });
+
+        expect(
+          repositoryMock
+            .findCityVerificationContext,
+        ).toHaveBeenCalledWith({
+          userId:
+            USER_ID,
+          cityId:
+            CITY_ID,
+          googleCityPlaceId:
+            null,
+          evidenceSha256:
+            CHECKSUM,
+        });
+      },
+    );
 
     test(
       "queues gallery evidence for manual review without automatic verification",
@@ -945,6 +1099,8 @@ describe(
         ).toHaveBeenCalledWith({
           userId:
             USER_ID,
+          cityId:
+            null,
           googleCityPlaceId:
             GOOGLE_CITY_PLACE_ID,
           evidenceSha256:

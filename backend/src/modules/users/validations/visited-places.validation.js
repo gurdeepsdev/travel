@@ -78,6 +78,22 @@ const submitVisitedPlaceVerificationSchema =
           })
           .default("CAMERA"),
 
+        locationId: z
+          .string({
+            error:
+              "Location ID must be a string.",
+          })
+          .trim()
+          .min(
+            1,
+            "Location ID cannot be empty.",
+          )
+          .max(
+            255,
+            "Location ID cannot exceed 255 characters.",
+          )
+          .optional(),
+
         placeId: z
           .string({
             error:
@@ -140,31 +156,58 @@ const submitVisitedPlaceVerificationSchema =
         ) => {
           const identifierCount =
             Number(
+              Boolean(value.locationId),
+            ) +
+            Number(
               Boolean(value.placeId),
             ) +
             Number(
+              Boolean(value.googlePlaceId),
+            ) +
+            Number(
               Boolean(
-                value.googlePlaceId,
+                value.googleCityPlaceId,
               ),
             );
 
           if (
-            identifierCount > 1 ||
-            (
-              identifierCount === 0 &&
-              !value.googleCityPlaceId
-            )
+            identifierCount !== 1
           ) {
             context.addIssue({
               code:
                 "custom",
 
               message:
-                "Provide placeId, googlePlaceId, or googleCityPlaceId. Do not send placeId with googlePlaceId.",
+                "Provide exactly one locationId, placeId, googlePlaceId, or googleCityPlaceId.",
             });
           }
         },
       ),
+
+    query: z
+      .object({})
+      .strict(),
+  });
+
+const getVisitedPlaceVerificationSchema =
+  z.object({
+    params: z
+      .object({
+        verificationId: z
+          .string({
+            error:
+              "Verification ID must be a string.",
+          })
+          .trim()
+          .uuid(
+            "Verification ID must be a valid UUID.",
+          ),
+      })
+      .strict(),
+
+    body: z
+      .unknown()
+      .optional(),
 
     query: z
       .object({})
@@ -213,6 +256,7 @@ const submitVisitedPlaceVerificationSchema =
 export {
   DEFAULT_VISITED_PLACES_LIMIT,
   MAX_VISITED_PLACES_LIMIT,
+  getVisitedPlaceVerificationSchema,
   submitVisitedPlaceVerificationSchema,
   updateVisitedCollectionPreferenceSchema,
   getMyVisitedPlacesSchema,

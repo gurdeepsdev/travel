@@ -64,6 +64,7 @@ import {
   unblockUserSchema,
 } from "./validations/blocks.validation.js";
 import {
+  getVisitedPlaceVerificationSchema,
   getMyVisitedPlacesSchema,
   submitVisitedPlaceVerificationSchema,
   updateVisitedCollectionPreferenceSchema,
@@ -94,6 +95,17 @@ router.post(
   memoryMediaUploadMiddleware,
   validate(saveMemorySchema),
   MemoriesController.saveMemory,
+);
+
+// Get one owned place or city verification submission.
+router.get(
+  "/me/visited-place-verifications/:verificationId",
+  AuthMiddleware.authenticate,
+  validate(
+    getVisitedPlaceVerificationSchema,
+  ),
+  VisitedPlacesController
+    .getVerification,
 );
 
 // Get the authenticated user's private memories.

@@ -3103,8 +3103,10 @@ paths:
               type: object
               additionalProperties: false
               description: |
-                Provide placeId, googlePlaceId, or googleCityPlaceId. A city-only verification requires only googleCityPlaceId and the photo. placeId and googlePlaceId cannot be sent together.
+                Prefer locationId. The backend resolves whether it represents a city or place and whether it is an internal UUID or Google Place ID. Legacy identifiers remain temporarily supported. Provide exactly one identifier.
               anyOf:
+                - required:
+                    - locationId
                 - required:
                     - placeId
                 - required:
@@ -3125,18 +3127,26 @@ paths:
                     - GALLERY
                   default: CAMERA
                   description: CAMERA runs automatic verification; GALLERY queues manual review.
+                locationId:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  description: Preferred unified internal UUID or Google Place ID for a city or place.
                 placeId:
                   type: string
                   format: uuid
+                  deprecated: true
                   description: Internal Artictern place UUID. Do not send with googlePlaceId.
                 googlePlaceId:
                   type: string
+                  deprecated: true
                   minLength: 1
                   maxLength: 255
                   description: Google Places provider ID. Do not send with placeId.
                   example: ChIJArticternVisitedPlaceTest
                 googleCityPlaceId:
                   type: string
+                  deprecated: true
                   minLength: 1
                   maxLength: 255
                   description: |
@@ -3386,6 +3396,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/paths/~1users~1me~1visited-places/get/responses/400/content/application~1json/schema'
+  '/users/me/visited-place-verifications/{verificationId}':
+    get:
+      tags: [Visited Places]
+      summary: Get a visited-place or city verification
+      operationId: getVisitedPlaceVerification
+      description: Returns one owned verification with its location, uploaded evidence image, and current status.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: verificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Visit verification fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      verification:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          targetType: { type: string, enum: [PLACE, CITY] }
+                          status: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+                          method: { type: string, nullable: true }
+                          uploadSource: { type: string, nullable: true, enum: [CAMERA, GALLERY] }
+                          location: { type: object }
+                          evidence:
+                            type: object
+                            properties:
+                              assetId: { type: string, format: uuid, nullable: true }
+                              url: { type: string, nullable: true }
+                              originalFilename: { type: string, nullable: true }
+                              mimeType: { type: string, nullable: true }
+                              extension: { type: string, nullable: true }
+                              fileSize: { type: integer, nullable: true }
+                          createdAt: { type: string, format: date-time }
+                          updatedAt: { type: string, format: date-time }
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Visit verification was not found
+
   '/users/me/visited-collections/{collectionId}/preference':
     patch:
       tags:

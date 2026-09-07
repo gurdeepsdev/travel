@@ -3,6 +3,82 @@ import {
 } from "../utils/asset-url.util.js";
 
 class VisitedPlacesMapper {
+  static toVerificationDetail(row) {
+    if (!row?.verification_id) {
+      return null;
+    }
+
+    const details =
+      row.verification_details &&
+      typeof row.verification_details ===
+        "object"
+        ? row.verification_details
+        : {};
+
+    return {
+      id:
+        row.verification_id,
+      targetType:
+        row.target_type,
+      status:
+        row.verification_status,
+      method:
+        details.verificationMethod ??
+        null,
+      uploadSource:
+        details.uploadSource ??
+        null,
+      location: {
+        id:
+          row.location_id,
+        name:
+          row.location_name ?? null,
+        city: {
+          id:
+            row.city_id,
+          name:
+            row.city_name ?? null,
+        },
+        country: {
+          id:
+            row.country_id,
+          name:
+            row.country_name ?? null,
+        },
+      },
+      evidence: {
+        assetId:
+          row.asset_id ?? null,
+        url:
+          buildAssetUrl({
+            assetId:
+              row.asset_id ?? null,
+            storageProvider:
+              row.storage_provider ?? null,
+            storageKey:
+              row.storage_key ?? null,
+            isPublic:
+              row.is_public === true,
+          }),
+        originalFilename:
+          row.original_filename ?? null,
+        mimeType:
+          row.mime_type ?? null,
+        extension:
+          row.extension ?? null,
+        fileSize:
+          row.file_size === null ||
+          row.file_size === undefined
+            ? null
+            : Number(row.file_size),
+      },
+      createdAt:
+        row.created_at,
+      updatedAt:
+        row.updated_at,
+    };
+  }
+
   static toCityVerificationResponse({
     row,
     asset,
