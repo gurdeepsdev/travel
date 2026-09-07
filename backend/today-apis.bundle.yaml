@@ -3092,7 +3092,7 @@ paths:
       summary: Verify a visited place or city
       operationId: submitVisitedPlaceVerification
       description: |
-        Verifies a historical gallery photo using EXIF GPS and capture time. A city can be verified directly with googleCityPlaceId, or indirectly through an internal or Google place identifier. The uploaded photo remains private.
+        Camera captures run the existing automatic evidence verification. Gallery uploads remain private and are stored with PENDING status for manual dashboard review. A city can be submitted directly with googleCityPlaceId, or indirectly through a place identifier.
       security:
         - bearerAuth: []
       requestBody:
@@ -3118,6 +3118,13 @@ paths:
               required:
                 - verificationPhoto
               properties:
+                uploadSource:
+                  type: string
+                  enum:
+                    - CAMERA
+                    - GALLERY
+                  default: CAMERA
+                  description: CAMERA runs automatic verification; GALLERY queues manual review.
                 placeId:
                   type: string
                   format: uuid
@@ -3183,8 +3190,9 @@ paths:
                         properties:
                           status:
                             type: string
-                            enum:
-                              - VERIFIED
+                          enum:
+                            - VERIFIED
+                            - PENDING
                           confidence:
                             type: string
                             nullable: true

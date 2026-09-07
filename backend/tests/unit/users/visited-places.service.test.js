@@ -71,7 +71,13 @@ const repositoryMock = {
   saveVerifiedVisit:
     jest.fn(),
 
+  savePendingVisit:
+    jest.fn(),
+
   saveVerifiedCity:
+    jest.fn(),
+
+  savePendingCity:
     jest.fn(),
 
   updateCollectionPreference:
@@ -480,6 +486,15 @@ describe(
         );
 
       repositoryMock
+        .savePendingVisit
+        .mockResolvedValue(
+          createVisit({
+            verification_status:
+              "PENDING",
+          }),
+        );
+
+      repositoryMock
         .findCityVerificationContext
         .mockResolvedValue({
           city_id:
@@ -519,6 +534,25 @@ describe(
             false,
         });
 
+      repositoryMock
+        .savePendingCity
+        .mockResolvedValue({
+          id:
+            COLLECTION_ID,
+          city_id:
+            CITY_ID,
+          city_name:
+            "Noida",
+          verification_asset_id:
+            ASSET_ID,
+          verification_status:
+            false,
+          visited_at:
+            "2024-06-15T14:20:00.000Z",
+          is_preference:
+            false,
+        });
+
       mapperMock
         .toVerificationResponse
         .mockReturnValue({
@@ -535,6 +569,85 @@ describe(
             null,
         });
     });
+
+    test(
+      "queues gallery evidence for manual review without automatic verification",
+      async () => {
+        await submit({
+          uploadSource:
+            "GALLERY",
+        });
+
+        expect(
+          extractMetadataMock,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          evaluateEvidenceMock,
+        ).not.toHaveBeenCalled();
+
+        expect(
+          repositoryMock
+            .savePendingVisit,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId:
+              USER_ID,
+            placeId:
+              PLACE_ID,
+            verificationDetails:
+              expect.objectContaining({
+                uploadSource:
+                  "GALLERY",
+                verificationMethod:
+                  "MANUAL",
+              }),
+          }),
+        );
+
+        expect(
+          repositoryMock
+            .saveVerifiedVisit,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "queues city-only gallery evidence for manual review",
+      async () => {
+        await submit({
+          placeId:
+            null,
+          googlePlaceId:
+            null,
+          googleCityPlaceId:
+            GOOGLE_CITY_PLACE_ID,
+          uploadSource:
+            "GALLERY",
+        });
+
+        expect(
+          repositoryMock
+            .savePendingCity,
+        ).toHaveBeenCalledWith({
+          client:
+            transactionClient,
+          userId:
+            USER_ID,
+          cityId:
+            CITY_ID,
+          verificationAssetId:
+            ASSET_ID,
+          visitedAt:
+            "2024-06-15T14:20:00.000Z",
+        });
+
+        expect(
+          repositoryMock
+            .saveVerifiedCity,
+        ).not.toHaveBeenCalled();
+      },
+    );
 
     test(
       "rejects an unavailable place before permanent storage",

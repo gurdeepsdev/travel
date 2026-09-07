@@ -2,6 +2,132 @@ import Database
   from "../../../database/database-manager.js";
 
 class VisitedPlacesRepository {
+  async savePendingVisit({
+    client,
+    userId,
+    placeId,
+    verificationAssetId,
+    claimedVisitedAt = null,
+    evidenceCapturedAt = null,
+    evidenceLatitude = null,
+    evidenceLongitude = null,
+    evidenceSha256,
+    evidencePerceptualHash = null,
+    visitedAt = null,
+    verificationDetails,
+  }) {
+    const sql = `
+      WITH pending_collection AS (
+        INSERT INTO users.collection AS user_collection (
+          user_id, city_id, collections_name,
+          icon_asset_id, verification_asset_id,
+          verification_status, visited_at,
+          is_preference
+        )
+        SELECT
+          $1::uuid, city.id, city.name,
+          city.icon_asset_id, $3::uuid,
+          FALSE, COALESCE($9::timestamptz, CURRENT_TIMESTAMP),
+          FALSE
+        FROM poi.places place
+        INNER JOIN poi.cities city
+          ON city.id = place.city_id
+        WHERE place.id = $2::uuid
+        ON CONFLICT (user_id, city_id)
+        DO UPDATE SET
+          verification_asset_id = EXCLUDED.verification_asset_id,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE user_collection.verification_status IS FALSE
+        RETURNING id, city_id
+      ),
+      inserted_visit AS (
+        INSERT INTO users.visited_places (
+          user_id, place_id, collections_id,
+          verification_asset_id, verification_status,
+          visit_source, visited_at, claimed_visited_at,
+          evidence_captured_at, evidence_latitude,
+          evidence_longitude, evidence_sha256,
+          evidence_perceptual_hash, verification_details
+        )
+        SELECT
+          $1::uuid, $2::uuid, pending_collection.id,
+          $3::uuid, 'PENDING', 'PHOTO_VERIFICATION',
+          COALESCE($9::timestamptz, CURRENT_TIMESTAMP),
+          $4::timestamptz, $5::timestamptz,
+          $6::double precision, $7::double precision,
+          $8::varchar, $10::varchar, $11::jsonb
+        FROM pending_collection
+        RETURNING *, TRUE AS visit_created
+      )
+      SELECT
+        inserted_visit.*,
+        place.name AS place_name,
+        city.id AS city_id,
+        city.name AS city_name
+      FROM inserted_visit
+      INNER JOIN poi.places place
+        ON place.id = inserted_visit.place_id
+      INNER JOIN poi.cities city
+        ON city.id = place.city_id
+    `;
+
+    const { rows } = await client.query(sql, [
+      userId,
+      placeId,
+      verificationAssetId,
+      claimedVisitedAt,
+      evidenceCapturedAt,
+      evidenceLatitude,
+      evidenceLongitude,
+      evidenceSha256,
+      visitedAt,
+      evidencePerceptualHash,
+      JSON.stringify(verificationDetails ?? {}),
+    ]);
+
+    return rows[0] ?? null;
+  }
+
+  async savePendingCity({
+    client,
+    userId,
+    cityId,
+    verificationAssetId,
+    visitedAt = null,
+  }) {
+    const sql = `
+      INSERT INTO users.collection AS user_collection (
+        user_id, city_id, collections_name,
+        icon_asset_id, verification_asset_id,
+        verification_status, visited_at,
+        is_preference
+      )
+      SELECT
+        $1::uuid, city.id, city.name,
+        city.icon_asset_id, $3::uuid,
+        FALSE, COALESCE($4::timestamptz, CURRENT_TIMESTAMP),
+        FALSE
+      FROM poi.cities city
+      WHERE city.id = $2::uuid
+        AND city.is_active IS TRUE
+      ON CONFLICT (user_id, city_id)
+      DO UPDATE SET
+        verification_asset_id = EXCLUDED.verification_asset_id,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE user_collection.verification_status IS FALSE
+      RETURNING *, collections_name AS city_name
+    `;
+
+    const { rows } = await client.query(sql, [
+      userId,
+      cityId,
+      verificationAssetId,
+      visitedAt,
+    ]);
+
+    return rows[0] ?? null;
+  }
+
   async findCityVerificationContext({
     client = Database,
     userId,

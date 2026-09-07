@@ -24,9 +24,9 @@ paths:
       summary: Verify a visited place
       operationId: submitVisitedPlaceVerification
       description: >
-        Verifies a historical gallery photo using EXIF GPS and capture
-        time. When an attraction is verified, its city becomes verified
-        for the authenticated user. The uploaded photo remains private.
+        Camera captures are verified automatically using the existing
+        evidence checks. Gallery uploads are stored privately with PENDING
+        status for manual dashboard review.
       security:
         - bearerAuth: []
       requestBody:
@@ -40,6 +40,11 @@ paths:
                 - placeId
                 - verificationPhoto
               properties:
+                uploadSource:
+                  type: string
+                  enum: [CAMERA, GALLERY]
+                  default: CAMERA
+                  description: CAMERA runs automatic verification; GALLERY queues manual review.
                 placeId:
                   type: string
                   format: uuid
@@ -56,7 +61,7 @@ paths:
                     size of 15 MB.
       responses:
         "201":
-          description: Visited place verified successfully
+          description: Evidence verified automatically or queued for manual review
           content:
             application/json:
               schema:

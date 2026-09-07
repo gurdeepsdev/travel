@@ -247,6 +247,7 @@ class VisitedPlacesService {
     googlePlaceId = null,
     googleCityPlaceId = null,
     claimedVisitedAt = null,
+    uploadSource = "CAMERA",
     verificationPhotoFile,
     logger = null,
   }) {
@@ -285,10 +286,23 @@ class VisitedPlacesService {
       });
     }
 
+    const requiresAutomaticVerification =
+      uploadSource === "CAMERA";
+
     const metadata =
-      await extractVisitedPlaceEvidenceMetadata(
-        inspectedEvidence.temporaryPath,
-      );
+      requiresAutomaticVerification
+        ? await extractVisitedPlaceEvidenceMetadata(
+            inspectedEvidence.temporaryPath,
+          )
+        : {
+            metadataPresent: false,
+            capturedAt: null,
+            latitude: null,
+            longitude: null,
+            offsetTimeOriginal: null,
+            camera: null,
+            software: null,
+          };
 
     const isCityOnlyVerification =
       !placeId &&
@@ -364,28 +378,39 @@ class VisitedPlacesService {
     }
 
     const decision =
-      evaluateVisitedPlaceEvidence({
-        metadata,
+      requiresAutomaticVerification
+        ? evaluateVisitedPlaceEvidence({
+            metadata,
 
-        radiusMeters:
-          isCityOnlyVerification
-            ? CITY_VERIFICATION_RADIUS_METERS
-            : undefined,
+            radiusMeters:
+              isCityOnlyVerification
+                ? CITY_VERIFICATION_RADIUS_METERS
+                : undefined,
 
-        place: {
-          latitude:
-            isCityOnlyVerification
-              ? context.city_latitude
-              : context.place_latitude,
+            place: {
+              latitude:
+                isCityOnlyVerification
+                  ? context.city_latitude
+                  : context.place_latitude,
 
-          longitude:
-            isCityOnlyVerification
-              ? context.city_longitude
-              : context.place_longitude,
-        },
-      });
+              longitude:
+                isCityOnlyVerification
+                  ? context.city_longitude
+                  : context.place_longitude,
+            },
+          })
+        : {
+            status: "PENDING",
+            verified: null,
+            confidence: null,
+            distanceMeters: null,
+            radiusMeters: null,
+            verificationMethod:
+              "MANUAL",
+          };
 
     if (
+      requiresAutomaticVerification &&
       decision.verified !==
         true
     ) {
@@ -491,6 +516,8 @@ class VisitedPlacesService {
             }
 
             const verificationDetails = {
+              uploadSource,
+
               confidence:
                 decision.confidence,
 
@@ -520,8 +547,11 @@ class VisitedPlacesService {
 
             const visit =
               isCityOnlyVerification
-                ? await VisitedPlacesRepository
-                    .saveVerifiedCity({
+                ? await VisitedPlacesRepository[
+                    requiresAutomaticVerification
+                      ? "saveVerifiedCity"
+                      : "savePendingCity"
+                  ]({
                       client,
                       userId,
                       cityId:
@@ -529,10 +559,14 @@ class VisitedPlacesService {
                       verificationAssetId:
                         evidenceAsset.id,
                       visitedAt:
-                        metadata.capturedAt,
+                        metadata.capturedAt ??
+                        claimedVisitedAt,
                     })
-                : await VisitedPlacesRepository
-                    .saveVerifiedVisit({
+                : await VisitedPlacesRepository[
+                    requiresAutomaticVerification
+                      ? "saveVerifiedVisit"
+                      : "savePendingVisit"
+                  ]({
                       client,
                       userId,
                       placeId:
@@ -552,7 +586,8 @@ class VisitedPlacesService {
                       evidencePerceptualHash:
                         null,
                       visitedAt:
-                        metadata.capturedAt,
+                        metadata.capturedAt ??
+                        claimedVisitedAt,
                       verificationDetails,
                     });
 
@@ -566,6 +601,7 @@ class VisitedPlacesService {
              * Roll back this transaction and its asset.
              */
             if (
+              requiresAutomaticVerification &&
               !isCityOnlyVerification &&
               visit.visit_created !== true
             ) {

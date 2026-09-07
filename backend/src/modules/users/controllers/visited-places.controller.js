@@ -23,6 +23,7 @@ class VisitedPlacesController {
         googlePlaceId,
         googleCityPlaceId,
         claimedVisitedAt = null,
+        uploadSource,
       } = req.validated.body;
 
       const result =
@@ -39,6 +40,8 @@ class VisitedPlacesController {
 
             claimedVisitedAt,
 
+            uploadSource,
+
             verificationPhotoFile:
               req.file,
 
@@ -49,7 +52,10 @@ class VisitedPlacesController {
       return Response.created(
         res,
         result,
-        "Visited place verified successfully.",
+        result.verification?.status ===
+          "PENDING"
+          ? "Visit evidence submitted for manual review."
+          : "Visited place verified successfully.",
       );
     } catch (error) {
       return next(error);
