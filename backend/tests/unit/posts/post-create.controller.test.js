@@ -5,8 +5,8 @@ import {
 const USER_ID =
   "63aae149-8f8f-4b30-b30d-211da764c080";
 
-const GOOGLE_PLACE_ID =
-  "ChIJLfySpTOuEmsRsc_JfJtljdc";
+const CITY_ID =
+  "187cef7e-0554-42f0-a0b9-4e44b9824cee";
 
 
 const createPostMock =
@@ -49,7 +49,7 @@ describe(
     });
 
     test(
-      "forwards googleId to the service",
+      "forwards cityId to the service",
       async () => {
         const files = [
           {
@@ -75,13 +75,13 @@ describe(
           validated: {
             body: {
               caption:
-                "Google place post",
+                "City post",
 
               visibility:
                 "PUBLIC",
 
-              googleId:
-                GOOGLE_PLACE_ID,
+              cityId:
+                CITY_ID,
 
               existingAssetIds: [],
 
@@ -127,16 +127,13 @@ describe(
             USER_ID,
 
           caption:
-            "Google place post",
+            "City post",
 
           visibility:
             "PUBLIC",
 
-          placeId:
-            undefined,
-
-          googleId:
-            GOOGLE_PLACE_ID,
+          cityId:
+            CITY_ID,
 
           existingAssetIds: [],
 

@@ -6,8 +6,8 @@ const baseRequest = {
   params: {},
   query: {},
   body: {
-    googleId:
-      "ChIJArticternPostCreateTest",
+    cityId:
+      "187cef7e-0554-42f0-a0b9-4e44b9824cee",
     existingAssetIds: [],
     mediaOrder: [],
     itineraryIds: [],
@@ -55,5 +55,36 @@ describe("create post caption validation", () => {
     expect(result.success).toBe(true);
     expect(result.data.body.caption)
       .toBe("Delhi evening");
+  });
+});
+
+describe("create post city validation", () => {
+  test("requires cityId", () => {
+    const result =
+      createPostSchema.safeParse({
+        ...baseRequest,
+        body: {
+          ...baseRequest.body,
+          cityId: undefined,
+        },
+      });
+
+    expect(result.success).toBe(false);
+  });
+
+  test.each([
+    ["placeId", "72bf8c7b-c684-4046-9f97-cfb1f569e59a"],
+    ["googleId", "ChIJArticternPostCreateTest"],
+  ])("rejects legacy %s", (field, value) => {
+    const result =
+      createPostSchema.safeParse({
+        ...baseRequest,
+        body: {
+          ...baseRequest.body,
+          [field]: value,
+        },
+      });
+
+    expect(result.success).toBe(false);
   });
 });

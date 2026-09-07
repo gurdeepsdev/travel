@@ -10,6 +10,7 @@ servers:
   - url: http://localhost:3001/api/v1
     description: Local development
 tags:
+  - name: Post Engagement
   - name: Saved Content
   - name: Profile
   - name: Comments
@@ -55,6 +56,8 @@ paths:
     $ref: "./platform-core.openapi.yaml#/paths/~1users~1me~1posts"
   "/users/{username}/posts":
     $ref: "./platform-core.openapi.yaml#/paths/~1users~1{username}~1posts"
+  /posts/engagement/batch:
+    $ref: "./posts.openapi.yaml#/paths/~1posts~1engagement~1batch"
   "/posts/{postId}/reactions":
     $ref: "./posts.openapi.yaml#/paths/~1posts~1{postId}~1reactions"
   "/posts/{postId}/reaction":
@@ -5029,14 +5032,10 @@ components:
       type: object
       additionalProperties: false
       description: >
-        Provide exactly one place identifier: placeId for an internal Artictern
-        place UUID, or googleId for a Google provider ID already available in
-        either the places or cities catalogue. Place matches take precedence.
-      oneOf:
-        - required:
-            - placeId
-        - required:
-            - googleId
+        Provide the internal Artictern city UUID. New posts are city-based and
+        are stored with postType CITY.
+      required:
+        - cityId
       properties:
         caption:
           type: string
@@ -5052,17 +5051,10 @@ components:
             the creator's current profile: private accounts create PRIVATE posts
             and public accounts create PUBLIC posts. The stored value remains
             unchanged by later profile-privacy updates.
-        placeId:
+        cityId:
           type: string
           format: uuid
-          description: Internal Artictern place UUID. Do not send with googleId.
-        googleId:
-          type: string
-          minLength: 1
-          maxLength: 255
-          description: >
-            Google place or Google city provider ID. Do not send with placeId.
-          example: ChIJArticternPostCreateTest
+          description: Internal Artictern city UUID.
         files:
           type: array
           maxItems: 10

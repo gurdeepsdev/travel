@@ -275,8 +275,7 @@ class PostCreateService {
   async createPost({
     userId,
     caption,
-    placeId,
-    googleId,
+    cityId,
     existingAssetIds,
     mediaOrder,
     itineraryIds,
@@ -447,26 +446,21 @@ class PostCreateService {
                 ? "PRIVATE"
                 : "PUBLIC";
 
-            const location = placeId
-              ? await PostCreateRepository
-                  .findEligiblePlace({
-                    client,
-                    placeId,
-                  })
-              : await PostCreateRepository
-                  .findEligibleGoogleLocation({
-                    client,
-                    googleId,
-                  });
+            const city =
+              await PostCreateRepository
+                .findEligibleCity({
+                  client,
+                  cityId,
+                });
 
-            if (!location) {
+            if (!city) {
               throw createReferenceError({
                 code:
                   ErrorCodes.POST
                     .PLACE_NOT_ALLOWED,
 
                 message:
-                  "Post location was not found or is not available.",
+                  "Post city was not found or is not available.",
               });
             }
 
@@ -598,13 +592,13 @@ class PostCreateService {
                     effectiveVisibility,
 
                   placeId:
-                    location.place_id,
+                    null,
 
                   cityId:
-                    location.city_id,
+                    city.id,
 
                   postType:
-                    location.target_type,
+                    "CITY",
                 });
 
             await PostCreateRepository

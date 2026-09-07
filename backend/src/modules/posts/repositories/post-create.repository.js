@@ -19,110 +19,29 @@ class PostCreateRepository {
       true;
   }
 
-  async findEligiblePlace({
+  async findEligibleCity({
     client,
-    placeId,
+    cityId,
   }) {
     const {
       rows,
     } = await client.query(
       `
         SELECT
-          place.id,
-          place.id
-            AS place_id,
-          NULL::uuid
-            AS city_id,
-          'PLACE'::varchar
-            AS target_type,
-          place.name,
-          place.is_closed
+          city.id,
+          city.name
 
-        FROM poi.places place
+        FROM poi.cities city
 
-        WHERE place.id = $1
-          AND place.is_closed
-            IS FALSE
+        WHERE city.id = $1::uuid
+          AND city.is_active IS TRUE
 
         LIMIT 1
 
         FOR KEY SHARE
       `,
       [
-        placeId,
-      ],
-    );
-
-    return rows[0] ?? null;
-  }
-
-  async findEligibleGoogleLocation({
-    client,
-    googleId,
-  }) {
-    const {
-      rows,
-    } = await client.query(
-      `
-        WITH matching_locations AS (
-          SELECT
-            place.id,
-            place.id
-              AS place_id,
-            NULL::uuid
-              AS city_id,
-            'PLACE'::varchar
-              AS target_type,
-            place.name,
-            1 AS target_priority
-
-          FROM poi.places place
-
-          WHERE place.provider =
-              'GOOGLE_PLACES'
-            AND place.provider_id =
-              $1
-            AND place.is_closed
-              IS FALSE
-
-          UNION ALL
-
-          SELECT
-            city.id,
-            NULL::uuid
-              AS place_id,
-            city.id
-              AS city_id,
-            'CITY'::varchar
-              AS target_type,
-            city.name,
-            2 AS target_priority
-
-          FROM poi.cities city
-
-          WHERE city.provider =
-              'GOOGLE_PLACES'
-            AND city.provider_id =
-              $1
-            AND city.is_active
-              IS TRUE
-        )
-
-        SELECT
-          id,
-          place_id,
-          city_id,
-          target_type,
-          name
-
-        FROM matching_locations
-
-        ORDER BY target_priority
-
-        LIMIT 1
-      `,
-      [
-        googleId,
+        cityId,
       ],
     );
 

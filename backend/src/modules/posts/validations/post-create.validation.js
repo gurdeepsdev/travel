@@ -299,28 +299,11 @@ const createPostBodySchema = z
       )
       .optional(),
 
-    placeId:
+    cityId:
       uuidSchema({
         field:
-          "Place ID",
-      })
-        .optional(),
-
-    googleId: z
-      .string({
-        error:
-          "Google ID must be a string.",
-      })
-      .trim()
-      .min(
-        1,
-        "Google ID cannot be empty.",
-      )
-      .max(
-        255,
-        "Google ID cannot exceed 255 characters.",
-      )
-      .optional(),
+          "City ID",
+      }),
 
     existingAssetIds:
       existingAssetIdsSchema,
@@ -340,27 +323,6 @@ const createPostBodySchema = z
       body,
       context,
     ) => {
-      const placeReferenceCount = [
-        body.placeId,
-        body.googleId,
-      ].filter(Boolean).length;
-
-      if (
-        placeReferenceCount !== 1
-      ) {
-        context.addIssue({
-          code:
-            z.ZodIssueCode.custom,
-
-          path: [
-            "placeId",
-          ],
-
-          message:
-            "Provide either placeId or googleId, but not both.",
-        });
-      }
-
       const existingOrderAssetIds =
         body.mediaOrder
           .filter(

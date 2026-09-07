@@ -14,6 +14,8 @@ import PostVisibilityController
   from "./controllers/post-visibility.controller.js";
 import PostRepostsController
   from "./controllers/post-reposts.controller.js";
+import PostEngagementController
+  from "./controllers/post-engagement.controller.js";
 import ReportsController
   from "../reports/controllers/reports.controller.js";
 
@@ -62,8 +64,18 @@ import {
   removePostRepostSchema,
   setPostRepostSchema,
 } from "./validations/post-reposts.validation.js";
+import {
+  getPostEngagementBatchSchema,
+} from "./validations/post-engagement.validation.js";
 
 const router = Router();
+
+router.post(
+  "/engagement/batch",
+  AuthMiddleware.authenticate,
+  validate(getPostEngagementBatchSchema),
+  PostEngagementController.getBatch,
+);
 
 // Create a post with uploaded or existing media.
 router.post(

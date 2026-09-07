@@ -4,7 +4,7 @@ import PostCreateService from "../services/post-create.service.js";
 
 class PostCreateController {
   /**
-   * Creates a place-based post using newly
+   * Creates a city-based post using newly
    * uploaded files, existing owned assets,
    * itineraries, or a combination.
    */
@@ -17,8 +17,7 @@ class PostCreateController {
       const {
         caption,
         visibility,
-        placeId,
-        googleId,
+        cityId,
         existingAssetIds,
         mediaOrder,
         itineraryIds,
@@ -33,8 +32,7 @@ class PostCreateController {
 
             caption,
             visibility,
-            placeId,
-            googleId,
+            cityId,
             existingAssetIds,
             mediaOrder,
             itineraryIds,
