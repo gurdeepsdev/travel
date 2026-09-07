@@ -12,6 +12,7 @@ servers:
     description: Local development
 
 tags:
+  - name: Post Engagement
   - name: Post Reactions
   - name: Post Reposts
   - name: Post Management
@@ -21,6 +22,41 @@ tags:
   - name: Saved Posts
 
 paths:
+  /posts/engagement/batch:
+    post:
+      tags: [Post Engagement]
+      summary: Reconcile engagement for visible posts
+      operationId: getPostEngagementBatch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [postIds]
+              properties:
+                postIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "200":
+          description: Post engagement fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostEngagementBatchResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /posts/{postId}/reactions:
     get:
       tags:
@@ -752,6 +788,42 @@ components:
             timestamp: "2026-08-03T10:00:00.000Z"
 
   schemas:
+    PostEngagementBatchResponse:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [posts]
+              properties:
+                posts:
+                  type: array
+                  items:
+                    type: object
+                    required: [postId, engagement, viewerState]
+                    properties:
+                      postId:
+                        type: string
+                        format: uuid
+                      engagement:
+                        type: object
+                        properties:
+                          reactions: { type: integer }
+                          reactionSummary:
+                            type: object
+                            additionalProperties: { type: integer }
+                          comments: { type: integer }
+                          beenThere: { type: integer }
+                      viewerState:
+                        type: object
+                        properties:
+                          reactionType:
+                            nullable: true
+                            allOf:
+                              - $ref: "#/components/schemas/ReactionType"
+                          beenThere: { type: boolean }
+
     EmptyObject:
       type: object
       additionalProperties: false

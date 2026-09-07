@@ -8,17 +8,8 @@ const USER_ID =
 const POST_ID =
   "d5000000-0000-4000-8000-000000000001";
 
-const PLACE_ID =
-  "72bf8c7b-c684-4046-9f97-cfb1f569e59a";
-
 const CITY_ID =
   "187cef7e-0554-42f0-a0b9-4e44b9824cee";
-
-const GOOGLE_PLACE_ID =
-  "ChIJLfySpTOuEmsRsc_JfJtljdc";
-
-const GOOGLE_CITY_ID =
-  "ChIJdd4hrwug2EcRmSrV3Vo6llI";
 
 const ITINERARY_ID =
   "11111111-1111-4111-8111-111111111111";
@@ -68,10 +59,7 @@ const postCreateRepositoryMock = {
   findCreatorPrivacy:
     jest.fn(),
 
-  findEligiblePlace:
-    jest.fn(),
-
-  findEligibleGoogleLocation:
+  findEligibleCity:
     jest.fn(),
 
   findOwnedItineraries:
@@ -280,8 +268,8 @@ function createRequest(
     visibility:
       "PUBLIC",
 
-    placeId:
-      PLACE_ID,
+    cityId:
+      CITY_ID,
 
     existingAssetIds: [],
 
@@ -346,41 +334,13 @@ describe(
         .mockResolvedValue(false);
 
       postCreateRepositoryMock
-        .findEligiblePlace
+        .findEligibleCity
         .mockResolvedValue({
           id:
-            PLACE_ID,
-
-          place_id:
-            PLACE_ID,
-
-          city_id:
-            null,
-
-          target_type:
-            "PLACE",
-
-          is_closed:
-            false,
-        });
-
-      postCreateRepositoryMock
-        .findEligibleGoogleLocation
-        .mockResolvedValue({
-          id:
-            PLACE_ID,
-
-          place_id:
-            PLACE_ID,
-
-          city_id:
-            null,
-
-          target_type:
-            "PLACE",
+            CITY_ID,
 
           name:
-            "DLF Mall of India",
+            "Delhi",
         });
 
       mediaRepositoryMock
@@ -472,13 +432,13 @@ describe(
             "PUBLIC",
 
           placeId:
-            PLACE_ID,
-
-          cityId:
             null,
 
+          cityId:
+            CITY_ID,
+
           postType:
-            "PLACE",
+            "CITY",
         });
 
         expect(
@@ -566,101 +526,20 @@ describe(
     );
 
     test(
-      "creates a place post using one Google ID",
+      "creates a city post using the supplied city ID",
       async () => {
-        const result =
-          await PostCreateService
-            .createPost(
-              createRequest({
-                placeId:
-                  undefined,
-
-                googleId:
-                  GOOGLE_PLACE_ID,
-              }),
-            );
-
-        expect(
-          postCreateRepositoryMock
-            .findEligibleGoogleLocation,
-        ).toHaveBeenCalledWith({
-          client:
-            transactionClient,
-
-          googleId:
-            GOOGLE_PLACE_ID,
-        });
-
-        expect(
-          postCreateRepositoryMock
-            .findEligiblePlace,
-        ).not.toHaveBeenCalled();
-
-        expect(
-          postCreateRepositoryMock
-            .insertPost,
-        ).toHaveBeenCalledWith(
-          expect.objectContaining({
-            placeId:
-              PLACE_ID,
-
-            cityId:
-              null,
-
-            postType:
-              "PLACE",
-          }),
-        );
-
-        expect(result).toEqual({
-          post:
-            createCanonicalPost(),
-        });
-      },
-    );
-
-    test(
-      "creates a city post using one Google ID",
-      async () => {
-        postCreateRepositoryMock
-          .findEligibleGoogleLocation
-          .mockResolvedValue({
-            id:
-              CITY_ID,
-
-            place_id:
-              null,
-
-            city_id:
-              CITY_ID,
-
-            target_type:
-              "CITY",
-
-            name:
-              "Delhi",
-          });
-
         await PostCreateService
-          .createPost(
-            createRequest({
-              placeId:
-                undefined,
-
-              googleId:
-                GOOGLE_CITY_ID,
-            }),
-          );
+          .createPost(createRequest());
 
         expect(
           postCreateRepositoryMock
-            .findEligibleGoogleLocation,
+            .findEligibleCity,
         ).toHaveBeenCalledWith({
           client:
             transactionClient,
 
-          googleId:
-            GOOGLE_CITY_ID,
+          cityId:
+            CITY_ID,
         });
 
         expect(
@@ -682,25 +561,17 @@ describe(
     );
 
     test(
-      "rejects an unavailable Google Place ID",
+      "rejects an unavailable city ID",
       async () => {
         postCreateRepositoryMock
-          .findEligibleGoogleLocation
+          .findEligibleCity
           .mockResolvedValue(
             null,
           );
 
         await expect(
           PostCreateService
-            .createPost(
-              createRequest({
-                placeId:
-                  undefined,
-
-                googleId:
-                  GOOGLE_PLACE_ID,
-              }),
-            ),
+            .createPost(createRequest()),
         ).rejects.toMatchObject({
           code:
             "POST.PLACE_NOT_ALLOWED",
@@ -744,7 +615,7 @@ describe(
     );
 
     test(
-      "rejects an unavailable place and removes newly stored files",
+      "rejects an unavailable city and removes newly stored files",
       async () => {
         inspectPostMediaFilesMock
           .mockResolvedValue([
@@ -752,7 +623,7 @@ describe(
           ]);
 
         postCreateRepositoryMock
-          .findEligiblePlace
+          .findEligibleCity
           .mockResolvedValue(null);
 
         await expect(
