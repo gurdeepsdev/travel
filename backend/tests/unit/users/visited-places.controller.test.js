@@ -37,6 +37,10 @@ const {
 describe(
   "VisitedPlacesController submitVerification",
   () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
     test(
       "forwards googlePlaceId and the verification photo",
       async () => {
@@ -129,6 +133,55 @@ describe(
 
         expect(next)
           .not.toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "returns the manual-review message for pending gallery evidence",
+      async () => {
+        const req = {
+          user: {
+            id:
+              "63aae149-8f8f-4b30-b30d-211da764c080",
+          },
+          validated: {
+            body: {
+              placeId:
+                "72bf8c7b-c684-4046-9f97-cfb1f569e59a",
+              uploadSource:
+                "GALLERY",
+            },
+          },
+          file: {
+            path:
+              "/tmp/visit-photo.jpg",
+          },
+        };
+        const res = {};
+        const next = jest.fn();
+        const result = {
+          verification: {
+            status:
+              "PENDING",
+          },
+        };
+
+        submitVerificationMock
+          .mockResolvedValue(result);
+
+        await VisitedPlacesController
+          .submitVerification(
+            req,
+            res,
+            next,
+          );
+
+        expect(createdMock)
+          .toHaveBeenCalledWith(
+            res,
+            result,
+            "Visit evidence submitted for manual review.",
+          );
       },
     );
   },

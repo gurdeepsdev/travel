@@ -15,7 +15,11 @@ class VisitedPlacesMapper {
     return {
       visitCreated: true,
       verification: {
-        status: "VERIFIED",
+        status:
+          row.verification_status ===
+            true
+            ? "VERIFIED"
+            : "PENDING",
         confidence:
           verificationDetails?.confidence ??
           null,

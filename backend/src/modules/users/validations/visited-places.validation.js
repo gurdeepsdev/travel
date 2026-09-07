@@ -68,6 +68,16 @@ const submitVisitedPlaceVerificationSchema =
 
     body: z
       .object({
+        uploadSource: z
+          .enum([
+            "CAMERA",
+            "GALLERY",
+          ], {
+            error:
+              "Upload source must be CAMERA or GALLERY.",
+          })
+          .default("CAMERA"),
+
         placeId: z
           .string({
             error:
