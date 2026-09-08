@@ -252,6 +252,9 @@ const getVisitedPlaceVerificationSchema =
       .strict(),
   });
 
+const getMyVisitedPlaceVerificationsSchema =
+  getMyVisitedPlacesSchema;
+
 export {
   DEFAULT_VISITED_PLACES_LIMIT,
   MAX_VISITED_PLACES_LIMIT,
@@ -259,4 +262,5 @@ export {
   submitVisitedPlaceVerificationSchema,
   updateVisitedCollectionPreferenceSchema,
   getMyVisitedPlacesSchema,
+  getMyVisitedPlaceVerificationsSchema,
 };

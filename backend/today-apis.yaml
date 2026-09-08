@@ -1493,6 +1493,57 @@ paths:
         "404":
           description: Memory was not found
   /users/me/visited-place-verifications:
+    get:
+      tags: [Visited Places]
+      summary: List my pending and verified visit verifications
+      operationId: getMyVisitedPlaceVerifications
+      description: Lists owned city and place submissions. Rejected submissions are excluded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Visit verifications fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, enum: [true] }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      verifications:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string, format: uuid }
+                            targetType: { type: string, enum: [PLACE, CITY] }
+                            status: { type: string, enum: [PENDING, VERIFIED] }
+                            method: { type: string, nullable: true }
+                            uploadSource: { type: string, enum: [CAMERA, GALLERY], nullable: true }
+                            location: { type: object }
+                            evidence: { type: object }
+                            createdAt: { type: string, format: date-time }
+                            updatedAt: { type: string, format: date-time }
+                      pagination:
+                        type: object
+                        properties:
+                          hasMore: { type: boolean }
+                          nextCursor: { type: string, nullable: true }
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
     post:
       tags:
         - Visited Places

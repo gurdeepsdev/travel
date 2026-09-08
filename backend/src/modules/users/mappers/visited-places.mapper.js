@@ -3,6 +3,24 @@ import {
 } from "../utils/asset-url.util.js";
 
 class VisitedPlacesMapper {
+  static toVerificationListResponse({
+    rows,
+    hasMore,
+    nextCursor,
+  }) {
+    return {
+      verifications: (rows ?? [])
+        .map((row) =>
+          this.toVerificationDetail(row),
+        )
+        .filter(Boolean),
+      pagination: {
+        hasMore: hasMore === true,
+        nextCursor: nextCursor ?? null,
+      },
+    };
+  }
+
   static toVerificationDetail(row) {
     if (!row?.verification_id) {
       return null;

@@ -8,6 +8,9 @@ const submitVerificationMock =
 const getVerificationMock =
   jest.fn();
 
+const getVerificationsMock =
+  jest.fn();
+
 const createdMock =
   jest.fn();
 
@@ -23,6 +26,9 @@ jest.unstable_mockModule(
 
       getVerification:
         getVerificationMock,
+
+      getVerifications:
+        getVerificationsMock,
     },
   }),
 );
@@ -193,6 +199,60 @@ describe(
             res,
             result,
             "Visit evidence submitted for manual review.",
+          );
+      },
+    );
+  },
+);
+
+describe(
+  "VisitedPlacesController getVerifications",
+  () => {
+    test(
+      "returns the authenticated verification list",
+      async () => {
+        const req = {
+          user: {
+            id:
+              "63aae149-8f8f-4b30-b30d-211da764c080",
+          },
+          validated: {
+            query: {
+              limit: 20,
+            },
+          },
+        };
+        const res = {};
+        const next = jest.fn();
+        const result = {
+          verifications: [],
+          pagination: {
+            hasMore: false,
+            nextCursor: null,
+          },
+        };
+
+        getVerificationsMock
+          .mockResolvedValue(result);
+
+        await VisitedPlacesController
+          .getVerifications(
+            req,
+            res,
+            next,
+          );
+
+        expect(getVerificationsMock)
+          .toHaveBeenCalledWith({
+            userId: req.user.id,
+            limit: 20,
+            cursor: null,
+          });
+        expect(successMock)
+          .toHaveBeenCalledWith(
+            res,
+            result,
+            "Visit verifications fetched successfully.",
           );
       },
     );

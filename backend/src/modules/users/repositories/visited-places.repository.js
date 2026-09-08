@@ -2,6 +2,136 @@ import Database
   from "../../../database/database-manager.js";
 
 class VisitedPlacesRepository {
+  async listVerifications({
+    userId,
+    limit = 20,
+    cursor = null,
+  }) {
+    const safeLimit = Math.min(
+      Math.max(Number(limit) || 20, 1),
+      50,
+    );
+    const params = [userId];
+    let cursorWhere = "";
+
+    if (cursor) {
+      params.push(cursor.createdAt, cursor.id);
+      cursorWhere = `
+        WHERE (
+          verification.created_at,
+          verification.verification_id
+        ) < (
+          $2::timestamptz,
+          $3::uuid
+        )
+      `;
+    }
+
+    params.push(safeLimit + 1);
+    const limitParameterIndex = params.length;
+    const sql = `
+      SELECT *
+      FROM (
+        SELECT
+          'PLACE'::varchar AS target_type,
+          visited_place.id AS verification_id,
+          visited_place.verification_status,
+          visited_place.verification_details,
+          visited_place.created_at,
+          visited_place.updated_at,
+          place.id AS location_id,
+          place.name AS location_name,
+          city.id AS city_id,
+          city.name AS city_name,
+          country.id AS country_id,
+          country.name AS country_name,
+          asset.id AS asset_id,
+          asset.storage_provider,
+          asset.storage_key,
+          asset.is_public,
+          asset.original_filename,
+          asset.mime_type,
+          asset.extension,
+          asset.file_size
+        FROM users.visited_places visited_place
+        INNER JOIN poi.places place
+          ON place.id = visited_place.place_id
+        INNER JOIN poi.cities city
+          ON city.id = place.city_id
+        INNER JOIN poi.countries country
+          ON country.id = place.country_id
+        LEFT JOIN media.assets asset
+          ON asset.id = visited_place.verification_asset_id
+          AND asset.deleted_at IS NULL
+        WHERE visited_place.user_id = $1::uuid
+          AND visited_place.verification_status IN (
+            'PENDING',
+            'VERIFIED'
+          )
+
+        UNION ALL
+
+        SELECT
+          'CITY'::varchar AS target_type,
+          user_collection.id AS verification_id,
+          CASE
+            WHEN user_collection.verification_status IS TRUE
+              THEN 'VERIFIED'
+            ELSE 'PENDING'
+          END::varchar AS verification_status,
+          '{}'::jsonb AS verification_details,
+          user_collection.created_at,
+          user_collection.updated_at,
+          city.id AS location_id,
+          city.name AS location_name,
+          city.id AS city_id,
+          city.name AS city_name,
+          country.id AS country_id,
+          country.name AS country_name,
+          asset.id AS asset_id,
+          asset.storage_provider,
+          asset.storage_key,
+          asset.is_public,
+          asset.original_filename,
+          asset.mime_type,
+          asset.extension,
+          asset.file_size
+        FROM users.collection user_collection
+        INNER JOIN poi.cities city
+          ON city.id = user_collection.city_id
+        INNER JOIN poi.countries country
+          ON country.id = city.country_id
+        LEFT JOIN media.assets asset
+          ON asset.id = user_collection.verification_asset_id
+          AND asset.deleted_at IS NULL
+        WHERE user_collection.user_id = $1::uuid
+      ) AS verification
+      ${cursorWhere}
+      ORDER BY
+        verification.created_at DESC,
+        verification.verification_id DESC
+      LIMIT $${limitParameterIndex}
+    `;
+
+    const { rows } = await Database.query(
+      sql,
+      params,
+    );
+    const hasMore = rows.length > safeLimit;
+    const paginatedRows = hasMore
+      ? rows.slice(0, safeLimit)
+      : rows;
+
+    return {
+      rows: paginatedRows,
+      hasMore,
+      lastRow:
+        paginatedRows[
+          paginatedRows.length - 1
+        ] ?? null,
+    };
+  }
+
   async findVerificationById({
     userId,
     verificationId,
