@@ -11,6 +11,9 @@ const POST_ID =
 const CITY_ID =
   "187cef7e-0554-42f0-a0b9-4e44b9824cee";
 
+const GOOGLE_LOCATION_ID =
+  "ChIJArticternGoogleLocation";
+
 const ITINERARY_ID =
   "11111111-1111-4111-8111-111111111111";
 
@@ -269,7 +272,7 @@ function createRequest(
       "PUBLIC",
 
     cityId:
-      CITY_ID,
+      GOOGLE_LOCATION_ID,
 
     existingAssetIds: [],
 
@@ -526,7 +529,7 @@ describe(
     );
 
     test(
-      "creates a city post using the supplied city ID",
+      "resolves a Google location to an internal city",
       async () => {
         await PostCreateService
           .createPost(createRequest());
@@ -539,7 +542,7 @@ describe(
             transactionClient,
 
           cityId:
-            CITY_ID,
+            GOOGLE_LOCATION_ID,
         });
 
         expect(

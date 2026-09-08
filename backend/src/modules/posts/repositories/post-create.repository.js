@@ -27,18 +27,38 @@ class PostCreateRepository {
       rows,
     } = await client.query(
       `
-        SELECT
-          city.id,
-          city.name
+        WITH matching_cities AS (
+          SELECT
+            city.id,
+            city.name,
+            1 AS match_priority
+          FROM poi.cities city
+          WHERE city.provider =
+              'GOOGLE_PLACES'
+            AND city.provider_id =
+              $1::varchar
+            AND city.is_active IS TRUE
 
-        FROM poi.cities city
+          UNION ALL
 
-        WHERE city.id = $1::uuid
-          AND city.is_active IS TRUE
-
+          SELECT
+            city.id,
+            city.name,
+            2 AS match_priority
+          FROM poi.places place
+          INNER JOIN poi.cities city
+            ON city.id = place.city_id
+            AND city.is_active IS TRUE
+          WHERE place.provider =
+              'GOOGLE_PLACES'
+            AND place.provider_id =
+              $1::varchar
+            AND place.is_closed IS FALSE
+        )
+        SELECT id, name
+        FROM matching_cities
+        ORDER BY match_priority
         LIMIT 1
-
-        FOR KEY SHARE
       `,
       [
         cityId,

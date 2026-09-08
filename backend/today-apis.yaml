@@ -5194,8 +5194,9 @@ components:
       type: object
       additionalProperties: false
       description: >
-        Provide the internal Artictern city UUID. New posts are city-based and
-        are stored with postType CITY.
+        Provide a Google city or Google place identifier already present in
+        Artictern. The backend resolves and stores its internal city UUID. New
+        posts are city-based and are stored with postType CITY.
       required:
         - cityId
       properties:
@@ -5215,8 +5216,9 @@ components:
             unchanged by later profile-privacy updates.
         cityId:
           type: string
-          format: uuid
-          description: Internal Artictern city UUID.
+          minLength: 1
+          maxLength: 255
+          description: Google city or place identifier already present in Artictern.
         files:
           type: array
           maxItems: 10
