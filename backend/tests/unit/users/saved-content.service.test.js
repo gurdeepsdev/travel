@@ -67,6 +67,7 @@ function createProfile(
     username: USERNAME,
     is_private: false,
     viewer_is_owner: false,
+    viewer_is_connected: false,
     has_block_relationship: false,
     ...overrides,
   };
@@ -560,6 +561,31 @@ postsRepositoryMock
               username: USERNAME,
               viewerUserId:
                 TARGET_USER_ID,
+            });
+
+        expect(result.places)
+          .toHaveLength(1);
+      },
+    );
+
+    test(
+      "allows a connection to view a private profile",
+      async () => {
+        repositoryMock
+          .findProfileAccessContext
+          .mockResolvedValue(
+            createProfile({
+              is_private: true,
+              viewer_is_connected: true,
+            }),
+          );
+
+        const result =
+          await SavedContentService
+            .getUserSavedPlaces({
+              username: USERNAME,
+              viewerUserId:
+                VIEWER_USER_ID,
             });
 
         expect(result.places)
