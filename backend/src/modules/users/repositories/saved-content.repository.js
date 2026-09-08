@@ -422,11 +422,8 @@ class SavedContentRepository {
   }
 
   /**
-   * Returns deduplicated POI cards derived from
-   * a user's active saved posts.
-   *
-   * No source-post identifiers or content are
-   * selected.
+   * Returns deduplicated place and city cards
+   * derived from a user's active saved posts.
    */
   async listUserSavedPlaces({
     targetUserId,
@@ -463,7 +460,7 @@ class SavedContentRepository {
       params.length;
 
     const sql = `
-      WITH ranked_saved_places AS (
+      WITH ranked_saved_locations AS (
         SELECT
           saved_item.id
             AS saved_item_id,
@@ -471,14 +468,32 @@ class SavedContentRepository {
           saved_item.created_at
             AS saved_at,
 
-          post.place_id,
+          CASE
+            WHEN post.place_id IS NOT NULL
+            THEN 'PLACE'
+            ELSE 'CITY'
+          END AS location_type,
+
+          COALESCE(
+            post.place_id,
+            post.city_id
+          ) AS location_id,
 
           ROW_NUMBER() OVER (
-            PARTITION BY post.place_id
+            PARTITION BY
+              CASE
+                WHEN post.place_id IS NOT NULL
+                THEN 'PLACE'
+                ELSE 'CITY'
+              END,
+              COALESCE(
+                post.place_id,
+                post.city_id
+              )
             ORDER BY
               saved_item.created_at DESC,
               saved_item.id DESC
-          ) AS place_rank
+          ) AS location_rank
 
         FROM users.saved_items saved_item
 
@@ -505,8 +520,10 @@ class SavedContentRepository {
           AND saved_item.is_active
             IS TRUE
 
-          AND post.place_id
-            IS NOT NULL
+          AND (
+            post.place_id IS NOT NULL
+            OR post.city_id IS NOT NULL
+          )
 
           /*
            * Public saved places must not reveal
@@ -543,11 +560,12 @@ class SavedContentRepository {
         SELECT
           ranked.saved_item_id,
           ranked.saved_at,
-          ranked.place_id
+          ranked.location_type,
+          ranked.location_id
 
-        FROM ranked_saved_places ranked
+        FROM ranked_saved_locations ranked
 
-        WHERE ranked.place_rank = 1
+        WHERE ranked.location_rank = 1
       )
 
       SELECT
@@ -557,12 +575,20 @@ class SavedContentRepository {
         deduplicated.saved_at::text
           AS cursor_created_at,
 
-        place.id,
-        place.name,
+        deduplicated.location_type,
+
+        COALESCE(place.id, city.id) AS id,
+        COALESCE(place.name, city.name) AS name,
         place.description,
         place.address,
-        place.latitude,
-        place.longitude,
+        COALESCE(
+          place.latitude,
+          city.latitude
+        ) AS latitude,
+        COALESCE(
+          place.longitude,
+          city.longitude
+        ) AS longitude,
         place.rating,
         place.review_count,
         place.is_verified,
@@ -581,13 +607,23 @@ class SavedContentRepository {
 
       FROM deduplicated
 
-      INNER JOIN poi.places place
+      LEFT JOIN poi.places place
         ON place.id =
-          deduplicated.place_id
+          deduplicated.location_id
+        AND deduplicated.location_type =
+          'PLACE'
+
+      LEFT JOIN poi.cities city
+        ON city.id =
+          deduplicated.location_id
+        AND deduplicated.location_type =
+          'CITY'
 
       LEFT JOIN media.assets place_image
-        ON place_image.id =
-          place.media_id
+        ON place_image.id = COALESCE(
+          place.media_id,
+          city.icon_asset_id
+        )
         AND place_image.deleted_at
           IS NULL
         AND place_image.is_public

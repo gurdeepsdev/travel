@@ -22,6 +22,9 @@ const SAVED_ITEM_ID =
 const PLACE_ID =
   "72bf8c7b-c684-4046-9f97-cfb1f569e59a";
 
+const CITY_ID =
+  "994ea28a-6ad8-4542-9740-c7d8d48696aa";
+
 const repositoryMock = {
   listMySavedPostReferences:
     jest.fn(),
@@ -86,6 +89,7 @@ function createPlaceRow(
       "2026-08-03 10:00:00.000000",
 
     id: PLACE_ID,
+    location_type: "PLACE",
     name: "DLF Mall of India",
     description:
       "A large shopping destination.",
@@ -101,6 +105,23 @@ function createPlaceRow(
 
     ...overrides,
   };
+}
+
+function createCityRow(
+  overrides = {},
+) {
+  return createPlaceRow({
+    id: CITY_ID,
+    location_type: "CITY",
+    name: "Delhi",
+    description: null,
+    address: null,
+    rating: null,
+    review_count: null,
+    is_verified: null,
+    is_closed: null,
+    ...overrides,
+  });
 }
 function createSavedPostReference(
   overrides = {},
@@ -512,6 +533,36 @@ postsRepositoryMock
             lastRow.cursor_created_at,
           id: SAVED_ITEM_ID,
         });
+      },
+    );
+
+    test(
+      "returns saved cities with a location type",
+      async () => {
+        repositoryMock
+          .listUserSavedPlaces
+          .mockResolvedValue({
+            rows: [createCityRow()],
+            hasMore: false,
+            lastRow: null,
+          });
+
+        const result =
+          await SavedContentService
+            .getUserSavedPlaces({
+              username: USERNAME,
+              viewerUserId:
+                VIEWER_USER_ID,
+            });
+
+        expect(result.places).toEqual([
+          expect.objectContaining({
+            id: CITY_ID,
+            type: "CITY",
+            title: "Delhi",
+            image: null,
+          }),
+        ]);
       },
     );
 

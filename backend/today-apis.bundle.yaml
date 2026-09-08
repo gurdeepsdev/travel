@@ -2741,9 +2741,9 @@ paths:
     get:
       tags:
         - Saved Content
-      summary: Get public saved places for a user
+      summary: Get public saved places and cities for a user
       description: |
-        Returns canonical POI cards derived from accessible saved posts. Authentication is optional. Private profiles are visible to their owner and accepted connections. Blocked relationships return an empty place list.
+        Returns deduplicated canonical POI and city cards derived from accessible saved posts. Authentication is optional. Private profiles are visible to their owner and accepted connections. Blocked relationships return an empty place list.
       operationId: getUserSavedPlaces
       security:
         - bearerAuth: []
@@ -2783,6 +2783,7 @@ paths:
                               type: object
                               required:
                                 - id
+                                - type
                                 - title
                                 - description
                                 - image
@@ -2797,6 +2798,11 @@ paths:
                                 id:
                                   type: string
                                   format: uuid
+                                type:
+                                  type: string
+                                  enum:
+                                    - PLACE
+                                    - CITY
                                 title:
                                   type: string
                                   nullable: true

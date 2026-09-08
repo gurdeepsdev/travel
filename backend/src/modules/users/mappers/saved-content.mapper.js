@@ -104,6 +104,10 @@ static toMySavedPostsResponse({
     return {
       id: row.id,
 
+      type:
+        row.location_type ??
+        "PLACE",
+
       title:
         row.name ?? null,
 
