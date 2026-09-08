@@ -371,6 +371,19 @@ class SavedContentRepository {
           THEN FALSE
           ELSE EXISTS (
             SELECT 1
+            FROM users.connections connection
+            WHERE connection.user_low_id =
+                LEAST($2::uuid, profile.user_id)
+              AND connection.user_high_id =
+                GREATEST($2::uuid, profile.user_id)
+          )
+        END AS viewer_is_connected,
+
+        CASE
+          WHEN $2::uuid IS NULL
+          THEN FALSE
+          ELSE EXISTS (
+            SELECT 1
             FROM users.blocked_users blocked
             WHERE (
               blocked.user_id =

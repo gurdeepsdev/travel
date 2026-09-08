@@ -174,20 +174,12 @@ async getMySavedPostGroups({
     const viewerIsOwner =
       profile.viewer_is_owner === true;
 
-    /*
-     * Match the existing profile-post rule:
-     * private profiles are visible only to their
-     * owner until follower support is added.
-     *
-     * Blocked relationships also return an empty
-     * list instead of exposing saved locations.
-     */
     const cannotView =
-      !viewerIsOwner &&
+      profile.has_block_relationship === true ||
       (
-        profile.is_private === true ||
-        profile.has_block_relationship ===
-          true
+        profile.is_private === true &&
+        !viewerIsOwner &&
+        profile.viewer_is_connected !== true
       );
 
     if (cannotView) {

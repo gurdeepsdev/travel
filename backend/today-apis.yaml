@@ -1088,8 +1088,8 @@ paths:
       summary: Get public saved places for a user
       description: >
         Returns canonical POI cards derived from accessible saved posts.
-        Authentication is optional. Private or blocked profile relationships
-        return an empty place list.
+        Authentication is optional. Private profiles are visible to their owner
+        and accepted connections. Blocked relationships return an empty place list.
       operationId: getUserSavedPlaces
       security:
         - bearerAuth: []
