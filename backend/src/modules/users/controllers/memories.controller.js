@@ -3,6 +3,32 @@ import Response from "../../../core/response/index.js";
 import MemoriesService from "../services/memories.service.js";
 
 class MemoriesController {
+  async deleteMemory(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await MemoriesService
+          .deleteMemory({
+            userId:
+              req.user.id,
+            memoryId:
+              req.validated.params
+                .memoryId,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Memory deleted successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   /**
    * Saves an owned media asset as a private memory.
    */

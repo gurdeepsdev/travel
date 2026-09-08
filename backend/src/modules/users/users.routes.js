@@ -42,6 +42,7 @@ import {
   getUserSavedPlacesSchema,
 } from "./validations/saved-content.validation.js";
 import {
+  deleteMemorySchema,
   getMyMemoriesSchema,
   saveMemorySchema,
 } from "./validations/memories.validation.js";
@@ -114,6 +115,13 @@ router.get(
   AuthMiddleware.authenticate,
   validate(getMyMemoriesSchema),
   MemoriesController.getMyMemories,
+);
+
+router.delete(
+  "/me/memories/:memoryId",
+  AuthMiddleware.authenticate,
+  validate(deleteMemorySchema),
+  MemoriesController.deleteMemory,
 );
 
 router.get(

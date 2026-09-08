@@ -1,6 +1,36 @@
 import Database from "../../../database/database-manager.js";
 
 class MemoriesRepository {
+  async deleteMine({
+    userId,
+    memoryId,
+    client = null,
+  }) {
+    const executeQuery =
+      client
+        ? client.query.bind(client)
+        : Database.query.bind(Database);
+
+    const sql = `
+      DELETE FROM users.memories memory
+      WHERE memory.id = $2::uuid
+        AND memory.user_id = $1::uuid
+      RETURNING
+        memory.id,
+        memory.asset_id
+    `;
+
+    const { rows } = await executeQuery(
+      sql,
+      [
+        userId,
+        memoryId,
+      ],
+    );
+
+    return rows[0] ?? null;
+  }
+
   /**
    * Saves an owned media asset as a memory.
    *

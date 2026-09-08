@@ -37,12 +37,12 @@ paths:
               type: object
               additionalProperties: false
               required:
+                - uploadSource
                 - verificationPhoto
               properties:
                 uploadSource:
                   type: string
                   enum: [CAMERA, GALLERY]
-                  default: CAMERA
                   description: CAMERA runs automatic verification; GALLERY queues manual review.
                 locationId:
                   type: string

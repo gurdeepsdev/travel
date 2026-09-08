@@ -282,10 +282,29 @@ class VisitedPlacesService {
     googlePlaceId = null,
     googleCityPlaceId = null,
     claimedVisitedAt = null,
-    uploadSource = "CAMERA",
+    uploadSource,
     verificationPhotoFile,
     logger = null,
   }) {
+    if (
+      uploadSource !== "CAMERA" &&
+      uploadSource !== "GALLERY"
+    ) {
+      throw new AppError({
+        code:
+          ErrorCodes.COMMON
+            .VALIDATION_FAILED,
+        message:
+          "Upload source is required.",
+        statusCode:
+          HttpStatus.BAD_REQUEST,
+        details: {
+          field:
+            "uploadSource",
+        },
+      });
+    }
+
     let cityId = null;
 
     if (locationId) {

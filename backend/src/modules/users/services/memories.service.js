@@ -107,6 +107,38 @@ function createMemoryInputError({
 
 
 class MemoriesService {
+  async deleteMemory({
+    userId,
+    memoryId,
+  }) {
+    const deletedMemory =
+      await MemoriesRepository
+        .deleteMine({
+          userId,
+          memoryId,
+        });
+
+    if (!deletedMemory) {
+      throw new AppError({
+        code:
+          ErrorCodes.MEMORY
+            .NOT_FOUND,
+        message:
+          "Memory was not found.",
+        statusCode:
+          HttpStatus.NOT_FOUND,
+        details:
+          null,
+      });
+    }
+
+    return {
+      deleted: true,
+      memoryId:
+        deletedMemory.id,
+    };
+  }
+
   /**
    * Idempotently saves an owned image, video,
    * or boomerang asset as a private memory.

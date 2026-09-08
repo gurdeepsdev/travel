@@ -109,6 +109,9 @@ MEMORY: Object.freeze({
 
   MEDIA_UPLOAD_FAILED:
     "MEMORY.MEDIA_UPLOAD_FAILED",
+
+  NOT_FOUND:
+    "MEMORY.NOT_FOUND",
 }),
 
 REPORT: Object.freeze({
