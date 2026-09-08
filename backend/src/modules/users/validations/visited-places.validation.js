@@ -75,8 +75,7 @@ const submitVisitedPlaceVerificationSchema =
           ], {
             error:
               "Upload source must be CAMERA or GALLERY.",
-          })
-          .default("CAMERA"),
+          }),
 
         locationId: z
           .string({

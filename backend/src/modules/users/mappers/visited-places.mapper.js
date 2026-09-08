@@ -117,7 +117,9 @@ class VisitedPlacesMapper {
         id: row.id,
         cityId: row.city_id,
         name: row.city_name ?? null,
-        verificationStatus: true,
+        verificationStatus:
+          row.verification_status ===
+            true,
         visitedAt: row.visited_at ?? null,
         isPreference:
           row.is_preference === true,

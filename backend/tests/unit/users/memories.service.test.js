@@ -56,6 +56,7 @@ jest.unstable_mockModule(
 const repositoryMock = {
   save: jest.fn(),
   listMine: jest.fn(),
+  deleteMine: jest.fn(),
 };
 
 jest.unstable_mockModule(
@@ -245,6 +246,63 @@ describe("MemoriesService", () => {
         supersededStoredObjects:
           [],
       });
+  });
+
+  describe("deleteMemory", () => {
+    test("deletes only an owned memory", async () => {
+      repositoryMock
+        .deleteMine
+        .mockResolvedValue({
+          id:
+            MEMORY_ID,
+          asset_id:
+            ASSET_ID,
+        });
+
+      await expect(
+        MemoriesService
+          .deleteMemory({
+            userId:
+              USER_ID,
+            memoryId:
+              MEMORY_ID,
+          }),
+      ).resolves.toEqual({
+        deleted: true,
+        memoryId:
+          MEMORY_ID,
+      });
+
+      expect(
+        repositoryMock.deleteMine,
+      ).toHaveBeenCalledWith({
+        userId:
+          USER_ID,
+        memoryId:
+          MEMORY_ID,
+      });
+    });
+
+    test("hides missing or unowned memories", async () => {
+      repositoryMock
+        .deleteMine
+        .mockResolvedValue(null);
+
+      await expect(
+        MemoriesService
+          .deleteMemory({
+            userId:
+              USER_ID,
+            memoryId:
+              MEMORY_ID,
+          }),
+      ).rejects.toMatchObject({
+        code:
+          "MEMORY.NOT_FOUND",
+        statusCode:
+          404,
+      });
+    });
   });
 
   describe("saveMemory", () => {

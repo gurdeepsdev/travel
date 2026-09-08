@@ -1455,6 +1455,43 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /users/me/memories/{memoryId}:
+    delete:
+      tags:
+        - Memories
+      summary: Delete one private memory
+      description: Removes an owned memory entry without deleting the reusable media asset.
+      operationId: deleteMemory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: memoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Memory deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      deleted: { type: boolean, enum: [true] }
+                      memoryId: { type: string, format: uuid }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Memory was not found
   /users/me/visited-place-verifications:
     post:
       tags:
@@ -1494,6 +1531,7 @@ paths:
                   - placeId
                   - googlePlaceId
               required:
+                - uploadSource
                 - verificationPhoto
               properties:
                 uploadSource:
@@ -1501,7 +1539,6 @@ paths:
                   enum:
                     - CAMERA
                     - GALLERY
-                  default: CAMERA
                   description: CAMERA runs automatic verification; GALLERY queues manual review.
                 locationId:
                   type: string

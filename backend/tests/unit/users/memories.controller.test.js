@@ -5,7 +5,13 @@ import {
 const saveMemoryMock =
   jest.fn();
 
+const deleteMemoryMock =
+  jest.fn();
+
 const createdMock =
+  jest.fn();
+
+const successMock =
   jest.fn();
 
 jest.unstable_mockModule(
@@ -14,6 +20,9 @@ jest.unstable_mockModule(
     default: {
       saveMemory:
         saveMemoryMock,
+
+      deleteMemory:
+        deleteMemoryMock,
     },
   }),
 );
@@ -24,6 +33,9 @@ jest.unstable_mockModule(
     default: {
       created:
         createdMock,
+
+      success:
+        successMock,
     },
   }),
 );
@@ -96,5 +108,53 @@ describe("MemoriesController saveMemory", () => {
 
     expect(next)
       .not.toHaveBeenCalled();
+  });
+});
+
+describe("MemoriesController deleteMemory", () => {
+  test("forwards the owned memory ID", async () => {
+    const memoryId =
+      "97000000-0000-4000-8000-000000000001";
+    const req = {
+      user: {
+        id:
+          "63aae149-8f8f-4b30-b30d-211da764c080",
+      },
+      validated: {
+        params: {
+          memoryId,
+        },
+      },
+    };
+    const res = {};
+    const next = jest.fn();
+    const result = {
+      deleted: true,
+      memoryId,
+    };
+
+    deleteMemoryMock
+      .mockResolvedValue(result);
+
+    await MemoriesController
+      .deleteMemory(
+        req,
+        res,
+        next,
+      );
+
+    expect(deleteMemoryMock)
+      .toHaveBeenCalledWith({
+        userId:
+          req.user.id,
+        memoryId,
+      });
+
+    expect(successMock)
+      .toHaveBeenCalledWith(
+        res,
+        result,
+        "Memory deleted successfully.",
+      );
   });
 });

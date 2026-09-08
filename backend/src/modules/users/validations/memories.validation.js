@@ -93,10 +93,35 @@ const getMyMemoriesSchema = z.object({
     .strict(),
 });
 
+const deleteMemorySchema = z.object({
+  params: z
+    .object({
+      memoryId: z
+        .string({
+          error:
+            "Memory ID must be a string.",
+        })
+        .trim()
+        .uuid(
+          "Memory ID must be a valid UUID.",
+        ),
+    })
+    .strict(),
+
+  body: z
+    .unknown()
+    .optional(),
+
+  query: z
+    .object({})
+    .strict(),
+});
+
 export {
   MEMORY_TYPES,
   DEFAULT_MEMORIES_LIMIT,
   MAX_MEMORIES_LIMIT,
   saveMemorySchema,
   getMyMemoriesSchema,
+  deleteMemorySchema,
 };

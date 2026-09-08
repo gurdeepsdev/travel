@@ -323,6 +323,9 @@ function submit(
       claimedVisitedAt:
         "2024-06-15T14:20:00.000Z",
 
+      uploadSource:
+        "CAMERA",
+
       verificationPhotoFile: {
         path:
           "/tmp/visit-photo",
@@ -653,6 +656,31 @@ describe(
             null,
         });
     });
+
+    test(
+      "rejects a missing upload source",
+      async () => {
+        await expect(
+          submit({
+            uploadSource:
+              undefined,
+          }),
+        ).rejects.toMatchObject({
+          code:
+            "COMMON.VALIDATION_FAILED",
+          statusCode:
+            400,
+          details: {
+            field:
+              "uploadSource",
+          },
+        });
+
+        expect(
+          inspectEvidenceMock,
+        ).not.toHaveBeenCalled();
+      },
+    );
 
     test(
       "resolves a unified internal place location ID",
