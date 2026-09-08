@@ -299,11 +299,20 @@ const createPostBodySchema = z
       )
       .optional(),
 
-    cityId:
-      uuidSchema({
-        field:
-          "City ID",
-      }),
+    cityId: z
+      .string({
+        error:
+          "City ID must be a string.",
+      })
+      .trim()
+      .min(
+        1,
+        "City ID cannot be empty.",
+      )
+      .max(
+        255,
+        "City ID cannot exceed 255 characters.",
+      ),
 
     existingAssetIds:
       existingAssetIdsSchema,

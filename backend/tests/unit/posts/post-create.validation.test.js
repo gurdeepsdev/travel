@@ -7,7 +7,7 @@ const baseRequest = {
   query: {},
   body: {
     cityId:
-      "187cef7e-0554-42f0-a0b9-4e44b9824cee",
+      "ChIJArticternGoogleCity",
     existingAssetIds: [],
     mediaOrder: [],
     itineraryIds: [],
@@ -70,6 +70,22 @@ describe("create post city validation", () => {
       });
 
     expect(result.success).toBe(false);
+  });
+
+  test.each([
+    "ChIJArticternGoogleCity",
+    "ChIJArticternGooglePlace",
+  ])("accepts Google identifier %s", (cityId) => {
+    const result =
+      createPostSchema.safeParse({
+        ...baseRequest,
+        body: {
+          ...baseRequest.body,
+          cityId,
+        },
+      });
+
+    expect(result.success).toBe(true);
   });
 
   test.each([
