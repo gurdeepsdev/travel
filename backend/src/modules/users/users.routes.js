@@ -66,6 +66,7 @@ import {
 } from "./validations/blocks.validation.js";
 import {
   getVisitedPlaceVerificationSchema,
+  getMyVisitedPlaceVerificationsSchema,
   getMyVisitedPlacesSchema,
   submitVisitedPlaceVerificationSchema,
   updateVisitedCollectionPreferenceSchema,
@@ -195,6 +196,16 @@ router.get(
 
 
 // Verify an attraction and its city using a historical photo.
+router.get(
+  "/me/visited-place-verifications",
+  AuthMiddleware.authenticate,
+  validate(
+    getMyVisitedPlaceVerificationsSchema,
+  ),
+  VisitedPlacesController
+    .getVerifications,
+);
+
 router.post(
   "/me/visited-place-verifications",
   AuthMiddleware.authenticate,

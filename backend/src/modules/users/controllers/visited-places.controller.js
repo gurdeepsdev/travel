@@ -5,6 +5,33 @@ import VisitedPlacesService
   from "../services/visited-places.service.js";
 
 class VisitedPlacesController {
+  async getVerifications(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await VisitedPlacesService
+          .getVerifications({
+            userId: req.user.id,
+            limit:
+              req.validated.query.limit,
+            cursor:
+              req.validated.query.cursor ??
+              null,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Visit verifications fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async getVerification(
     req,
     res,

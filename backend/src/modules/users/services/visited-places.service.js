@@ -241,6 +241,45 @@ function isPreferenceLimitError(
   );
 }
 class VisitedPlacesService {
+  async getVerifications({
+    userId,
+    limit = 20,
+    cursor = null,
+  }) {
+    const decodedCursor = decodeCursor(cursor);
+    const listResult =
+      await VisitedPlacesRepository
+        .listVerifications({
+          userId,
+          limit,
+          cursor: decodedCursor
+            ? {
+                createdAt:
+                  decodedCursor.createdAt,
+                id: decodedCursor.id,
+              }
+            : null,
+        });
+    const nextCursor =
+      listResult.hasMore &&
+      listResult.lastRow
+        ? encodeCursor({
+            createdAt:
+              listResult.lastRow.created_at,
+            id:
+              listResult.lastRow
+                .verification_id,
+          })
+        : null;
+
+    return VisitedPlacesMapper
+      .toVerificationListResponse({
+        rows: listResult.rows,
+        hasMore: listResult.hasMore,
+        nextCursor,
+      });
+  }
+
   async getVerification({
     userId,
     verificationId,

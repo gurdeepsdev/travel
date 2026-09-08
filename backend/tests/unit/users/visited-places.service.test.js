@@ -62,6 +62,9 @@ const mediaRepositoryMock = {
 };
 
 const repositoryMock = {
+  listVerifications:
+    jest.fn(),
+
   findVerificationById:
     jest.fn(),
 
@@ -94,6 +97,9 @@ const repositoryMock = {
 };
 
 const mapperMock = {
+  toVerificationListResponse:
+    jest.fn(),
+
   toVerificationDetail:
     jest.fn(),
 
@@ -340,6 +346,112 @@ function submit(
       ...overrides,
     });
 }
+
+describe(
+  "VisitedPlacesService getVerifications",
+  () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test(
+      "returns pending and verified city and place submissions",
+      async () => {
+        const rows = [
+          {
+            verification_id:
+              "b1000000-0000-4000-8000-000000000001",
+            target_type: "PLACE",
+            verification_status:
+              "PENDING",
+          },
+          {
+            verification_id:
+              "b1000000-0000-4000-8000-000000000002",
+            target_type: "CITY",
+            verification_status:
+              "VERIFIED",
+          },
+        ];
+        const mapped = {
+          verifications: rows,
+          pagination: {
+            hasMore: false,
+            nextCursor: null,
+          },
+        };
+
+        repositoryMock
+          .listVerifications
+          .mockResolvedValue({
+            rows,
+            hasMore: false,
+            lastRow: null,
+          });
+        mapperMock
+          .toVerificationListResponse
+          .mockReturnValue(mapped);
+
+        await expect(
+          VisitedPlacesService
+            .getVerifications({
+              userId: USER_ID,
+              limit: 20,
+            }),
+        ).resolves.toEqual(mapped);
+
+        expect(repositoryMock
+          .listVerifications)
+          .toHaveBeenCalledWith({
+            userId: USER_ID,
+            limit: 20,
+            cursor: null,
+          });
+      },
+    );
+
+    test(
+      "creates a stable next cursor",
+      async () => {
+        const lastRow = {
+          verification_id:
+            "b1000000-0000-4000-8000-000000000002",
+          created_at:
+            "2026-09-08T05:00:00.000Z",
+        };
+
+        repositoryMock
+          .listVerifications
+          .mockResolvedValue({
+            rows: [lastRow],
+            hasMore: true,
+            lastRow,
+          });
+        mapperMock
+          .toVerificationListResponse
+          .mockImplementation(
+            (value) => value,
+          );
+
+        const result =
+          await VisitedPlacesService
+            .getVerifications({
+              userId: USER_ID,
+              limit: 1,
+            });
+
+        expect(
+          decodeCursor(result.nextCursor),
+        ).toEqual({
+          createdAt:
+            lastRow.created_at,
+          id:
+            lastRow.verification_id,
+        });
+      },
+    );
+  },
+);
 
 describe(
   "VisitedPlacesService getVerification",
