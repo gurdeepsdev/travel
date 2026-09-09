@@ -10,6 +10,7 @@ const repositoryMock = {
     jest.fn(),
   create: jest.fn(),
   findOwnedById: jest.fn(),
+  findOwnedDashboard: jest.fn(),
   listOwned: jest.fn(),
   updateOwnedLifecycleStatus:
     jest.fn(),
@@ -793,6 +794,159 @@ describe("ItineraryService", () => {
           "ITINERARY.NOT_FOUND",
         message:
           "Itinerary not found.",
+        statusCode: 404,
+      });
+    },
+  );
+
+  test(
+    "returns the complete itinerary dashboard summary",
+    async () => {
+      repositoryMock.findOwnedDashboard
+        .mockResolvedValue({
+          id: ITINERARY_ID,
+          created_by: USER_ID,
+          title: "Delhi itinerary",
+          duration_days: 2,
+          visibility: "private",
+          trip_status: "UPCOMING",
+          ai_generated: true,
+          itinerary_json: {
+            city_id: "delhi",
+          },
+          created_at:
+            new Date(
+              "2026-08-24T10:00:00Z",
+            ),
+          updated_at:
+            new Date(
+              "2026-08-24T10:00:00Z",
+            ),
+          trip_id:
+            "22222222-2222-4222-8222-222222222222",
+          document_count: 3,
+          document_counts_by_type: {
+            PASSPORT: 1,
+            HOTEL_BOOKING: 2,
+          },
+          essential_count: 4,
+          completed_essential_count: 3,
+          expense_count: 3,
+          expense_totals_by_currency: [
+            {
+              currencyCode: "INR",
+              totalAmount: 4500,
+            },
+          ],
+          expense_totals_by_category: [
+            {
+              category: "FOOD",
+              currencyCode: "INR",
+              expenseCount: 2,
+              totalAmount: 1500,
+            },
+          ],
+        });
+
+      const result =
+        await ItineraryService
+          .getItineraryDashboard({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          });
+
+      expect(result).toMatchObject({
+        itinerary: {
+          id: ITINERARY_ID,
+          itineraryJson: {
+            city_id: "delhi",
+          },
+        },
+        documents: {
+          totalCount: 3,
+          countsByType: {
+            PASSPORT: 1,
+            VISA: 0,
+            HOTEL_BOOKING: 2,
+          },
+        },
+        essentials: {
+          totalCount: 4,
+          markedCount: 3,
+          unmarkedCount: 1,
+          completionPercentage: 75,
+        },
+        expenses: {
+          expenseCount: 3,
+        },
+      });
+    },
+  );
+
+  test(
+    "returns zero dashboard metrics before a trip exists",
+    async () => {
+      repositoryMock.findOwnedDashboard
+        .mockResolvedValue({
+          id: ITINERARY_ID,
+          created_by: USER_ID,
+          title: "Delhi itinerary",
+          duration_days: 1,
+          visibility: "private",
+          trip_status: "SAVED",
+          ai_generated: true,
+          itinerary_json: {},
+          created_at:
+            new Date(
+              "2026-08-24T10:00:00Z",
+            ),
+          updated_at:
+            new Date(
+              "2026-08-24T10:00:00Z",
+            ),
+          trip_id: null,
+        });
+
+      const result =
+        await ItineraryService
+          .getItineraryDashboard({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          });
+
+      expect(result).toMatchObject({
+        tripId: null,
+        documents: { totalCount: 0 },
+        essentials: {
+          totalCount: 0,
+          completionPercentage: 0,
+        },
+        expenses: {
+          expenseCount: 0,
+          totalsByCurrency: [],
+          totalsByCategory: [],
+        },
+      });
+    },
+  );
+
+  test(
+    "hides an unowned itinerary dashboard",
+    async () => {
+      repositoryMock.findOwnedDashboard
+        .mockResolvedValue(null);
+
+      await expect(
+        ItineraryService
+          .getItineraryDashboard({
+            itineraryId:
+              ITINERARY_ID,
+            userId: USER_ID,
+          }),
+      ).rejects.toMatchObject({
+        code: "ITINERARY.NOT_FOUND",
         statusCode: 404,
       });
     },

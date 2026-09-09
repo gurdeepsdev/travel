@@ -55,6 +55,16 @@ router.get(
   ItineraryController.getItinerary,
 );
 
+router.get(
+  "/:itineraryId/dashboard",
+  AuthMiddleware.authenticate,
+  validate(
+    getItinerarySchema,
+  ),
+  ItineraryController
+    .getItineraryDashboard,
+);
+
 router.put(
   "/:itineraryId",
   AuthMiddleware.authenticate,

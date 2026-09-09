@@ -5,6 +5,31 @@ import ItineraryService
   from "./itinerary.service.js";
 
 class ItineraryController {
+  async getItineraryDashboard(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await ItineraryService
+          .getItineraryDashboard({
+            itineraryId:
+              req.validated.params
+                .itineraryId,
+            userId: req.user.id,
+          });
+
+      return Response.success(
+        res,
+        result,
+        "Itinerary dashboard fetched successfully.",
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async createShareLink(
     req,
     res,
