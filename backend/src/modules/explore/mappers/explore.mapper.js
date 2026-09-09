@@ -111,6 +111,10 @@ class ExploreMapper {
         row.official_name ??
         null,
 
+      googleCityPlaceId:
+        row.google_city_place_id ??
+        null,
+
       latitude:
         row.latitude !== null
           ? Number(

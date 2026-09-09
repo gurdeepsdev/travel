@@ -5675,6 +5675,7 @@ components:
         - id
         - name
         - officialName
+        - googleCityPlaceId
         - latitude
         - longitude
         - country
@@ -5691,6 +5692,10 @@ components:
         officialName:
           type: string
           nullable: true
+        googleCityPlaceId:
+          type: string
+          nullable: true
+          description: Google Places city identifier when the city is linked to Google Places.
         latitude:
           type: number
           format: double
