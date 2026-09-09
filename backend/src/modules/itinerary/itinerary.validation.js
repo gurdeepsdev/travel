@@ -19,6 +19,14 @@ const VAULT_DOCUMENT_TYPES = [
   "ID_CARD",
   "OTHER",
 ];
+const ESSENTIAL_CATEGORIES = [
+  "DOCUMENT",
+  "ELECTRONICS",
+  "MEDICINE",
+  "CLOTHES",
+  "TOILETRIES",
+  "OTHER",
+];
 
 const optionalText = (maximum) =>
   z.preprocess(
@@ -361,6 +369,96 @@ const deleteVaultDocumentSchema = z
     query: z.object({}).strict(),
   });
 
+const essentialIdParamsSchema =
+  itineraryIdParamsSchema.extend({
+    essentialId: z
+      .string({
+        error:
+          "Essential ID must be a string.",
+      })
+      .trim()
+      .uuid(
+        "Essential ID must be a valid UUID.",
+      ),
+  });
+
+const createEssentialSchema = z.object({
+  body: z
+    .object({
+      title: z.string().trim()
+        .min(
+          1,
+          "Essential title is required.",
+        )
+        .max(255),
+      category:
+        z.enum(ESSENTIAL_CATEGORIES),
+      displayOrder: z.coerce.number()
+        .int()
+        .min(1)
+        .max(32767)
+        .optional(),
+    })
+    .strict(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const listEssentialsSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const updateEssentialSchema = z.object({
+  body: z
+    .object({
+      title: z.string().trim()
+        .min(
+          1,
+          "Essential title cannot be empty.",
+        )
+        .max(255)
+        .optional(),
+      category:
+        z.enum(ESSENTIAL_CATEGORIES)
+          .optional(),
+      displayOrder: z.coerce.number()
+        .int()
+        .min(1)
+        .max(32767)
+        .optional(),
+    })
+    .strict()
+    .refine(
+      (body) =>
+        Object.keys(body).length > 0,
+      {
+        message:
+          "Provide at least one essential field to update.",
+      },
+    ),
+  params: essentialIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const setEssentialSelectionSchema =
+  z.object({
+    body: z
+      .object({
+        selected: z.boolean(),
+      })
+      .strict(),
+    params: essentialIdParamsSchema,
+    query: z.object({}).strict(),
+  });
+
+const deleteEssentialSchema = z.object({
+  body: z.unknown().optional(),
+  params: essentialIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
 const listItinerariesSchema = z
   .object({
     body: z
@@ -419,4 +517,10 @@ export {
   VAULT_DOCUMENT_TYPES,
   updateItinerarySchema,
   updateItineraryNameSchema,
+  ESSENTIAL_CATEGORIES,
+  createEssentialSchema,
+  listEssentialsSchema,
+  updateEssentialSchema,
+  setEssentialSelectionSchema,
+  deleteEssentialSchema,
 };
