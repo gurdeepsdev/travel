@@ -6,6 +6,7 @@ import {
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
   deleteVaultDocumentSchema,
+  updateVaultDocumentVisibilitySchema,
   updateItinerarySchema,
   updateItineraryNameSchema,
   createEssentialSchema,
@@ -193,6 +194,33 @@ describe("itinerary vault validation", () => {
       });
 
     expect(result.success).toBe(true);
+  });
+
+  test.each(["PRIVATE", "GROUP"])(
+    "accepts %s vault visibility",
+    (visibility) => {
+      const result = updateVaultDocumentVisibilitySchema.safeParse({
+        body: { visibility },
+        params: {
+          itineraryId,
+          documentId: "33333333-3333-4333-8333-333333333333",
+        },
+        query: {},
+      });
+      expect(result.success).toBe(true);
+    },
+  );
+
+  test("rejects PUBLIC vault visibility", () => {
+    const result = updateVaultDocumentVisibilitySchema.safeParse({
+      body: { visibility: "PUBLIC" },
+      params: {
+        itineraryId,
+        documentId: "33333333-3333-4333-8333-333333333333",
+      },
+      query: {},
+    });
+    expect(result.success).toBe(false);
   });
 });
 

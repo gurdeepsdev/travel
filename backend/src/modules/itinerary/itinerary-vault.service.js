@@ -1,6 +1,7 @@
 import Database from "../../database/database-manager.js";
 import StorageManager from "../../providers/storage/storage-manager.js";
 import MediaRepository from "../media/media.repository.js";
+import MediaService from "../media/media.service.js";
 import { buildAssetUrl } from "../users/utils/asset-url.util.js";
 import AppError from "../../core/errors/app-error.js";
 import ErrorCodes from "../../shared/constants/error-codes.js";
@@ -43,10 +44,9 @@ function mapDocument(document) {
       mimeType: document.mime_type,
       extension: document.extension,
       fileSize: document.file_size,
-      downloadUrl:
-        assetPath && publicBaseUrl
-          ? `${publicBaseUrl}${assetPath}`
-          : assetPath,
+      downloadUrl: document.itinerary_id
+        ? `${publicBaseUrl ?? ""}/api/v1/itineraries/${document.itinerary_id}/vault/documents/${document.id}/download`
+        : assetPath,
     },
     createdAt: document.created_at,
     updatedAt: document.updated_at,
@@ -151,6 +151,7 @@ class ItineraryVaultService {
             return {
               document: {
                 ...document,
+                itinerary_id: itineraryId,
                 original_filename:
                   asset.original_filename,
                 mime_type:
@@ -202,7 +203,7 @@ class ItineraryVaultService {
   }) {
     const itineraryTrip =
       await ItineraryVaultRepository
-        .findOwnedItineraryTrip({
+        .findAccessibleItineraryTrip({
           itineraryId,
           userId,
         });
@@ -215,7 +216,7 @@ class ItineraryVaultService {
 
     const documents =
       await ItineraryVaultRepository
-        .listOwned({
+        .listAccessible({
           itineraryId,
           userId,
           documentType,
@@ -254,6 +255,61 @@ class ItineraryVaultService {
         deletedAt:
           deletedDocument
             .deleted_at,
+      },
+    };
+  }
+
+  async downloadDocument({
+    itineraryId,
+    documentId,
+    userId,
+  }) {
+    const document = await ItineraryVaultRepository
+      .findAccessibleForDownload({ itineraryId, documentId, userId });
+    if (!document) {
+      throw this.createDocumentNotFoundError();
+    }
+
+    const content = await MediaService.getLocalAssetContent({
+      assetId: document.asset_id,
+      viewerUserId: userId,
+    });
+    return {
+      filePath: content.filePath,
+      filename: document.original_filename,
+      mimeType: document.mime_type,
+    };
+  }
+
+  async updateDocumentVisibility({
+    itineraryId,
+    documentId,
+    userId,
+    visibility,
+  }) {
+    if (visibility === "GROUP" && !await ItineraryVaultRepository
+      .hasActiveLinkedGroup({ itineraryId })) {
+      throw new AppError({
+        code: ErrorCodes.ITINERARY.VAULT_GROUP_REQUIRED,
+        message: "An active group linked to this itinerary is required.",
+        statusCode: HttpStatus.CONFLICT,
+      });
+    }
+    const document = await ItineraryVaultRepository.updateVisibilityOwned({
+      itineraryId,
+      documentId,
+      userId,
+      visibility,
+    });
+    if (!document) {
+      throw this.createDocumentNotFoundError();
+    }
+    return {
+      document: {
+        id: document.id,
+        itineraryId: document.itinerary_id,
+        visibility: document.visibility,
+        updatedAt: document.updated_at,
       },
     };
   }

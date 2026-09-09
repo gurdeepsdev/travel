@@ -72,6 +72,7 @@ class ItineraryVaultRepository {
       `
         SELECT
           document.*,
+          itinerary.id AS itinerary_id,
           asset.original_filename,
           asset.mime_type,
           asset.extension,
@@ -95,6 +96,88 @@ class ItineraryVaultRepository {
           )
         ORDER BY document.created_at DESC,
           document.id DESC
+      `,
+      [itineraryId, userId, documentType],
+    );
+    return rows;
+  }
+
+  async findAccessibleItineraryTrip({
+    itineraryId,
+    userId,
+  }) {
+    const { rows } = await Database.query(
+      `
+        SELECT itinerary.id AS itinerary_id,
+          trip_record.id AS trip_id,
+          itinerary.created_by AS owner_id
+        FROM itinerary.itineraries itinerary
+        LEFT JOIN trip.trips trip_record
+          ON trip_record.itinerary_id = itinerary.id
+        WHERE itinerary.id = $1::uuid
+          AND itinerary.deleted_at IS NULL
+          AND (
+            itinerary.created_by = $2::uuid
+            OR EXISTS (
+              SELECT 1
+              FROM groups.groups user_group
+              INNER JOIN groups.group_members member
+                ON member.group_id = user_group.id
+              WHERE user_group.itinerary_id = itinerary.id
+                AND user_group.status = 'ACTIVE'
+                AND user_group.deleted_at IS NULL
+                AND member.user_id = $2::uuid
+            )
+          )
+        LIMIT 1
+      `,
+      [itineraryId, userId],
+    );
+    return rows[0] ?? null;
+  }
+
+  async listAccessible({
+    itineraryId,
+    userId,
+    documentType = null,
+  }) {
+    const { rows } = await Database.query(
+      `
+        SELECT document.*,
+          itinerary.id AS itinerary_id,
+          asset.original_filename,
+          asset.mime_type,
+          asset.extension,
+          asset.file_size
+        FROM trip.trip_documents document
+        INNER JOIN trip.trips trip_record
+          ON trip_record.id = document.trip_id
+        INNER JOIN itinerary.itineraries itinerary
+          ON itinerary.id = trip_record.itinerary_id
+        INNER JOIN media.assets asset
+          ON asset.id = document.asset_id
+          AND asset.deleted_at IS NULL
+        WHERE itinerary.id = $1::uuid
+          AND itinerary.deleted_at IS NULL
+          AND document.deleted_at IS NULL
+          AND ($3::varchar IS NULL OR document.document_type = $3)
+          AND (
+            document.owner_id = $2::uuid
+            OR (
+              document.visibility = 'GROUP'
+              AND EXISTS (
+                SELECT 1
+                FROM groups.groups user_group
+                INNER JOIN groups.group_members member
+                  ON member.group_id = user_group.id
+                WHERE user_group.itinerary_id = itinerary.id
+                  AND user_group.status = 'ACTIVE'
+                  AND user_group.deleted_at IS NULL
+                  AND member.user_id = $2::uuid
+              )
+            )
+          )
+        ORDER BY document.created_at DESC, document.id DESC
       `,
       [itineraryId, userId, documentType],
     );
@@ -138,6 +221,124 @@ class ItineraryVaultRepository {
       );
 
     return rows[0] ?? null;
+  }
+
+  async findOwnedForDownload({
+    itineraryId,
+    documentId,
+    userId,
+  }) {
+    const { rows } = await Database.query(
+      `
+        SELECT
+          document.id,
+          document.asset_id,
+          asset.original_filename,
+          asset.mime_type
+        FROM trip.trip_documents document
+        INNER JOIN trip.trips trip_record
+          ON trip_record.id = document.trip_id
+        INNER JOIN itinerary.itineraries itinerary
+          ON itinerary.id = trip_record.itinerary_id
+        INNER JOIN media.assets asset
+          ON asset.id = document.asset_id
+          AND asset.deleted_at IS NULL
+        WHERE itinerary.id = $1::uuid
+          AND itinerary.created_by = $3::uuid
+          AND itinerary.deleted_at IS NULL
+          AND document.id = $2::uuid
+          AND document.owner_id = $3::uuid
+          AND document.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [itineraryId, documentId, userId],
+    );
+    return rows[0] ?? null;
+  }
+
+  async findAccessibleForDownload({
+    itineraryId,
+    documentId,
+    userId,
+  }) {
+    const { rows } = await Database.query(
+      `
+        SELECT document.id, document.asset_id,
+          asset.original_filename, asset.mime_type
+        FROM trip.trip_documents document
+        INNER JOIN trip.trips trip_record
+          ON trip_record.id = document.trip_id
+        INNER JOIN itinerary.itineraries itinerary
+          ON itinerary.id = trip_record.itinerary_id
+          AND itinerary.deleted_at IS NULL
+        INNER JOIN media.assets asset
+          ON asset.id = document.asset_id
+          AND asset.deleted_at IS NULL
+        WHERE itinerary.id = $1::uuid
+          AND document.id = $2::uuid
+          AND document.deleted_at IS NULL
+          AND (
+            document.owner_id = $3::uuid
+            OR (
+              document.visibility = 'GROUP'
+              AND EXISTS (
+                SELECT 1
+                FROM groups.groups user_group
+                INNER JOIN groups.group_members member
+                  ON member.group_id = user_group.id
+                WHERE user_group.itinerary_id = itinerary.id
+                  AND user_group.status = 'ACTIVE'
+                  AND user_group.deleted_at IS NULL
+                  AND member.user_id = $3::uuid
+              )
+            )
+          )
+        LIMIT 1
+      `,
+      [itineraryId, documentId, userId],
+    );
+    return rows[0] ?? null;
+  }
+
+  async updateVisibilityOwned({
+    itineraryId,
+    documentId,
+    userId,
+    visibility,
+  }) {
+    const { rows } = await Database.query(
+      `
+        UPDATE trip.trip_documents document
+        SET visibility = $4,
+          updated_at = CURRENT_TIMESTAMP
+        FROM trip.trips trip_record,
+          itinerary.itineraries itinerary
+        WHERE document.id = $2::uuid
+          AND document.owner_id = $3::uuid
+          AND document.deleted_at IS NULL
+          AND trip_record.id = document.trip_id
+          AND itinerary.id = $1::uuid
+          AND itinerary.id = trip_record.itinerary_id
+          AND itinerary.created_by = $3::uuid
+          AND itinerary.deleted_at IS NULL
+        RETURNING document.*, itinerary.id AS itinerary_id
+      `,
+      [itineraryId, documentId, userId, visibility],
+    );
+    return rows[0] ?? null;
+  }
+
+  async hasActiveLinkedGroup({ itineraryId }) {
+    const { rows } = await Database.query(
+      `SELECT 1
+       FROM groups.groups
+       WHERE itinerary_id = $1::uuid
+         AND status = 'ACTIVE'
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      [itineraryId],
+    );
+    return Boolean(rows[0]);
   }
 }
 

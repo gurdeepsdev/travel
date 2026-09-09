@@ -377,6 +377,14 @@ const deleteVaultDocumentSchema = z
     query: z.object({}).strict(),
   });
 
+const updateVaultDocumentVisibilitySchema = z.object({
+  body: z.object({
+    visibility: z.enum(["PRIVATE", "GROUP"]),
+  }).strict(),
+  params: deleteVaultDocumentSchema.shape.params,
+  query: z.object({}).strict(),
+});
+
 const essentialIdParamsSchema =
   itineraryIdParamsSchema.extend({
     essentialId: z
@@ -683,6 +691,7 @@ export {
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
   deleteVaultDocumentSchema,
+  updateVaultDocumentVisibilitySchema,
   VAULT_DOCUMENT_TYPES,
   updateItinerarySchema,
   updateItineraryNameSchema,
