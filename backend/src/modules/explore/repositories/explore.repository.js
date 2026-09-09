@@ -203,6 +203,13 @@ class ExploreRepository {
         city.latitude,
         city.longitude,
 
+        CASE
+          WHEN city.provider =
+            'GOOGLE_PLACES'
+          THEN city.provider_id
+          ELSE NULL
+        END AS google_city_place_id,
+
         country.id
           AS country_id,
 

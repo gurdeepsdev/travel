@@ -533,6 +533,9 @@ describe(
               country_code:
                 "IN",
 
+              google_city_place_id:
+                "ChIJArticternNoida",
+
               place_count:
                 1,
 
@@ -579,6 +582,9 @@ describe(
 
           name:
             "Noida",
+
+          googleCityPlaceId:
+            "ChIJArticternNoida",
 
           placeCount:
             1,
