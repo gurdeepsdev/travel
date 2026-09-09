@@ -908,7 +908,10 @@ paths:
           description: Unsupported document file type
     get:
       tags: [Itinerary Vault]
-      summary: List my itinerary vault documents
+      summary: List accessible itinerary vault documents
+      description: >
+        Returns all active documents to the itinerary owner. Active members of
+        the linked active group receive only documents whose visibility is GROUP.
       operationId: listItineraryVaultDocuments
       security:
         - bearerAuth: []
@@ -963,6 +966,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/vault/documents/{documentId}/download":
+    get:
+      tags: [Itinerary Vault]
+      summary: Download an uploaded itinerary document
+      operationId: downloadItineraryVaultDocument
+      description: >
+        Downloads an active vault document as an attachment. The owner can
+        download PRIVATE and GROUP documents; active linked-group members can
+        download GROUP documents only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vault document binary attachment
+          headers:
+            Content-Disposition:
+              description: Attachment disposition containing the original filename
+              schema: { type: string }
+            Cache-Control:
+              description: Private documents are never stored by shared caches
+              schema: { type: string, example: "private, no-store" }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Itinerary or vault document not found
+        "503":
+          description: Stored document content is temporarily unavailable
+  "/itineraries/{itineraryId}/vault/documents/{documentId}/visibility":
+    patch:
+      tags: [Itinerary Vault]
+      summary: Change vault document visibility
+      operationId: updateItineraryVaultDocumentVisibility
+      description: >
+        Lets the itinerary and document owner switch between PRIVATE owner-only
+        access and GROUP access for active members of the linked active group.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [visibility]
+              properties:
+                visibility: { type: string, enum: [PRIVATE, GROUP] }
+      responses:
+        "200":
+          description: Vault document visibility updated successfully
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary or vault document not found }
+        "409": { description: GROUP visibility requires an active linked group }
 
   /explore/countries:
     get:

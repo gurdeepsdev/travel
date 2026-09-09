@@ -31,6 +31,7 @@ import {
   uploadVaultDocumentSchema,
   listVaultDocumentsSchema,
   deleteVaultDocumentSchema,
+  updateVaultDocumentVisibilitySchema,
   updateItinerarySchema,
   updateItineraryNameSchema,
   createEssentialSchema,
@@ -264,6 +265,20 @@ router.delete(
   validate(deleteVaultDocumentSchema),
   ItineraryVaultController
     .deleteDocument,
+);
+
+router.get(
+  "/:itineraryId/vault/documents/:documentId/download",
+  AuthMiddleware.authenticate,
+  validate(deleteVaultDocumentSchema),
+  ItineraryVaultController.downloadDocument,
+);
+
+router.patch(
+  "/:itineraryId/vault/documents/:documentId/visibility",
+  AuthMiddleware.authenticate,
+  validate(updateVaultDocumentVisibilitySchema),
+  ItineraryVaultController.updateDocumentVisibility,
 );
 
 router.post(
