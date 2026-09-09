@@ -17,6 +17,19 @@ import {
   buildItineraryShareUrl,
 } from "./itinerary-share-url.util.js";
 
+const VAULT_DOCUMENT_TYPES = [
+  "PASSPORT",
+  "VISA",
+  "INSURANCE",
+  "FLIGHT_TICKET",
+  "TRAIN_TICKET",
+  "BUS_TICKET",
+  "HOTEL_BOOKING",
+  "DRIVING_LICENSE",
+  "ID_CARD",
+  "OTHER",
+];
+
 const OWNER_FIELDS = [
   "user id",
   "user_id",
@@ -295,6 +308,86 @@ class ItineraryService {
         mapItinerary(
           itinerary,
         ),
+    };
+  }
+
+  async getItineraryDashboard({
+    itineraryId,
+    userId,
+  }) {
+    const dashboard =
+      await ItineraryRepository
+        .findOwnedDashboard({
+          itineraryId,
+          userId,
+        });
+
+    if (!dashboard) {
+      throw this.createNotFoundError();
+    }
+
+    const essentialCount = Number(
+      dashboard.essential_count ?? 0,
+    );
+    const completedEssentialCount =
+      Number(
+        dashboard
+          .completed_essential_count ?? 0,
+      );
+
+    const documentCountsByType =
+      Object.fromEntries(
+        VAULT_DOCUMENT_TYPES.map(
+          (documentType) => [
+            documentType,
+            Number(
+              dashboard
+                .document_counts_by_type
+                ?.[documentType] ?? 0,
+            ),
+          ],
+        ),
+      );
+
+    return {
+      itinerary: mapItinerary(dashboard),
+      tripId: dashboard.trip_id ?? null,
+      documents: {
+        totalCount: Number(
+          dashboard.document_count ?? 0,
+        ),
+        countsByType:
+          documentCountsByType,
+      },
+      essentials: {
+        totalCount: essentialCount,
+        markedCount:
+          completedEssentialCount,
+        unmarkedCount:
+          essentialCount -
+          completedEssentialCount,
+        completionPercentage:
+          essentialCount === 0
+            ? 0
+            : Number((
+                completedEssentialCount /
+                essentialCount *
+                100
+              ).toFixed(2)),
+      },
+      expenses: {
+        expenseCount: Number(
+          dashboard.expense_count ?? 0,
+        ),
+        totalsByCurrency:
+          dashboard
+            .expense_totals_by_currency ??
+          [],
+        totalsByCategory:
+          dashboard
+            .expense_totals_by_category ??
+          [],
+      },
     };
   }
 

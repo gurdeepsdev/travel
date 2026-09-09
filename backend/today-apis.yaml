@@ -271,6 +271,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/dashboard":
+    get:
+      tags:
+        - Itineraries
+      summary: Get my itinerary dashboard
+      description: >
+        Returns the complete owned itinerary with digital-vault document counts,
+        travel-essential completion metrics, and expense totals grouped by
+        currency and category.
+      operationId: getItineraryDashboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      responses:
+        "200":
+          description: Itinerary dashboard fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryDashboardResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Itinerary not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   "/itineraries/{itineraryId}/status":
     patch:
       tags:
@@ -3434,6 +3465,67 @@ components:
                     item_type:
                       type: string
                       maxLength: 50
+    ItineraryDashboardResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message:
+          type: string
+          example: Itinerary dashboard fetched successfully.
+        data:
+          type: object
+          required: [itinerary, tripId, documents, essentials, expenses]
+          properties:
+            itinerary:
+              $ref: "#/components/schemas/SaveItineraryResponse/properties/data/properties/itinerary"
+            tripId:
+              type: string
+              format: uuid
+              nullable: true
+            documents:
+              type: object
+              required: [totalCount, countsByType]
+              properties:
+                totalCount: { type: integer, minimum: 0 }
+                countsByType:
+                  type: object
+                  additionalProperties:
+                    type: integer
+                    minimum: 0
+            essentials:
+              type: object
+              required: [totalCount, markedCount, unmarkedCount, completionPercentage]
+              properties:
+                totalCount: { type: integer, minimum: 0 }
+                markedCount: { type: integer, minimum: 0 }
+                unmarkedCount: { type: integer, minimum: 0 }
+                completionPercentage: { type: number, minimum: 0, maximum: 100 }
+            expenses:
+              type: object
+              required: [expenseCount, totalsByCurrency, totalsByCategory]
+              properties:
+                expenseCount: { type: integer, minimum: 0 }
+                totalsByCurrency:
+                  type: array
+                  items:
+                    type: object
+                    required: [currencyCode, totalAmount]
+                    properties:
+                      currencyCode: { type: string, minLength: 3, maxLength: 3 }
+                      totalAmount: { type: number, minimum: 0 }
+                totalsByCategory:
+                  type: array
+                  items:
+                    type: object
+                    required: [category, currencyCode, expenseCount, totalAmount]
+                    properties:
+                      category: { type: string }
+                      currencyCode: { type: string, minLength: 3, maxLength: 3 }
+                      expenseCount: { type: integer, minimum: 0 }
+                      totalAmount: { type: number, minimum: 0 }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
     SaveItineraryResponse:
       type: object
       required:

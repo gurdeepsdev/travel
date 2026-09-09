@@ -571,6 +571,168 @@ class ItineraryRepository {
     return rows[0] ?? null;
   }
 
+  async findOwnedDashboard({
+    itineraryId,
+    userId,
+  }) {
+    const sql = `
+      SELECT
+        itinerary_record.id,
+        itinerary_record.created_by,
+        itinerary_record.title,
+        itinerary_record.duration_days,
+        itinerary_record.visibility,
+        itinerary_record.trip_status,
+        itinerary_record.ai_generated,
+        itinerary_record.itinerary_json,
+        itinerary_record.created_at,
+        itinerary_record.updated_at,
+        trip_record.id AS trip_id,
+        COALESCE(
+          document_summary.total_count,
+          0
+        ) AS document_count,
+        COALESCE(
+          document_summary.by_type,
+          '{}'::jsonb
+        ) AS document_counts_by_type,
+        COALESCE(
+          essential_summary.total_count,
+          0
+        ) AS essential_count,
+        COALESCE(
+          essential_summary.completed_count,
+          0
+        ) AS completed_essential_count,
+        COALESCE(
+          expense_summary.expense_count,
+          0
+        ) AS expense_count,
+        COALESCE(
+          expense_summary.totals_by_currency,
+          '[]'::jsonb
+        ) AS expense_totals_by_currency,
+        COALESCE(
+          expense_summary.by_category,
+          '[]'::jsonb
+        ) AS expense_totals_by_category
+
+      FROM itinerary.itineraries
+        AS itinerary_record
+
+      LEFT JOIN trip.trips AS trip_record
+        ON trip_record.itinerary_id =
+          itinerary_record.id
+        AND trip_record.user_id = $2::uuid
+
+      LEFT JOIN LATERAL (
+        SELECT
+          COALESCE(
+            SUM(grouped.type_count),
+            0
+          )::integer AS total_count,
+          jsonb_object_agg(
+            grouped.document_type,
+            grouped.type_count
+          ) AS by_type
+        FROM (
+          SELECT
+            document.document_type,
+            COUNT(*)::integer AS type_count
+          FROM trip.trip_documents document
+          WHERE document.trip_id =
+              trip_record.id
+            AND document.owner_id = $2::uuid
+            AND document.deleted_at IS NULL
+          GROUP BY document.document_type
+        ) grouped
+      ) document_summary ON TRUE
+
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::integer AS total_count,
+          COUNT(*) FILTER (
+            WHERE essential.is_completed IS TRUE
+          )::integer AS completed_count
+        FROM trip.trip_essentials essential
+        WHERE essential.trip_id =
+            trip_record.id
+          AND essential.owner_id = $2::uuid
+      ) essential_summary ON TRUE
+
+      LEFT JOIN LATERAL (
+        SELECT
+          (
+            SELECT COUNT(*)::integer
+            FROM trip.trip_expenses expense
+            WHERE expense.trip_id =
+                trip_record.id
+              AND expense.deleted_at IS NULL
+          ) AS expense_count,
+          (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'currencyCode', grouped.currency_code,
+                'totalAmount', grouped.total_amount
+              )
+              ORDER BY grouped.currency_code
+            )
+            FROM (
+              SELECT
+                expense.currency_code,
+                SUM(expense.amount) AS total_amount
+              FROM trip.trip_expenses expense
+              WHERE expense.trip_id =
+                  trip_record.id
+                AND expense.deleted_at IS NULL
+              GROUP BY expense.currency_code
+            ) grouped
+          ) AS totals_by_currency,
+          (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'category', grouped.expense_category,
+                'currencyCode', grouped.currency_code,
+                'expenseCount', grouped.expense_count,
+                'totalAmount', grouped.total_amount
+              )
+              ORDER BY
+                grouped.expense_category,
+                grouped.currency_code
+            )
+            FROM (
+              SELECT
+                expense.expense_category,
+                expense.currency_code,
+                COUNT(*)::integer AS expense_count,
+                SUM(expense.amount) AS total_amount
+              FROM trip.trip_expenses expense
+              WHERE expense.trip_id =
+                  trip_record.id
+                AND expense.deleted_at IS NULL
+              GROUP BY
+                expense.expense_category,
+                expense.currency_code
+            ) grouped
+          ) AS by_category
+      ) expense_summary ON TRUE
+
+      WHERE itinerary_record.id = $1::uuid
+        AND itinerary_record.created_by =
+          $2::uuid
+        AND itinerary_record.deleted_at IS NULL
+      LIMIT 1
+    `;
+
+    const { rows } =
+      await Database.query(
+        sql,
+        [itineraryId, userId],
+      );
+
+    return rows[0] ?? null;
+  }
+
   async create({
     userId,
     title,
