@@ -416,6 +416,327 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/expenses":
+    get:
+      tags: [Itinerary Expenses]
+      summary: List itinerary expenses
+      description: Returns the authenticated participant's paginated trip expenses, including payer, category, receipt, splits, and viewer-specific share totals.
+      operationId: listItineraryExpenses
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: category
+          in: query
+          schema: { type: string, enum: [FOOD, TRANSPORT, HOTEL, SHOPPING, ACTIVITY, MEDICAL, ENTERTAINMENT, OTHER] }
+      responses:
+        "200":
+          description: Expenses fetched successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseListResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary trip not found or inaccessible }
+    post:
+      tags: [Itinerary Expenses]
+      summary: Create an itinerary expense with splits
+      description: Records spending for this itinerary and atomically allocates the full amount among active expense participants using equal, exact, or percentage splits.
+      operationId: createItineraryExpense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateExpenseRequest" }
+      responses:
+        "201":
+          description: Expense created successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary trip not found or inaccessible }
+        "422": { description: Invalid participants, receipt, or split total }
+  "/itineraries/{itineraryId}/expenses/{expenseId}":
+    get:
+      tags: [Itinerary Expenses]
+      summary: Get one itinerary expense
+      description: Returns complete details for one expense belonging to an itinerary accessible to the authenticated participant.
+      operationId: getItineraryExpense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "200":
+          description: Expense fetched successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary or expense not found }
+    patch:
+      tags: [Itinerary Expenses]
+      summary: Update expense metadata
+      description: Updates metadata only. Amount and participant shares are managed through the splits endpoint.
+      operationId: updateItineraryExpense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ExpenseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateExpenseRequest" }
+      responses:
+        "200":
+          description: Expense updated successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Editable expense not found }
+        "422": { description: Invalid payer or receipt }
+    delete:
+      tags: [Itinerary Expenses]
+      summary: Delete an itinerary expense
+      description: Soft-deletes an expense created by the authenticated user or managed by the itinerary owner while retaining historical database integrity.
+      operationId: deleteItineraryExpense
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ExpenseId"
+      responses:
+        "200": { description: Expense deleted successfully }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Deletable expense not found }
+  "/itineraries/{itineraryId}/expenses/{expenseId}/splits":
+    put:
+      tags: [Itinerary Expenses]
+      summary: Replace expense amount and splits
+      description: Atomically replaces the expense amount, split method, and all participant allocations so calculated balances remain consistent.
+      operationId: replaceItineraryExpenseSplits
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ExpenseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, splitType, participants]
+              properties:
+                amount: { type: number, format: double, minimum: 0.01 }
+                splitType: { type: string, enum: [EQUAL, EXACT, PERCENTAGE] }
+                participants:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [userId]
+                    properties:
+                      userId: { type: string, format: uuid }
+                      amount: { type: number, minimum: 0.01, multipleOf: 0.01 }
+                      percentage: { type: number, minimum: 0.01, maximum: 100, multipleOf: 0.01 }
+      responses:
+        "200": { description: Expense splits updated successfully }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Editable expense not found }
+        "422": { description: Invalid participants or split total }
+  "/itineraries/{itineraryId}/expenses/dashboard":
+    get:
+      tags: [Itinerary Expenses]
+      summary: Get expense totals and participant balances
+      description: Supplies the expense-tracker screen with expense count, currency totals, category totals, and settlement-adjusted participant balances.
+      operationId: getItineraryExpenseDashboard
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      responses:
+        "200": { description: Expense dashboard fetched successfully }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary trip not found or inaccessible }
+  "/itineraries/{itineraryId}/expense-balances":
+    get:
+      tags: [Itinerary Expenses]
+      summary: Get participant expense balances
+      description: Returns how much every participant paid, owes as their share, and their settlement-adjusted net balance for each currency.
+      operationId: getItineraryExpenseBalances
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      responses:
+        "200": { description: Expense balances fetched successfully }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary trip not found or inaccessible }
+  "/itineraries/{itineraryId}/expense-settlements":
+    post:
+      tags: [Itinerary Expenses]
+      summary: Record a payment toward an expense balance
+      description: Creates a pending settlement from the authenticated debtor to an active creditor without allowing payment above the outstanding balance.
+      operationId: createItineraryExpenseSettlement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toUserId, amount, currencyCode]
+              properties:
+                toUserId: { type: string, format: uuid }
+                amount: { type: number, format: double, minimum: 0.01 }
+                currencyCode: { type: string, minLength: 3, maxLength: 3 }
+      responses:
+        "201": { description: Expense settlement created successfully }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { description: Invalid participant or settlement amount }
+    get:
+      tags: [Itinerary Expenses]
+      summary: List expense settlements
+      description: Returns the itinerary's paginated settlement history so participants can review pending, confirmed, rejected, and cancelled payments.
+      operationId: listItineraryExpenseSettlements
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, CONFIRMED, REJECTED, CANCELLED] }
+      responses:
+        "200": { description: Expense settlements fetched successfully }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary trip not found or inaccessible }
+  "/itineraries/{itineraryId}/expense-settlements/{settlementId}":
+    patch:
+      tags: [Itinerary Expenses]
+      summary: Confirm, reject, or cancel an expense settlement
+      description: Lets the recipient confirm or reject a pending payment, or lets the sender cancel it; confirmed payments update calculated balances.
+      operationId: updateItineraryExpenseSettlement
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - name: settlementId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [CONFIRMED, REJECTED, CANCELLED] }
+      responses:
+        "200": { description: Expense settlement updated successfully }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Settlement not found or transition not permitted }
+  "/itineraries/{itineraryId}/expense-reminders":
+    post:
+      tags: [Itinerary Expenses]
+      summary: Send a balance reminder to an owing participant
+      description: Sends a realtime reminder to an active debtor from an active creditor, limited to one reminder per user, itinerary, and currency per 24 hours.
+      operationId: createItineraryExpenseReminder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, currencyCode]
+              properties:
+                userId: { type: string, format: uuid }
+                currencyCode: { type: string, minLength: 3, maxLength: 3 }
+      responses:
+        "201": { description: Expense reminder sent successfully }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { description: Recipient does not owe the requester }
+        "429": { description: Reminder already sent within 24 hours }
+  "/itineraries/{itineraryId}/expense-participants":
+    get:
+      tags: [Itinerary Expenses]
+      summary: List active expense participants
+      description: Returns users currently allowed to pay expenses or receive split allocations for this itinerary.
+      operationId: listItineraryExpenseParticipants
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      responses:
+        "200":
+          description: Expense participants fetched successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseParticipantListResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary not found }
+    post:
+      tags: [Itinerary Expenses]
+      summary: Add an expense participant
+      description: Adds one accepted connection to the itinerary expense group so the user can pay expenses and participate in splits.
+      operationId: addItineraryExpenseParticipant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddExpenseParticipantRequest" }
+      responses:
+        "201":
+          description: Expense participant added successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseParticipantResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary not found }
+        "409": { description: Trip unavailable or participant already exists }
+        "422": { description: User is not an eligible accepted connection }
+  "/itineraries/{itineraryId}/expense-participants/{userId}":
+    delete:
+      tags: [Itinerary Expenses]
+      summary: Remove an expense participant
+      description: Soft-removes a participant while preserving historical expenses and splits. The trip owner cannot be removed.
+      operationId: removeItineraryExpenseParticipant
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Expense participant removed successfully
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RemoveExpenseParticipantResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Active expense participant not found }
+        "409": { description: Trip owner cannot be removed }
   "/itineraries/{itineraryId}/essentials":
     post:
       tags: [Itinerary Essentials]
@@ -3254,6 +3575,13 @@ components:
       schema:
         type: string
         format: uuid
+    ExpenseId:
+      name: expenseId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     PostId:
       name: postId
       in: path
@@ -3928,6 +4256,171 @@ components:
         timestamp:
           type: string
           format: date-time
+    CreateExpenseRequest:
+      type: object
+      additionalProperties: false
+      required: [paidBy, category, title, amount, currencyCode, paymentMethod, expenseDate, splitType, participants]
+      properties:
+        paidBy: { type: string, format: uuid }
+        category: { type: string, enum: [FOOD, TRANSPORT, HOTEL, SHOPPING, ACTIVITY, MEDICAL, ENTERTAINMENT, OTHER] }
+        title: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, maxLength: 2000 }
+        amount: { type: number, exclusiveMinimum: 0, multipleOf: 0.01 }
+        currencyCode: { type: string, minLength: 3, maxLength: 3, example: INR }
+        paymentMethod: { type: string, enum: [CASH, CARD, UPI, BANK_TRANSFER, OTHER] }
+        expenseDate: { type: string, format: date }
+        receiptAssetId: { type: string, format: uuid }
+        locationName: { type: string, maxLength: 255 }
+        splitType: { type: string, enum: [EQUAL, EXACT, PERCENTAGE] }
+        participants:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [userId]
+            properties:
+              userId: { type: string, format: uuid }
+              amount: { type: number, exclusiveMinimum: 0, multipleOf: 0.01 }
+              percentage: { type: number, exclusiveMinimum: 0, maximum: 100, multipleOf: 0.01 }
+    ExpenseResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          required: [expense]
+          properties:
+            expense:
+              type: object
+              additionalProperties: true
+              required: [id, itineraryId, tripId, paidBy, createdBy, category, title, amount, currencyCode, paymentMethod, expenseDate, splitType, splits, createdAt, updatedAt]
+              properties:
+                id: { type: string, format: uuid }
+                itineraryId: { type: string, format: uuid }
+                tripId: { type: string, format: uuid }
+                paidBy: { type: string, format: uuid }
+                createdBy: { type: string, format: uuid }
+                category: { type: string }
+                title: { type: string }
+                amount: { type: number }
+                currencyCode: { type: string }
+                paymentMethod: { type: string }
+                expenseDate: { type: string, format: date }
+                splitType: { type: string }
+                splits:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: true
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+    UpdateExpenseRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        paidBy: { type: string, format: uuid }
+        category: { type: string, enum: [FOOD, TRANSPORT, HOTEL, SHOPPING, ACTIVITY, MEDICAL, ENTERTAINMENT, OTHER] }
+        title: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, nullable: true, maxLength: 2000 }
+        paymentMethod: { type: string, enum: [CASH, CARD, UPI, BANK_TRANSFER, OTHER] }
+        expenseDate: { type: string, format: date }
+        receiptAssetId: { type: string, format: uuid, nullable: true }
+        locationName: { type: string, nullable: true, maxLength: 255 }
+    ExpenseListResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          required: [expenses, pagination]
+          properties:
+            expenses:
+              type: array
+              items:
+                $ref: "#/components/schemas/ExpenseResponse/properties/data/properties/expense"
+            pagination:
+              $ref: "#/components/schemas/Pagination"
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+    AddExpenseParticipantRequest:
+      type: object
+      additionalProperties: false
+      required: [userId]
+      properties:
+        userId: { type: string, format: uuid }
+    ExpenseParticipantResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          required: [participant]
+          properties:
+            participant:
+              type: object
+              required: [id, itineraryId, tripId, user, status, joinedAt, createdAt, updatedAt]
+              properties:
+                id: { type: string, format: uuid }
+                itineraryId: { type: string, format: uuid }
+                tripId: { type: string, format: uuid }
+                user:
+                  type: object
+                  required: [id, username, displayName]
+                  properties:
+                    id: { type: string, format: uuid }
+                    username: { type: string }
+                    displayName: { type: string, nullable: true }
+                status: { type: string, enum: [ACTIVE] }
+                joinedAt: { type: string, format: date-time }
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+    ExpenseParticipantListResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          required: [participants, totalCount]
+          properties:
+            participants:
+              type: array
+              items:
+                $ref: "#/components/schemas/ExpenseParticipantResponse/properties/data/properties/participant"
+            totalCount: { type: integer, minimum: 0 }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+    RemoveExpenseParticipantResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          required: [removed, participantId, userId, status, removedAt]
+          properties:
+            removed: { type: boolean, enum: [true] }
+            participantId: { type: string, format: uuid }
+            userId: { type: string, format: uuid }
+            status: { type: string, enum: [REMOVED] }
+            removedAt: { type: string, format: date-time }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
     EssentialCategory:
       type: string
       enum: [DOCUMENT, ELECTRONICS, MEDICINE, CLOTHES, TOILETRIES, OTHER]
