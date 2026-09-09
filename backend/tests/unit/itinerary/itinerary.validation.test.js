@@ -8,7 +8,67 @@ import {
   deleteVaultDocumentSchema,
   updateItinerarySchema,
   updateItineraryNameSchema,
+  createEssentialSchema,
+  listEssentialsSchema,
+  updateEssentialSchema,
+  setEssentialSelectionSchema,
+  deleteEssentialSchema,
 } from "../../../src/modules/itinerary/itinerary.validation.js";
+
+describe("itinerary essentials validation", () => {
+  const params = {
+    itineraryId:
+      "11111111-1111-4111-8111-111111111111",
+    essentialId:
+      "33333333-3333-4333-8333-333333333333",
+  };
+
+  test("accepts create and list requests", () => {
+    expect(createEssentialSchema.safeParse({
+      body: {
+        title: "Phone charger",
+        category: "ELECTRONICS",
+      },
+      params: {
+        itineraryId:
+          params.itineraryId,
+      },
+      query: {},
+    }).success).toBe(true);
+
+    expect(listEssentialsSchema.safeParse({
+      params: {
+        itineraryId:
+          params.itineraryId,
+      },
+      query: {},
+    }).success).toBe(true);
+  });
+
+  test("requires an update field", () => {
+    expect(updateEssentialSchema.safeParse({
+      body: {},
+      params,
+      query: {},
+    }).success).toBe(false);
+  });
+
+  test("accepts selection and deletion", () => {
+    expect(
+      setEssentialSelectionSchema
+        .safeParse({
+          body: { selected: false },
+          params,
+          query: {},
+        }).success,
+    ).toBe(true);
+
+    expect(deleteEssentialSchema.safeParse({
+      params,
+      query: {},
+    }).success).toBe(true);
+  });
+});
 
 describe("updateItineraryNameSchema", () => {
   const params = {

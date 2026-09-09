@@ -11,6 +11,8 @@ import ItineraryController
   from "./itinerary.controller.js";
 import ItineraryVaultController
   from "./itinerary-vault.controller.js";
+import ItineraryEssentialsController
+  from "./itinerary-essentials.controller.js";
 import itineraryVaultUploadMiddleware
   from "./itinerary-vault-upload.middleware.js";
 import {
@@ -23,6 +25,11 @@ import {
   deleteVaultDocumentSchema,
   updateItinerarySchema,
   updateItineraryNameSchema,
+  createEssentialSchema,
+  listEssentialsSchema,
+  updateEssentialSchema,
+  setEssentialSelectionSchema,
+  deleteEssentialSchema,
 } from "./itinerary.validation.js";
 
 const router = Router();
@@ -127,6 +134,48 @@ router.delete(
   validate(deleteVaultDocumentSchema),
   ItineraryVaultController
     .deleteDocument,
+);
+
+router.post(
+  "/:itineraryId/essentials",
+  AuthMiddleware.authenticate,
+  validate(createEssentialSchema),
+  ItineraryEssentialsController
+    .createEssential,
+);
+
+router.get(
+  "/:itineraryId/essentials",
+  AuthMiddleware.authenticate,
+  validate(listEssentialsSchema),
+  ItineraryEssentialsController
+    .listEssentials,
+);
+
+router.patch(
+  "/:itineraryId/essentials/:essentialId",
+  AuthMiddleware.authenticate,
+  validate(updateEssentialSchema),
+  ItineraryEssentialsController
+    .updateEssential,
+);
+
+router.patch(
+  "/:itineraryId/essentials/:essentialId/selection",
+  AuthMiddleware.authenticate,
+  validate(
+    setEssentialSelectionSchema,
+  ),
+  ItineraryEssentialsController
+    .setEssentialSelection,
+);
+
+router.delete(
+  "/:itineraryId/essentials/:essentialId",
+  AuthMiddleware.authenticate,
+  validate(deleteEssentialSchema),
+  ItineraryEssentialsController
+    .deleteEssential,
 );
 
 router.post(
