@@ -89,7 +89,15 @@ function emitPostEngagement(postId, payload) {
   );
 }
 
+function emitUserEvent(userId, eventName, payload) {
+  if (!io) {
+    throw new Error("Realtime server is not initialized.");
+  }
+  io.to(`user:${userId}`).emit(eventName, payload);
+}
+
 export {
   emitPostEngagement,
+  emitUserEvent,
   initializeRealtimeServer,
 };

@@ -27,6 +27,14 @@ const ESSENTIAL_CATEGORIES = [
   "TOILETRIES",
   "OTHER",
 ];
+const EXPENSE_CATEGORIES = [
+  "FOOD", "TRANSPORT", "HOTEL", "SHOPPING",
+  "ACTIVITY", "MEDICAL", "ENTERTAINMENT", "OTHER",
+];
+const EXPENSE_PAYMENT_METHODS = [
+  "CASH", "CARD", "UPI", "BANK_TRANSFER", "OTHER",
+];
+const EXPENSE_SPLIT_TYPES = ["EQUAL", "EXACT", "PERCENTAGE"];
 
 const optionalText = (maximum) =>
   z.preprocess(
@@ -459,6 +467,167 @@ const deleteEssentialSchema = z.object({
   query: z.object({}).strict(),
 });
 
+const addExpenseParticipantSchema = z.object({
+  body: z
+    .object({
+      userId: z.string().trim().uuid(
+        "User ID must be a valid UUID.",
+      ),
+    })
+    .strict(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const listExpenseParticipantsSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const removeExpenseParticipantSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema.extend({
+    userId: z.string().trim().uuid(
+      "User ID must be a valid UUID.",
+    ),
+  }),
+  query: z.object({}).strict(),
+});
+
+const expenseSplitParticipantSchema = z.object({
+  userId: z.string().trim().uuid("Participant user ID must be a valid UUID."),
+  amount: z.coerce.number().positive().multipleOf(0.01).optional(),
+  percentage: z.coerce.number().positive().max(100).multipleOf(0.01).optional(),
+}).strict();
+
+const createExpenseSchema = z.object({
+  body: z.object({
+    paidBy: z.string().trim().uuid("Payer user ID must be a valid UUID."),
+    category: z.enum(EXPENSE_CATEGORIES),
+    title: z.string().trim().min(1).max(255),
+    description: optionalText(2000),
+    amount: z.coerce.number().positive().max(9999999999.99).multipleOf(0.01),
+    currencyCode: z.string().trim().length(3).transform((value) => value.toUpperCase()),
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS),
+    expenseDate: z.string().date(),
+    receiptAssetId: z.preprocess(
+      (value) => value === "" ? undefined : value,
+      z.string().trim().uuid("Receipt asset ID must be a valid UUID.").optional(),
+    ),
+    locationName: optionalText(255),
+    splitType: z.enum(EXPENSE_SPLIT_TYPES),
+    participants: z.array(expenseSplitParticipantSchema).min(1).max(100),
+  }).strict(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const listExpensesSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema,
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    cursor: cursorSchema.optional(),
+    category: z.enum(EXPENSE_CATEGORIES).optional(),
+  }).strict(),
+});
+
+const getExpenseSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema.extend({
+    expenseId: z.string().trim().uuid(
+      "Expense ID must be a valid UUID.",
+    ),
+  }),
+  query: z.object({}).strict(),
+});
+
+const updateExpenseSchema = z.object({
+  body: z.object({
+    paidBy: z.string().trim().uuid("Payer user ID must be a valid UUID.").optional(),
+    category: z.enum(EXPENSE_CATEGORIES).optional(),
+    title: z.string().trim().min(1).max(255).optional(),
+    description: z.union([z.string().trim().max(2000), z.null()]).optional(),
+    paymentMethod: z.enum(EXPENSE_PAYMENT_METHODS).optional(),
+    expenseDate: z.string().date().optional(),
+    receiptAssetId: z.union([
+      z.string().trim().uuid("Receipt asset ID must be a valid UUID."),
+      z.null(),
+    ]).optional(),
+    locationName: z.union([z.string().trim().min(1).max(255), z.null()]).optional(),
+  }).strict().refine((body) => Object.keys(body).length > 0, {
+    message: "Provide at least one expense field to update.",
+  }),
+  params: getExpenseSchema.shape.params,
+  query: z.object({}).strict(),
+});
+
+const replaceExpenseSplitsSchema = z.object({
+  body: z.object({
+    amount: z.coerce.number().positive().max(9999999999.99).multipleOf(0.01),
+    splitType: z.enum(EXPENSE_SPLIT_TYPES),
+    participants: z.array(expenseSplitParticipantSchema).min(1).max(100),
+  }).strict(),
+  params: getExpenseSchema.shape.params,
+  query: z.object({}).strict(),
+});
+
+const deleteExpenseSchema = z.object({
+  body: z.unknown().optional(),
+  params: getExpenseSchema.shape.params,
+  query: z.object({}).strict(),
+});
+
+const getExpenseDashboardSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const createExpenseSettlementSchema = z.object({
+  body: z.object({
+    toUserId: z.string().trim().uuid("Recipient user ID must be a valid UUID."),
+    amount: z.coerce.number().positive().max(9999999999.99).multipleOf(0.01),
+    currencyCode: z.string().trim().length(3)
+      .transform((value) => value.toUpperCase()),
+  }).strict(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
+const listExpenseSettlementsSchema = z.object({
+  body: z.unknown().optional(),
+  params: itineraryIdParamsSchema,
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    cursor: cursorSchema.optional(),
+    status: z.enum(["PENDING", "CONFIRMED", "REJECTED", "CANCELLED"]).optional(),
+  }).strict(),
+});
+
+const updateExpenseSettlementSchema = z.object({
+  body: z.object({
+    status: z.enum(["CONFIRMED", "REJECTED", "CANCELLED"]),
+  }).strict(),
+  params: itineraryIdParamsSchema.extend({
+    settlementId: z.string().trim().uuid(
+      "Settlement ID must be a valid UUID.",
+    ),
+  }),
+  query: z.object({}).strict(),
+});
+
+const createExpenseReminderSchema = z.object({
+  body: z.object({
+    userId: z.string().trim().uuid("User ID must be a valid UUID."),
+    currencyCode: z.string().trim().length(3)
+      .transform((value) => value.toUpperCase()),
+  }).strict(),
+  params: itineraryIdParamsSchema,
+  query: z.object({}).strict(),
+});
+
 const listItinerariesSchema = z
   .object({
     body: z
@@ -523,4 +692,21 @@ export {
   updateEssentialSchema,
   setEssentialSelectionSchema,
   deleteEssentialSchema,
+  addExpenseParticipantSchema,
+  listExpenseParticipantsSchema,
+  removeExpenseParticipantSchema,
+  EXPENSE_CATEGORIES,
+  EXPENSE_PAYMENT_METHODS,
+  EXPENSE_SPLIT_TYPES,
+  createExpenseSchema,
+  listExpensesSchema,
+  getExpenseSchema,
+  updateExpenseSchema,
+  replaceExpenseSplitsSchema,
+  deleteExpenseSchema,
+  getExpenseDashboardSchema,
+  createExpenseSettlementSchema,
+  listExpenseSettlementsSchema,
+  updateExpenseSettlementSchema,
+  createExpenseReminderSchema,
 };
