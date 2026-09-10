@@ -294,6 +294,12 @@ function createPayload() {
 }
 
 describe("saveItinerarySchema", () => {
+  test.each([true,false])('accepts boolean planTogether=%s', (planTogether) => {
+    expect(saveItinerarySchema.safeParse({body:{...createPayload(),planTogether},params:{},query:{}}).success).toBe(true);
+  });
+  test.each(['true','false',1,null])('rejects nonboolean planTogether=%s', (planTogether) => {
+    expect(saveItinerarySchema.safeParse({body:{...createPayload(),planTogether},params:{},query:{}}).success).toBe(false);
+  });
   test(
     "accepts the generated itinerary payload",
     () => {

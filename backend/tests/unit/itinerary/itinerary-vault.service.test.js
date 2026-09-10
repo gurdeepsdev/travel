@@ -1,4 +1,7 @@
 import { jest } from "@jest/globals";
+const fsPromises = await import('node:fs/promises');
+const accessMock = jest.fn();
+jest.unstable_mockModule('node:fs/promises', () => ({...fsPromises,access:accessMock}));
 
 const repositoryMock = {
   findOwnedItineraryTrip: jest.fn(),
@@ -13,19 +16,12 @@ const repositoryMock = {
   hasActiveLinkedGroup: jest.fn(),
 };
 
-const mediaServiceMock = {
-  getLocalAssetContent: jest.fn(),
-};
 
 jest.unstable_mockModule(
   "../../../src/modules/itinerary/itinerary-vault.repository.js",
   () => ({ default: repositoryMock }),
 );
 
-jest.unstable_mockModule(
-  "../../../src/modules/media/media.service.js",
-  () => ({ default: mediaServiceMock }),
-);
 
 const { default: service } = await import(
   "../../../src/modules/itinerary/itinerary-vault.service.js"
@@ -39,6 +35,21 @@ const documentId =
   "33333333-3333-4333-8333-333333333333";
 
 describe("ItineraryVaultService", () => {
+  test('returns 503 for missing authorized file content', async () => {
+    repositoryMock.findAccessibleForDownload.mockResolvedValue({storage_provider:'local',storage_key:'vault/missing.pdf'});
+    accessMock.mockRejectedValueOnce(new Error('ENOENT'));
+    await expect(service.downloadDocument({itineraryId,documentId,userId})).rejects.toMatchObject({statusCode:503});
+  });
+  test('rejects unsupported storage without reading a file', async () => {
+    repositoryMock.findAccessibleForDownload.mockResolvedValue({storage_provider:'unknown'});
+    await expect(service.downloadDocument({itineraryId,documentId,userId})).rejects.toMatchObject({statusCode:404});
+    expect(accessMock).not.toHaveBeenCalled();
+  });
+  test('rejects visibility changes for another document owner', async () => {
+    repositoryMock.updateVisibilityOwned.mockResolvedValue(null);
+    await expect(service.updateDocumentVisibility({itineraryId,documentId,userId,visibility:'GROUP'}))
+      .rejects.toMatchObject({statusCode:404});
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.API_PUBLIC_BASE_URL =
@@ -183,21 +194,17 @@ describe("ItineraryVaultService", () => {
       asset_id: "44444444-4444-4444-8444-444444444444",
       original_filename: "passport.pdf",
       mime_type: "application/pdf",
+      storage_provider: 'local', storage_key: 'vault/passport.pdf',
     });
-    mediaServiceMock.getLocalAssetContent.mockResolvedValue({
-      filePath: "/private/uploads/vault/passport.pdf",
-    });
+    accessMock.mockResolvedValue(undefined);
 
     await expect(service.downloadDocument({ itineraryId, documentId, userId }))
       .resolves.toEqual({
-        filePath: "/private/uploads/vault/passport.pdf",
+        filePath: expect.stringContaining('/vault/passport.pdf'),
         filename: "passport.pdf",
         mimeType: "application/pdf",
       });
-    expect(mediaServiceMock.getLocalAssetContent).toHaveBeenCalledWith({
-      assetId: "44444444-4444-4444-8444-444444444444",
-      viewerUserId: userId,
-    });
+    expect(accessMock).toHaveBeenCalled();
   });
 
   test("hides an unowned vault document download", async () => {
@@ -222,6 +229,7 @@ describe("ItineraryVaultService", () => {
   });
 
   test("requires an active linked group before sharing", async () => {
+    repositoryMock.updateVisibilityOwned.mockResolvedValue({groupRequired:true});
     repositoryMock.hasActiveLinkedGroup.mockResolvedValue(false);
     await expect(service.updateDocumentVisibility({ itineraryId, documentId,
       userId, visibility: "GROUP" })).rejects.toMatchObject({

@@ -27,7 +27,184 @@ tags:
   - name: Blocks
   - name: Explore
   - name: Itineraries
+  - name: Itinerary Groups
 paths:
+  "/itineraries/{itineraryId}/group/members/{userId}":
+    delete:
+      tags: [Itinerary Groups]
+      summary: Remove an itinerary group member
+      operationId: removeItineraryGroupMember
+      description: >
+        Only the group owner can remove another member.
+        The owner cannot leave or be removed. Atomically marks group membership
+        and expense participation REMOVED and cancels pending invitations.
+        Preserves expenses, splits, settlements, balances, and uploaded documents.
+        Removed members lose group-based access to other users GROUP documents;
+        document ownership is retained. Group counts include active memberships only.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itineraryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Membership removed; repeated requests return updated=false.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      groupId: { type: string, format: uuid }
+                      itineraryId: { type: string, format: uuid }
+                      memberId: { type: string, format: uuid }
+                      userId: { type: string, format: uuid }
+                      status: { type: string, enum: [REMOVED] }
+                      removedAt: { type: string, format: date-time }
+        '400': { description: Invalid request. }
+        '401': { description: Authentication required. }
+        '404': { description: Accessible group member not found. }
+        '409': { description: The group owner cannot leave or be removed. }
+  "/itineraries/{itineraryId}/group/leave":
+    post:
+      tags: [Itinerary Groups]
+      summary: Leave an itinerary group
+      operationId: leaveItineraryGroup
+      description: >
+        The authenticated member leaves their own group.
+        The owner cannot leave or be removed. Atomically marks group membership
+        and expense participation REMOVED and cancels pending invitations.
+        Preserves expenses, splits, settlements, balances, and uploaded documents.
+        Removed members lose group-based access to other users GROUP documents;
+        document ownership is retained. Group counts include active memberships only.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itineraryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Membership removed; repeated requests return updated=false.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      groupId: { type: string, format: uuid }
+                      itineraryId: { type: string, format: uuid }
+                      memberId: { type: string, format: uuid }
+                      userId: { type: string, format: uuid }
+                      status: { type: string, enum: [REMOVED] }
+                      removedAt: { type: string, format: date-time }
+        '400': { description: Invalid request. }
+        '401': { description: Authentication required. }
+        '404': { description: Accessible group member not found. }
+        '409': { description: The group owner cannot leave or be removed. }
+  "/users/me/group-invitations":
+    get:
+      tags: [Itinerary Groups]
+      summary: List my received group invitations
+      operationId: listMyGroupInvitations
+      description: >
+        Lists only invitations addressed to the authenticated user for active
+        itinerary groups. Expired pending invitations are shown as EXPIRED.
+        Supports status filtering and cursor pagination, newest first.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string, maxLength: 1000 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, ACCEPTED, DECLINED, EXPIRED, CANCELLED] }
+      responses:
+        '200':
+          description: Received invitations and pagination.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      invitations:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReceivedGroupInvitation' }
+                      pagination:
+                        type: object
+                        properties:
+                          hasMore: { type: boolean }
+                          nextCursor: { type: string, nullable: true }
+        '400': { description: Invalid query or pagination cursor. }
+        '401': { description: Authentication required. }
+  "/users/me/group-invitations/{invitationId}":
+    patch:
+      tags: [Itinerary Groups]
+      summary: Accept or decline my group invitation
+      operationId: respondToMyGroupInvitation
+      description: >
+        Only the recipient can respond. Acceptance rechecks the active unblocked
+        connection to the owner and atomically activates membership and expense
+        participation in an existing trip. If no trip exists, membership is retained
+        and migration 066 synchronizes participants when the trip is created.
+        Declining grants no access. Repeating the same decision returns updated=false;
+        it does not restore subsequently removed membership. Opposite decisions,
+        expired and cancelled invitations return a conflict.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: { type: string, enum: [ACCEPTED, DECLINED] }
+      responses:
+        '200':
+          description: Decision saved or same decision already recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      invitation: { $ref: '#/components/schemas/ReceivedGroupInvitation' }
+        '400': { description: Invalid UUID or decision. }
+        '401': { description: Authentication required. }
+        '403': { description: Active unblocked connection required for acceptance. }
+        '404': { description: Invitation not owned by caller or active group unavailable. }
+        '409': { description: Invitation expired or already resolved differently. }
   /docs:
     get:
       tags:
@@ -1808,6 +1985,14 @@ paths:
         - Itineraries
       summary: Save a generated itinerary
       operationId: saveItinerary
+      description: >
+        Saves the generated itinerary. Send planTogether=true to atomically create
+        its linked group and ACTIVE OWNER membership. Returns data.group alongside
+        the complete data.itinerary. Omitted or false keeps the solo save behavior.
+        The flag is not stored inside itineraryJson. Invite connections using the
+        group invitations endpoint; they receive membership only after acceptance.
+        This does not start the trip or change itinerary visibility. Each successful
+        save creates a new itinerary; reuse its ID when retrying group operations.
       security:
         - bearerAuth: []
       requestBody:
@@ -1815,14 +2000,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SaveItineraryRequest'
+              $ref: '#/components/schemas/PlanTogetherSaveRequest'
       responses:
         '201':
           description: Itinerary saved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SaveItineraryResponse'
+                $ref: '#/components/schemas/PlanTogetherSaveResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1851,13 +2036,193 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  "/itineraries/{itineraryId}/group/invitations":
+    post:
+      tags: [Itinerary Groups]
+      summary: Invite a connection to an itinerary group
+      operationId: createItineraryGroupInvitation
+      description: >
+        The itinerary and group owner can invite an active, unblocked accepted
+        connection. Creates a PENDING invitation expiring after seven days.
+        Retrying returns the existing unexpired pending invitation without
+        extending its expiry. An expired invitation is replaced by a new one.
+        Inviting does not grant membership, expense access, or vault access;
+        the recipient must accept in the invitation-response workflow.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: itineraryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [userId]
+              properties:
+                userId: { type: string, format: uuid, description: Accepted connection to invite. }
+                message: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Invitation created or existing pending invitation returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      created: { type: boolean }
+                      invitation:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          groupId: { type: string, format: uuid }
+                          itineraryId: { type: string, format: uuid }
+                          invitedUserId: { type: string, format: uuid }
+                          invitedBy: { type: string, format: uuid }
+                          status: { type: string, enum: [PENDING] }
+                          message: { type: string, nullable: true }
+                          expiresAt: { type: string, format: date-time, nullable: true }
+                          createdAt: { type: string, format: date-time }
+                          updatedAt: { type: string, format: date-time }
+                  requestId: { type: string, format: uuid }
+                  timestamp: { type: string, format: date-time }
+        '400':
+          description: Invalid input or self-invitation.
+        '401':
+          description: Authentication required.
+        '403':
+          description: Target is not an active unblocked accepted connection.
+        '404':
+          description: Active owned itinerary group not found.
+        '409':
+          description: Target is already an active member.
+  '/itineraries/{itineraryId}/group':
+    post:
+      tags: [Itinerary Groups]
+      summary: Create or retrieve an itinerary group
+      description: Creates the single collaboration group linked to an owned itinerary and adds the itinerary creator as its active OWNER member. Repeated calls return the existing linked group without creating a duplicate.
+      operationId: createItineraryGroup
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ItineraryId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                description: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          description: Itinerary group created or fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [created, group]
+                    properties:
+                      created: { type: boolean }
+                      group:
+                        type: object
+                        required: [id, itineraryId, ownerId, name, status]
+                        properties:
+                          id: { type: string, format: uuid }
+                          itineraryId: { type: string, format: uuid }
+                          ownerId: { type: string, format: uuid }
+                          name: { type: string }
+                          description: { type: string, nullable: true }
+                          status: { type: string, enum: [ACTIVE, ARCHIVED] }
+                          createdAt: { type: string, format: date-time }
+                          updatedAt: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Itinerary not found or not owned by the authenticated user }
+        '409': { description: The itinerary is linked to a group owned by another user }
+  '/itineraries/{itineraryId}/group/members':
+    get:
+      tags: [Itinerary Groups]
+      summary: List active itinerary group members
+      description: Returns the active members of an itinerary's linked group. The itinerary owner and active group members can access this list.
+      operationId: listItineraryGroupMembers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ItineraryId'
+      responses:
+        '200':
+          description: Itinerary group members fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    required: [group, members, totalCount]
+                    properties:
+                      group:
+                        type: object
+                        required: [id, itineraryId, ownerId, name, status]
+                        properties:
+                          id: { type: string, format: uuid }
+                          itineraryId: { type: string, format: uuid }
+                          ownerId: { type: string, format: uuid }
+                          name: { type: string }
+                          description: { type: string, nullable: true }
+                          status: { type: string, enum: [ACTIVE, ARCHIVED] }
+                      members:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, user, role, status, joinedAt]
+                          properties:
+                            id: { type: string, format: uuid }
+                            user:
+                              type: object
+                              required: [id, username, isVerified]
+                              properties:
+                                id: { type: string, format: uuid }
+                                username: { type: string }
+                                displayName: { type: string, nullable: true }
+                                isVerified: { type: boolean }
+                            role: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                            status: { type: string, enum: [ACTIVE] }
+                            joinedAt: { type: string, format: date-time }
+                            createdAt: { type: string, format: date-time }
+                            updatedAt: { type: string, format: date-time }
+                      totalCount: { type: integer, minimum: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Itinerary group not found or inaccessible }
   '/itineraries/{itineraryId}':
     get:
       tags:
         - Itineraries
       summary: Get a saved itinerary
       description: |
-        Returns an active itinerary owned by the authenticated user. Missing, deleted, and unowned itineraries return the same not-found response.
+        Returns the complete active itinerary for its owner or an ACTIVE member
+        of its active linked group. Pending invitees, removed members and other
+        users receive the same not-found response. Editing, deletion, sharing
+        and lifecycle changes remain owner-only.
       operationId: getItinerary
       security:
         - bearerAuth: []
@@ -1958,11 +2323,13 @@ paths:
     get:
       tags:
         - Itineraries
-      summary: Get my itinerary dashboard
+      summary: Get an accessible itinerary dashboard
       description: >
-        Returns the complete owned itinerary with digital-vault document counts,
-        travel-essential completion metrics, and expense totals grouped by
-        currency and category.
+        Returns the complete itinerary for its owner or an ACTIVE linked-group
+        member, plus counts for the viewer's own documents and accessible GROUP
+        documents, the viewer's own essential completion metrics, and trip-wide
+        expense totals by currency and category. Other users' PRIVATE documents
+        are excluded. Pending invitees and removed members receive not-found.
       operationId: getItineraryDashboard
       security:
         - bearerAuth: []
@@ -2345,7 +2712,7 @@ paths:
     post:
       tags: [Itinerary Expenses]
       summary: Add an expense participant
-      description: Adds one accepted connection to the itinerary expense group so the user can pay expenses and participate in splits.
+      description: Adds an accepted connection to standalone trip expenses. When an itinerary has a linked group, the target must also be an ACTIVE group member; pending or removed members cannot gain expense access through this endpoint.
       operationId: addItineraryExpenseParticipant
       security: [{ bearerAuth: [] }]
       parameters:
@@ -2531,6 +2898,12 @@ paths:
         - Itinerary Vault
       summary: Upload a private itinerary document
       operationId: uploadItineraryVaultDocument
+      description: >
+        The itinerary owner or an ACTIVE linked-group member uploads a document
+        into an existing trip. The uploader owns the document; visibility always
+        starts PRIVATE. Each upload has an isolated private asset. Only the document
+        owner can delete it or change its visibility. GROUP sharing requires active
+        group membership. Multipart fields and supported file types are unchanged.
       security:
         - bearerAuth: []
       parameters:
@@ -2562,7 +2935,7 @@ paths:
       tags:
         - Itinerary Vault
       summary: List accessible itinerary vault documents
-      description: Returns all active documents to the itinerary owner. Active members of the linked active group receive only documents whose visibility is GROUP.
+      description: Returns the viewer's own PRIVATE and GROUP documents plus others' GROUP documents to the itinerary owner and ACTIVE linked-group members. Other users' PRIVATE documents are never included.
       operationId: listItineraryVaultDocuments
       security:
         - bearerAuth: []
@@ -2592,7 +2965,7 @@ paths:
       summary: Delete an uploaded itinerary document
       operationId: deleteItineraryVaultDocument
       description: |
-        Soft-deletes an uploaded vault document owned by the authenticated itinerary owner. The underlying media asset is retained for safe deduplication and orphan cleanup.
+        Soft-deletes an uploaded vault document owned by the authenticated document owner, including a member who has left. The media asset is retained for orphan cleanup.
       security:
         - bearerAuth: []
       parameters:
@@ -2625,7 +2998,7 @@ paths:
       tags: [Itinerary Vault]
       summary: Download an uploaded itinerary document
       operationId: downloadItineraryVaultDocument
-      description: Downloads an active vault document as an attachment. The owner can download PRIVATE and GROUP documents; active linked-group members can download GROUP documents only.
+      description: Downloads an active vault document as a private, no-store attachment. Document owners can download their own PRIVATE and GROUP files. ACTIVE linked-group members can download others' GROUP files. The group owner cannot download another user's PRIVATE document.
       security:
         - bearerAuth: []
       parameters:
@@ -2662,7 +3035,7 @@ paths:
       tags: [Itinerary Vault]
       summary: Change vault document visibility
       operationId: updateItineraryVaultDocumentVisibility
-      description: Lets the itinerary and document owner switch between PRIVATE owner-only access and GROUP access for active members of the linked active group.
+      description: Only the document owner may change visibility. GROUP sharing requires ACTIVE linked-group membership. Removed document owners may restore PRIVATE visibility. Other members cannot change visibility.
       security:
         - bearerAuth: []
       parameters:
@@ -5374,6 +5747,50 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: '2026-08-17T05:33:44.704Z'
   schemas:
+    PlanTogetherSaveRequest:
+      allOf:
+        - $ref: '#/components/schemas/SaveItineraryRequest'
+        - type: object
+          properties:
+            planTogether:
+              type: boolean
+              default: false
+              description: Create a linked group with the owner as its first active member when true.
+    PlanTogetherSaveResponse:
+      allOf:
+        - $ref: '#/components/schemas/SaveItineraryResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                group:
+                  type: object
+                  description: Included only when planTogether is true.
+                  properties:
+                    id: { type: string, format: uuid }
+                    itineraryId: { type: string, format: uuid }
+                    ownerId: { type: string, format: uuid }
+                    name: { type: string }
+                    description: { type: string, nullable: true }
+                    status: { type: string, enum: [ACTIVE] }
+                    createdAt: { type: string, format: date-time }
+                    updatedAt: { type: string, format: date-time }
+    ReceivedGroupInvitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        groupId: { type: string, format: uuid }
+        itineraryId: { type: string, format: uuid }
+        groupName: { type: string, description: Included when listing invitations. }
+        invitedUserId: { type: string, format: uuid }
+        invitedBy: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, ACCEPTED, DECLINED, EXPIRED, CANCELLED] }
+        message: { type: string, nullable: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        respondedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     SavedPostGroupsResponse:
       type: object
       required:

@@ -139,13 +139,26 @@ class ItineraryExpenseParticipantsRepository {
   }
 
   async add({ tripId, userId, addedBy }) {
-    const { rows } = await Database.query(
+    return Database.transaction(async (client) => {
+      const { rows: [trip] } = await client.query(
+        'SELECT itinerary_id FROM trip.trips WHERE id=$1::uuid AND user_id=$2::uuid', [tripId, addedBy]);
+      if (!trip) { return null; }
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1::text,0))', [trip.itinerary_id]);
+    const { rows } = await client.query(
       `
         INSERT INTO trip.trip_participants (
           trip_id,
           user_id,
           added_by
-        ) VALUES ($1::uuid, $2::uuid, $3::uuid)
+        ) SELECT $1::uuid, $2::uuid, $3::uuid
+        WHERE NOT EXISTS (
+          SELECT 1 FROM groups.groups g WHERE g.itinerary_id=$4::uuid
+        ) OR EXISTS (
+          SELECT 1 FROM groups.groups g
+          JOIN groups.group_members m ON m.group_id=g.id AND m.status='ACTIVE'
+          WHERE g.itinerary_id=$4::uuid AND g.status='ACTIVE' AND g.deleted_at IS NULL
+            AND m.user_id=$2::uuid
+        )
         ON CONFLICT (trip_id, user_id)
         DO UPDATE SET
           status = 'ACTIVE',
@@ -155,10 +168,11 @@ class ItineraryExpenseParticipantsRepository {
           updated_at = CURRENT_TIMESTAMP
         RETURNING *
       `,
-      [tripId, userId, addedBy],
+      [tripId, userId, addedBy, trip.itinerary_id],
     );
 
-    return rows[0];
+    return rows[0] ?? null;
+    });
   }
 
   async removeOwned({ itineraryId, ownerUserId, targetUserId }) {

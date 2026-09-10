@@ -1,6 +1,18 @@
 import Database from "../../database/database-manager.js";
+import GroupsRepository from "../groups/groups.repository.js";
 
 class ItineraryRepository {
+  async createPlanTogether(input) {
+    return Database.transaction(async (client) => {
+      const itinerary = await this.create({ ...input, client });
+      const group = await GroupsRepository.createLinked({ client,
+        itineraryId: itinerary.id, ownerId: input.userId,
+        name: itinerary.title, description: null });
+      await GroupsRepository.ensureOwnerMember({ client, groupId: group.id, ownerId: input.userId });
+      return { itinerary, group };
+    });
+  }
+
   async getOrCreateOwnedPublicShare({
     itineraryId,
     userId,
@@ -560,7 +572,7 @@ class ItineraryRepository {
     };
   }
 
-  async findOwnedById({
+  async findAccessibleById({
     itineraryId,
     userId,
   }) {
@@ -578,7 +590,12 @@ class ItineraryRepository {
         updated_at
       FROM itinerary.itineraries
       WHERE id = $1::uuid
-        AND created_by = $2::uuid
+        AND (created_by = $2::uuid OR EXISTS (
+          SELECT 1 FROM groups.groups g
+          JOIN groups.group_members m ON m.group_id=g.id AND m.status='ACTIVE'
+          WHERE g.itinerary_id=$1::uuid AND g.status='ACTIVE' AND g.deleted_at IS NULL
+            AND m.user_id=$2::uuid
+        ))
         AND deleted_at IS NULL
       LIMIT 1
     `;
@@ -595,7 +612,7 @@ class ItineraryRepository {
     return rows[0] ?? null;
   }
 
-  async findOwnedDashboard({
+  async findAccessibleDashboard({
     itineraryId,
     userId,
   }) {
@@ -647,7 +664,6 @@ class ItineraryRepository {
       LEFT JOIN trip.trips AS trip_record
         ON trip_record.itinerary_id =
           itinerary_record.id
-        AND trip_record.user_id = $2::uuid
 
       LEFT JOIN LATERAL (
         SELECT
@@ -666,7 +682,14 @@ class ItineraryRepository {
           FROM trip.trip_documents document
           WHERE document.trip_id =
               trip_record.id
-            AND document.owner_id = $2::uuid
+            AND (document.owner_id = $2::uuid OR (
+              document.visibility='GROUP' AND EXISTS (
+                SELECT 1 FROM groups.groups g
+                JOIN groups.group_members m ON m.group_id=g.id AND m.status='ACTIVE'
+                WHERE g.itinerary_id=itinerary_record.id AND g.status='ACTIVE'
+                  AND g.deleted_at IS NULL AND m.user_id=$2::uuid
+              )
+            ))
             AND document.deleted_at IS NULL
           GROUP BY document.document_type
         ) grouped
@@ -742,8 +765,12 @@ class ItineraryRepository {
       ) expense_summary ON TRUE
 
       WHERE itinerary_record.id = $1::uuid
-        AND itinerary_record.created_by =
-          $2::uuid
+        AND (itinerary_record.created_by = $2::uuid OR EXISTS (
+          SELECT 1 FROM groups.groups g
+          JOIN groups.group_members m ON m.group_id=g.id AND m.status='ACTIVE'
+          WHERE g.itinerary_id=itinerary_record.id AND g.status='ACTIVE'
+            AND g.deleted_at IS NULL AND m.user_id=$2::uuid
+        ))
         AND itinerary_record.deleted_at IS NULL
       LIMIT 1
     `;
@@ -762,6 +789,7 @@ class ItineraryRepository {
     title,
     durationDays,
     itineraryJson,
+    client = Database,
   }) {
     const sql = `
       INSERT INTO itinerary.itineraries (
@@ -796,7 +824,7 @@ class ItineraryRepository {
     `;
 
     const { rows } =
-      await Database.query(
+      await client.query(
         sql,
         [
           userId,

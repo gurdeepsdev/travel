@@ -294,7 +294,7 @@ class ItineraryService {
   }) {
     const itinerary =
       await ItineraryRepository
-        .findOwnedById({
+        .findAccessibleById({
           itineraryId,
           userId,
         });
@@ -317,7 +317,7 @@ class ItineraryService {
   }) {
     const dashboard =
       await ItineraryRepository
-        .findOwnedDashboard({
+        .findAccessibleDashboard({
           itineraryId,
           userId,
         });
@@ -454,10 +454,23 @@ class ItineraryService {
     userId,
     payload,
   }) {
+    const { planTogether, ...itineraryPayload } = payload;
     const itineraryJson =
       removeClientOwnerFields(
-        payload,
+        itineraryPayload,
       );
+
+    if (planTogether === true) {
+      const { itinerary, group } = await ItineraryRepository.createPlanTogether({
+        userId, title: buildTitle(itineraryJson.city_id),
+        durationDays: itineraryJson.summary.num_days, itineraryJson,
+      });
+      return { itinerary: mapItinerary(itinerary), group: {
+        id: group.id, itineraryId: group.itinerary_id, ownerId: group.owner_id,
+        name: group.name, description: group.description, status: group.status,
+        createdAt: group.created_at, updatedAt: group.updated_at,
+      } };
+    }
 
     const itinerary =
       await ItineraryRepository.create({
