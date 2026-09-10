@@ -44,6 +44,28 @@ try {
   await client.query('INSERT INTO users.connections(user_low_id,user_high_id) VALUES (LEAST($1::uuid,$2::uuid),GREATEST($1::uuid,$2::uuid))',[users[0],users[1]]);
   const payload={request_id:randomUUID(),status:'success',mode:'future',city_id:'delhi',
     summary:{num_days:1,total_places:1},days:[{day:1,items:[{item_type:'poi',place_id:'test-google-place'}]}]};
+  await call('post','/groups',null,{name:'Unauthenticated'},401);
+  await call('post','/groups',0,{name:' '},400);
+  const standalone=(await call('post','/groups',0,{name:'Group first'})).group;
+  assert.equal(standalone.itineraryId,null);
+  const first=(await call('post','/itineraries',0,payload,201)).itinerary;
+  const linkPath=`/groups/${standalone.id}/itinerary`;
+  await call('put',linkPath,1,{itineraryId:first.id},404);
+  await call('put',linkPath,0,{itineraryId:'invalid'},400);
+  await call('patch',`/itineraries/${first.id}/status`,0,{status:'UPCOMING'});
+  assert.equal((await call('put',linkPath,0,{itineraryId:first.id})).updated,true);
+  assert.equal((await call('put',linkPath,0,{itineraryId:first.id})).updated,false);
+  assert.equal((await call('put',linkPath,0,{itineraryId:first.id.toUpperCase()})).updated,false);
+  const another=(await call('post','/groups',0,{name:'Another group'})).group;
+  await call('put',`/groups/${another.id}/itinerary`,0,{itineraryId:first.id},409);
+  const otherItinerary=(await call('post','/itineraries',0,payload,201)).itinerary;
+  await call('put',linkPath,0,{itineraryId:otherItinerary.id},409);
+  const groupFirstInvite=(await call('post',`/itineraries/${first.id}/group/invitations`,0,{userId:users[1]})).invitation;
+  await call('get',`/itineraries/${first.id}`,1,undefined,404);
+  await call('patch',`/users/me/group-invitations/${groupFirstInvite.id}`,1,{status:'ACCEPTED'});
+  assert.equal((await call('get',`/itineraries/${first.id}/group/members`,1)).totalCount,2);
+  assert.equal((await call('get',`/itineraries/${first.id}/expense-participants`,1)).totalCount,2);
+  await call('get',`/itineraries/${first.id}`,1);
   const solo=await call('post','/itineraries',0,payload,201);
   assert(!solo.group);
   await call('patch',`/itineraries/${solo.itinerary.id}/status`,0,{status:'UPCOMING'});

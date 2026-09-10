@@ -1,6 +1,51 @@
 import Database from "../../database/database-manager.js";
 
 class GroupsRepository {
+  async createStandaloneGroup({ userId, input }) {
+    return Database.transaction(async (client) => {
+      const group = await this.createLinked({ client, itineraryId: null, ownerId: userId,
+        name: input.name, description: input.description ?? null });
+      await this.ensureOwnerMember({ client, groupId: group.id, ownerId: userId });
+      return group;
+    });
+  }
+
+  async linkItinerary({ groupId, itineraryId, userId }) {
+    return Database.transaction(async (client) => {
+      // Same lock order as invitation, trip creation and itinerary-first group creation.
+      await this.lockItinerary({ client, itineraryId });
+      const { rows: [itinerary] } = await client.query(`
+        SELECT id FROM itinerary.itineraries
+        WHERE id=$1::uuid AND created_by=$2::uuid AND deleted_at IS NULL FOR UPDATE
+      `, [itineraryId, userId]);
+      if (!itinerary) { return null; }
+      const { rows: [group] } = await client.query(`
+        SELECT * FROM groups.groups WHERE id=$1::uuid AND owner_id=$2::uuid
+          AND status='ACTIVE' AND deleted_at IS NULL FOR UPDATE
+      `, [groupId, userId]);
+      if (!group) { return null; }
+      if (group.itinerary_id === itineraryId.toLowerCase()) { return { updated: false, group }; }
+      if (group.itinerary_id) { return { conflict: true }; }
+      // Include deleted groups: the database unique constraint also retains their links.
+      const { rows: linked } = await client.query(
+        'SELECT id FROM groups.groups WHERE itinerary_id=$1::uuid', [itineraryId]);
+      if (linked.length) { return { conflict: true }; }
+      const { rows: [updated] } = await client.query(`
+        UPDATE groups.groups SET itinerary_id=$2::uuid,updated_at=CURRENT_TIMESTAMP
+        WHERE id=$1::uuid RETURNING *
+      `, [groupId, itineraryId]);
+      await client.query(`
+        INSERT INTO trip.trip_participants(trip_id,user_id,added_by)
+        SELECT t.id,m.user_id,m.added_by FROM trip.trips t
+        JOIN groups.group_members m ON m.group_id=$2::uuid AND m.status='ACTIVE'
+        WHERE t.itinerary_id=$1::uuid
+        ON CONFLICT (trip_id,user_id) DO UPDATE SET status='ACTIVE',removed_at=NULL,
+          updated_at=CURRENT_TIMESTAMP
+      `, [itineraryId, groupId]);
+      return { updated: true, group: updated };
+    });
+  }
+
   async removeMember({ itineraryId, userId, targetUserId, leave = false }) {
     return Database.transaction(async (client) => {
       await this.lockItinerary({ client, itineraryId });

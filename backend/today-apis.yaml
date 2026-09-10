@@ -29,6 +29,73 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  /groups:
+    post:
+      tags: [Itinerary Groups]
+      summary: Create a group before planning an itinerary
+      operationId: createStandaloneGroup
+      description: >
+        Creates an ACTIVE group and its ACTIVE OWNER membership atomically.
+        itineraryId is null until linked. Each successful request creates a new group.
+        Save an itinerary without planTogether, then use PUT /groups/{groupId}/itinerary.
+        Invite connections through the existing itinerary group invitations API after linking.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                description: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          description: Group created; data contains created=true and group with nullable itineraryId.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StandaloneGroupResponse' }
+        '400': { description: Invalid input }
+        '401': { description: Authentication required }
+  '/groups/{groupId}/itinerary':
+    put:
+      tags: [Itinerary Groups]
+      summary: Link an owned itinerary to an owned group
+      operationId: linkGroupItinerary
+      description: >
+        Links an unlinked ACTIVE group to an existing itinerary owned by the caller.
+        One itinerary per group and one group per itinerary. Repeating the same link
+        returns updated=false. A different existing link returns 409; no replacement
+        or detachment is performed. Active members are synchronized to an existing trip.
+        Existing itinerary-first and planTogether flows are unchanged.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [itineraryId]
+              properties:
+                itineraryId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Link saved or already present; data contains updated and group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StandaloneGroupResponse' }
+        '400': { description: Invalid UUID or body }
+        '401': { description: Authentication required }
+        '404': { description: Owned active group or itinerary not found }
+        '409': { description: Group or itinerary already has a different link }
   "/itineraries/{itineraryId}/group/members/{userId}":
     delete:
       tags: [Itinerary Groups]
@@ -4287,6 +4354,29 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: 2026-08-17T05:33:44.704Z
   schemas:
+    StandaloneGroupResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        data:
+          type: object
+          properties:
+            created: { type: boolean, description: Present on creation }
+            updated: { type: boolean, description: Present on linking }
+            group:
+              type: object
+              properties:
+                id: { type: string, format: uuid }
+                itineraryId: { type: string, format: uuid, nullable: true }
+                ownerId: { type: string, format: uuid }
+                name: { type: string }
+                description: { type: string, nullable: true }
+                status: { type: string, enum: [ACTIVE, ARCHIVED] }
+                createdAt: { type: string, format: date-time }
+                updatedAt: { type: string, format: date-time }
     PlanTogetherSaveRequest:
       allOf:
         - $ref: '#/components/schemas/SaveItineraryRequest'

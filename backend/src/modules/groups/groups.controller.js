@@ -2,6 +2,21 @@ import Response from "../../core/response/index.js";
 import Service from "./groups.service.js";
 
 class GroupsController {
+  async createStandaloneGroup(req, res, next) {
+    try {
+      const result = await Service.createStandaloneGroup({ userId: req.user.id, input: req.validated.body });
+      return Response.success(res, result, "Group created successfully.");
+    } catch (error) { return next(error); }
+  }
+
+  async linkItinerary(req, res, next) {
+    try {
+      const result = await Service.linkItinerary({ userId: req.user.id,
+        groupId: req.validated.params.groupId, itineraryId: req.validated.body.itineraryId });
+      return Response.success(res, result, "Group itinerary linked successfully.");
+    } catch (error) { return next(error); }
+  }
+
   async removeMember(req, res, next) {
     try {
       const result = await Service.removeMember({ itineraryId: req.validated.params.itineraryId,
