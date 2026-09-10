@@ -4,6 +4,8 @@ import AuthMiddleware from "../../middleware/auth.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 import Controller from "./groups.controller.js";
 import {
+  createStandaloneGroupSchema,
+  linkGroupItinerarySchema,
   removeGroupMemberSchema,
   leaveGroupSchema,
   listGroupInvitationsSchema,
@@ -14,6 +16,11 @@ import {
 } from "./groups.validation.js";
 
 const router = Router();
+
+router.post('/groups', AuthMiddleware.authenticate,
+  validate(createStandaloneGroupSchema), Controller.createStandaloneGroup);
+router.put('/groups/:groupId/itinerary', AuthMiddleware.authenticate,
+  validate(linkGroupItinerarySchema), Controller.linkItinerary);
 
 router.delete('/itineraries/:itineraryId/group/members/:userId', AuthMiddleware.authenticate,
   validate(removeGroupMemberSchema), Controller.removeMember);

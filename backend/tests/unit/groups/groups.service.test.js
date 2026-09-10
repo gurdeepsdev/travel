@@ -1,6 +1,8 @@
 import { jest } from "@jest/globals";
 
 const repositoryMock = {
+  createStandaloneGroup: jest.fn(),
+  linkItinerary: jest.fn(),
   removeMember: jest.fn(),
   listInvitations: jest.fn(),
   respondToInvitation: jest.fn(),
@@ -24,6 +26,20 @@ const userId = "22222222-2222-4222-8222-222222222222";
 const groupId = "33333333-3333-4333-8333-333333333333";
 
 describe("GroupsService", () => {
+  test('creates a standalone group with a null itinerary', async () => {
+    repositoryMock.createStandaloneGroup.mockResolvedValue({id:groupId,itinerary_id:null,owner_id:userId});
+    await expect(service.createStandaloneGroup({userId,input:{name:'Trip'}}))
+      .resolves.toMatchObject({created:true,group:{id:groupId,itineraryId:null,ownerId:userId}});
+  });
+  test.each([[null,404],[{conflict:true},409]])('rejects unavailable or conflicting link', async (result,statusCode) => {
+    repositoryMock.linkItinerary.mockResolvedValue(result);
+    await expect(service.linkItinerary({userId,groupId,itineraryId})).rejects.toMatchObject({statusCode});
+  });
+  test.each([true,false])('maps link updated=%s', async updated => {
+    repositoryMock.linkItinerary.mockResolvedValue({updated,group:{id:groupId,itinerary_id:itineraryId}});
+    await expect(service.linkItinerary({userId,groupId,itineraryId}))
+      .resolves.toMatchObject({updated,group:{id:groupId,itineraryId}});
+  });
   test.each([
     [null, 'GROUP.MEMBER_NOT_FOUND', 404],
     [{error:'OWNER_REMOVAL_FORBIDDEN'}, 'GROUP.OWNER_REMOVAL_FORBIDDEN', 409],

@@ -6,6 +6,30 @@ import Repository from "./groups.repository.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 
 class GroupsService {
+  mapGroup(group) {
+    return { id: group.id, itineraryId: group.itinerary_id, ownerId: group.owner_id,
+      name: group.name, description: group.description, status: group.status,
+      createdAt: group.created_at, updatedAt: group.updated_at };
+  }
+
+  async createStandaloneGroup(args) {
+    const group = await Repository.createStandaloneGroup(args);
+    return { created: true, group: this.mapGroup(group) };
+  }
+
+  async linkItinerary(args) {
+    const result = await Repository.linkItinerary(args);
+    if (!result) {
+      throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
+        message: "Owned active group or itinerary not found.", statusCode: HttpStatus.NOT_FOUND });
+    }
+    if (result.conflict) {
+      throw new AppError({ code: ErrorCodes.GROUP.ITINERARY_ALREADY_LINKED,
+        message: "The group or itinerary already has a different link.", statusCode: HttpStatus.CONFLICT });
+    }
+    return { updated: result.updated, group: this.mapGroup(result.group) };
+  }
+
   async removeMember(args) {
     const result = await Repository.removeMember(args);
     if (!result) {

@@ -1,5 +1,20 @@
 import { z } from "zod";
 
+export const createStandaloneGroupSchema = z.object({
+  body: z.object({
+    name: z.string().trim().min(1).max(150),
+    description: z.string().trim().min(1).max(2000).optional(),
+  }).strict(),
+  params: z.object({}).strict(),
+  query: z.object({}).strict(),
+});
+
+export const linkGroupItinerarySchema = z.object({
+  body: z.object({ itineraryId: z.string().trim().uuid() }).strict(),
+  params: z.object({ groupId: z.string().trim().uuid() }).strict(),
+  query: z.object({}).strict(),
+});
+
 const createLinkedGroupSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1).max(150).optional(),
