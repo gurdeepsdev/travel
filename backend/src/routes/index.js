@@ -12,6 +12,8 @@ import exploreRoutes
   from "../modules/explore/explore.routes.js";
 import itineraryRoutes
   from "../modules/itinerary/itinerary.routes.js";
+import groupsRoutes
+  from "../modules/groups/groups.routes.js";
 
 const router = Router();
 
@@ -35,6 +37,7 @@ router.use(
   "/itineraries",
   itineraryRoutes,
 );
+router.use("/", groupsRoutes);
 
 
 export default router;

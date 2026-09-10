@@ -6,11 +6,12 @@ const ITINERARY_ID =
   "11111111-1111-4111-8111-111111111111";
 
 const repositoryMock = {
+  createPlanTogether: jest.fn(),
   getOrCreateOwnedPublicShare:
     jest.fn(),
   create: jest.fn(),
-  findOwnedById: jest.fn(),
-  findOwnedDashboard: jest.fn(),
+  findAccessibleById: jest.fn(),
+  findAccessibleDashboard: jest.fn(),
   listOwned: jest.fn(),
   updateOwnedLifecycleStatus:
     jest.fn(),
@@ -32,6 +33,27 @@ const { default: ItineraryService } =
   );
 
 describe("ItineraryService", () => {
+  test('saves Plan Together atomically and returns the group', async () => {
+    const payload={planTogether:true,city_id:'delhi',summary:{num_days:1},days:[]};
+    const itinerary={id:ITINERARY_ID,created_by:USER_ID,title:'Delhi itinerary',
+      itinerary_json:{city_id:'delhi'},created_at:new Date(),updated_at:new Date()};
+    repositoryMock.createPlanTogether.mockResolvedValue({itinerary,group:{
+      id:ITINERARY_ID,itinerary_id:ITINERARY_ID,owner_id:USER_ID,status:'ACTIVE',
+    }});
+    const result=await ItineraryService.saveItinerary({userId:USER_ID,payload});
+    expect(result.group).toMatchObject({itineraryId:ITINERARY_ID,ownerId:USER_ID,status:'ACTIVE'});
+    expect(repositoryMock.create).not.toHaveBeenCalled();
+    expect(repositoryMock.createPlanTogether.mock.calls[0][0].itineraryJson).not.toHaveProperty('planTogether');
+    expect(payload.planTogether).toBe(true);
+  });
+
+  test('propagates Plan Together transaction failure without a solo fallback', async () => {
+    repositoryMock.createPlanTogether.mockRejectedValue(new Error('Group write failed'));
+    await expect(ItineraryService.saveItinerary({userId:USER_ID,payload:{planTogether:true,
+      city_id:'delhi',summary:{num_days:1}}})).rejects.toThrow('Group write failed');
+    expect(repositoryMock.create).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -726,7 +748,7 @@ describe("ItineraryService", () => {
   test(
     "returns an itinerary owned by the authenticated user",
     async () => {
-      repositoryMock.findOwnedById
+      repositoryMock.findAccessibleById
         .mockResolvedValue({
           id: ITINERARY_ID,
           created_by: USER_ID,
@@ -759,7 +781,7 @@ describe("ItineraryService", () => {
           });
 
       expect(
-        repositoryMock.findOwnedById,
+        repositoryMock.findAccessibleById,
       ).toHaveBeenCalledWith({
         itineraryId:
           ITINERARY_ID,
@@ -779,7 +801,7 @@ describe("ItineraryService", () => {
   test(
     "hides missing, deleted, or unowned itineraries",
     async () => {
-      repositoryMock.findOwnedById
+      repositoryMock.findAccessibleById
         .mockResolvedValue(null);
 
       await expect(
@@ -802,7 +824,7 @@ describe("ItineraryService", () => {
   test(
     "returns the complete itinerary dashboard summary",
     async () => {
-      repositoryMock.findOwnedDashboard
+      repositoryMock.findAccessibleDashboard
         .mockResolvedValue({
           id: ITINERARY_ID,
           created_by: USER_ID,
@@ -887,7 +909,7 @@ describe("ItineraryService", () => {
   test(
     "returns zero dashboard metrics before a trip exists",
     async () => {
-      repositoryMock.findOwnedDashboard
+      repositoryMock.findAccessibleDashboard
         .mockResolvedValue({
           id: ITINERARY_ID,
           created_by: USER_ID,
@@ -935,7 +957,7 @@ describe("ItineraryService", () => {
   test(
     "hides an unowned itinerary dashboard",
     async () => {
-      repositoryMock.findOwnedDashboard
+      repositoryMock.findAccessibleDashboard
         .mockResolvedValue(null);
 
       await expect(

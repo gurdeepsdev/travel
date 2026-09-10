@@ -212,7 +212,9 @@ const itineraryPayloadSchema = z
 const saveItinerarySchema = z
   .object({
     body:
-      itineraryPayloadSchema,
+      itineraryPayloadSchema.and(z.object({
+        planTogether: z.boolean().optional(),
+      }).passthrough()),
 
     params: z
       .object({})

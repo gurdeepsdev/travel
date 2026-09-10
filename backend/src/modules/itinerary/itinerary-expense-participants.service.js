@@ -137,6 +137,11 @@ class ItineraryExpenseParticipantsService {
       userId: targetUserId,
       addedBy: ownerUserId,
     });
+    if (!participant) {
+      throw new AppError({ code: ErrorCodes.ITINERARY.EXPENSE_PARTICIPANT_NOT_ELIGIBLE,
+        message: "Accept the itinerary group invitation before joining its expense tracker.",
+        statusCode: HttpStatus.UNPROCESSABLE_ENTITY });
+    }
 
     return {
       participant: {

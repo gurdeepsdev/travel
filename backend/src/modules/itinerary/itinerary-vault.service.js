@@ -1,7 +1,8 @@
 import Database from "../../database/database-manager.js";
 import StorageManager from "../../providers/storage/storage-manager.js";
-import MediaRepository from "../media/media.repository.js";
-import MediaService from "../media/media.service.js";
+import { access } from "node:fs/promises";
+import { constants as fileConstants } from "node:fs";
+import { resolveStoragePath } from "../../providers/storage/local.provider.js";
 import { buildAssetUrl } from "../users/utils/asset-url.util.js";
 import AppError from "../../core/errors/app-error.js";
 import ErrorCodes from "../../shared/constants/error-codes.js";
@@ -109,9 +110,10 @@ class ItineraryVaultService {
       const result =
         await Database.transaction(
           async (client) => {
+            await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [itineraryId]);
             const itineraryTrip =
               await ItineraryVaultRepository
-                .findOwnedItineraryTrip({
+                .findAccessibleItineraryTrip({
                   client,
                   itineraryId,
                   userId,
@@ -127,16 +129,7 @@ class ItineraryVaultService {
                 .createTripRequiredError();
             }
 
-            const resolution =
-              await MediaRepository
-                .resolveUploadedAssets({
-                  client,
-                  userId,
-                  isPublic: false,
-                  uploads: [upload],
-                });
-            const asset =
-              resolution.assets[0];
+            const asset = await ItineraryVaultRepository.createPrivateAsset({ client, userId, upload });
             const document =
               await ItineraryVaultRepository
                 .create({
@@ -146,6 +139,7 @@ class ItineraryVaultService {
                   userId,
                   assetId: asset.id,
                   input,
+                  checksum: upload.checksum,
                 });
 
             return {
@@ -161,21 +155,9 @@ class ItineraryVaultService {
                 file_size:
                   asset.file_size,
               },
-              unused:
-                resolution
-                  .unusedStoredObjects,
             };
           },
         );
-
-      await Promise.allSettled(
-        result.unused.map(
-          ({ storageKey }) =>
-            StorageManager.remove({
-              storageKey,
-            }),
-        ),
-      );
 
       return {
         document:
@@ -270,12 +252,20 @@ class ItineraryVaultService {
       throw this.createDocumentNotFoundError();
     }
 
-    const content = await MediaService.getLocalAssetContent({
-      assetId: document.asset_id,
-      viewerUserId: userId,
-    });
+    if (document.storage_provider !== 'local') {
+      throw this.createDocumentNotFoundError();
+    }
+    let filePath;
+    try {
+      filePath = resolveStoragePath(document.storage_key);
+      await access(filePath, fileConstants.R_OK);
+    } catch (error) {
+      throw new AppError({ code: ErrorCodes.MEDIA.CONTENT_UNAVAILABLE,
+        message: "Document content is temporarily unavailable.",
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE, cause: error });
+    }
     return {
-      filePath: content.filePath,
+      filePath,
       filename: document.original_filename,
       mimeType: document.mime_type,
     };
@@ -287,20 +277,17 @@ class ItineraryVaultService {
     userId,
     visibility,
   }) {
-    if (visibility === "GROUP" && !await ItineraryVaultRepository
-      .hasActiveLinkedGroup({ itineraryId })) {
-      throw new AppError({
-        code: ErrorCodes.ITINERARY.VAULT_GROUP_REQUIRED,
-        message: "An active group linked to this itinerary is required.",
-        statusCode: HttpStatus.CONFLICT,
-      });
-    }
     const document = await ItineraryVaultRepository.updateVisibilityOwned({
       itineraryId,
       documentId,
       userId,
       visibility,
     });
+    if (document?.groupRequired) {
+      throw new AppError({ code: ErrorCodes.ITINERARY.VAULT_GROUP_REQUIRED,
+        message: "Active membership in the itinerary group is required to share.",
+        statusCode: HttpStatus.CONFLICT });
+    }
     if (!document) {
       throw this.createDocumentNotFoundError();
     }
