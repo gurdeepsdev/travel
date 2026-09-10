@@ -1,5 +1,24 @@
 import { z } from "zod";
 
+export const getGroupSchema = z.object({
+  body: z.object({}).strict().optional(),
+  params: z.object({ groupId: z.string().trim().uuid() }).strict(),
+  query: z.object({}).strict(),
+});
+
+export const getItineraryGroupSchema = getGroupSchema.extend({
+  params: z.object({ itineraryId: z.string().trim().uuid() }).strict(),
+});
+
+export const listMyGroupsSchema = z.object({
+  body: z.object({}).strict().optional(),
+  params: z.object({}).strict(),
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    cursor: z.string().trim().min(1).max(1000).optional(),
+  }).strict(),
+});
+
 export const createStandaloneGroupSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1).max(150),

@@ -1,6 +1,8 @@
 import { jest } from "@jest/globals";
 
 const repositoryMock = {
+  findAccessibleGroup: jest.fn(),
+  listMyGroups: jest.fn(),
   createStandaloneGroup: jest.fn(),
   linkItinerary: jest.fn(),
   removeMember: jest.fn(),
@@ -26,6 +28,38 @@ const userId = "22222222-2222-4222-8222-222222222222";
 const groupId = "33333333-3333-4333-8333-333333333333";
 
 describe("GroupsService", () => {
+  test('resolves group details by itinerary ID', async () => {
+    repositoryMock.findAccessibleGroup.mockResolvedValue({id:groupId,itinerary_id:itineraryId,viewer_role:'MEMBER'});
+    repositoryMock.listActiveMembers.mockResolvedValue([]);
+    await expect(service.getGroup({itineraryId,userId})).resolves.toMatchObject({group:{id:groupId,itineraryId},viewerRole:'MEMBER'});
+    expect(repositoryMock.findAccessibleGroup).toHaveBeenLastCalledWith({groupId:undefined,itineraryId,userId});
+  });
+  test('hides inaccessible group details', async () => {
+    repositoryMock.findAccessibleGroup.mockResolvedValue(null);
+    await expect(service.getGroup({groupId,userId})).rejects.toMatchObject({code:'GROUP.NOT_FOUND',statusCode:404});
+  });
+  test('returns standalone group details and viewer role', async () => {
+    repositoryMock.findAccessibleGroup.mockResolvedValue({id:groupId,itinerary_id:null,viewer_role:'OWNER'});
+    repositoryMock.listActiveMembers.mockResolvedValue([{id:userId,user_id:userId,role:'OWNER',status:'ACTIVE'}]);
+    const result=await service.getGroup({groupId,userId});
+    expect(result).toMatchObject({group:{id:groupId,itineraryId:null},viewerRole:'OWNER',totalCount:1});
+    expect(result.members[0].user).toMatchObject({id:userId,profilePhoto:null});
+  });
+  test('lists groups with a precise pagination cursor and viewer role', async () => {
+    const row={id:groupId,itinerary_id:null,viewer_role:'OWNER',cursor_created_at:'2026-09-10 10:00:00.123456'};
+    repositoryMock.listMyGroups.mockResolvedValue([row,row]);
+    const result=await service.listMyGroups({userId,limit:1});
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]).toMatchObject({itineraryId:null,viewerRole:'OWNER'});
+    expect(result.pagination.hasMore).toBe(true);
+    await service.listMyGroups({userId,limit:1,cursor:result.pagination.nextCursor});
+    expect(repositoryMock.listMyGroups).toHaveBeenLastCalledWith({userId,limit:1,cursor:{createdAt:row.cursor_created_at,id:groupId}});
+  });
+  test('returns an empty group list and rejects invalid cursors', async () => {
+    repositoryMock.listMyGroups.mockResolvedValue([]);
+    await expect(service.listMyGroups({userId})).resolves.toEqual({groups:[],pagination:{hasMore:false,nextCursor:null}});
+    await expect(service.listMyGroups({userId,cursor:'bad'})).rejects.toMatchObject({statusCode:400});
+  });
   test('creates a standalone group with a null itinerary', async () => {
     repositoryMock.createStandaloneGroup.mockResolvedValue({id:groupId,itinerary_id:null,owner_id:userId});
     await expect(service.createStandaloneGroup({userId,input:{name:'Trip'}}))

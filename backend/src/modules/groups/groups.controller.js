@@ -2,6 +2,28 @@ import Response from "../../core/response/index.js";
 import Service from "./groups.service.js";
 
 class GroupsController {
+  async getItineraryGroup(req, res, next) {
+    try {
+      const result = await Service.getGroup({ userId: req.user.id,
+        itineraryId: req.validated.params.itineraryId });
+      return Response.success(res, result, "Itinerary group fetched successfully.");
+    } catch (error) { return next(error); }
+  }
+
+  async getGroup(req, res, next) {
+    try {
+      const result = await Service.getGroup({ userId: req.user.id, groupId: req.validated.params.groupId });
+      return Response.success(res, result, "Group fetched successfully.");
+    } catch (error) { return next(error); }
+  }
+
+  async listMyGroups(req, res, next) {
+    try {
+      const result = await Service.listMyGroups({ userId: req.user.id, ...req.validated.query });
+      return Response.success(res, result, "Groups fetched successfully.");
+    } catch (error) { return next(error); }
+  }
+
   async createStandaloneGroup(req, res, next) {
     try {
       const result = await Service.createStandaloneGroup({ userId: req.user.id, input: req.validated.body });

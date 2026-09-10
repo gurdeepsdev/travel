@@ -1,6 +1,42 @@
 import Database from "../../database/database-manager.js";
 
 class GroupsRepository {
+  async findAccessibleGroup({ groupId, itineraryId, userId }) {
+    const { rows } = await Database.query(`
+      SELECT g.*,
+        CASE WHEN g.owner_id=$2::uuid THEN 'OWNER' ELSE m.role END AS viewer_role
+      FROM groups.groups g
+      LEFT JOIN groups.group_members m ON m.group_id=g.id
+        AND m.user_id=$2::uuid AND m.status='ACTIVE'
+      WHERE (g.id=$1::uuid OR ($1::uuid IS NULL AND g.itinerary_id=$3::uuid))
+        AND g.status='ACTIVE' AND g.deleted_at IS NULL
+        AND (g.owner_id=$2::uuid OR m.id IS NOT NULL)
+        AND (g.itinerary_id IS NULL OR EXISTS (
+          SELECT 1 FROM itinerary.itineraries i WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL
+        ))
+    `, [groupId ?? null, userId, itineraryId ?? null]);
+    return rows[0] ?? null;
+  }
+
+  async listMyGroups({ userId, limit, cursor }) {
+    const { rows } = await Database.query(`
+      SELECT g.*, g.created_at::text AS cursor_created_at,
+        CASE WHEN g.owner_id=$1::uuid THEN 'OWNER' ELSE m.role END AS viewer_role
+      FROM groups.groups g
+      LEFT JOIN groups.group_members m ON m.group_id=g.id
+        AND m.user_id=$1::uuid AND m.status='ACTIVE'
+      WHERE g.status='ACTIVE' AND g.deleted_at IS NULL
+        AND (g.owner_id=$1::uuid OR m.id IS NOT NULL)
+        AND (g.itinerary_id IS NULL OR EXISTS (
+          SELECT 1 FROM itinerary.itineraries i
+          WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL
+        ))
+        AND ($2::timestamp IS NULL OR (g.created_at,g.id)<($2::timestamp,$3::uuid))
+      ORDER BY g.created_at DESC,g.id DESC LIMIT $4
+    `, [userId, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1]);
+    return rows;
+  }
+
   async createStandaloneGroup({ userId, input }) {
     return Database.transaction(async (client) => {
       const group = await this.createLinked({ client, itineraryId: null, ownerId: userId,

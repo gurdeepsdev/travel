@@ -6,6 +6,29 @@ import Repository from "./groups.repository.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 
 class GroupsService {
+  async getGroup({ groupId, itineraryId, userId }) {
+    const group = await Repository.findAccessibleGroup({ groupId, itineraryId, userId });
+    if (!group) {
+      throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
+        message: "Group not found.", statusCode: HttpStatus.NOT_FOUND });
+    }
+    const members = await Repository.listActiveMembers({ groupId: group.id });
+    return { group: this.mapGroup(group), viewerRole: group.viewer_role,
+      members: this.mapMembers(members), totalCount: members.length };
+  }
+
+  async listMyGroups({ userId, limit = 20, cursor }) {
+    const rows = await Repository.listMyGroups({ userId, limit, cursor: decodeCursor(cursor) });
+    const items = rows.slice(0, limit);
+    const hasMore = rows.length > limit;
+    const last = items.at(-1);
+    return {
+      groups: items.map(row => ({ ...this.mapGroup(row), viewerRole: row.viewer_role })),
+      pagination: { hasMore, nextCursor: hasMore
+        ? encodeCursor({ createdAt: last.cursor_created_at, id: last.id }) : null },
+    };
+  }
+
   mapGroup(group) {
     return { id: group.id, itineraryId: group.itinerary_id, ownerId: group.owner_id,
       name: group.name, description: group.description, status: group.status,
@@ -177,7 +200,13 @@ class GroupsService {
         description: group.description,
         status: group.status,
       },
-      members: members.map((member) => ({
+      members: this.mapMembers(members),
+      totalCount: members.length,
+    };
+  }
+
+  mapMembers(members) {
+    return members.map((member) => ({
         id: member.id,
         user: {
           id: member.user_id,
@@ -202,9 +231,7 @@ class GroupsService {
         joinedAt: member.joined_at,
         createdAt: member.created_at,
         updatedAt: member.updated_at,
-      })),
-      totalCount: members.length,
-    };
+      }));
   }
 }
 

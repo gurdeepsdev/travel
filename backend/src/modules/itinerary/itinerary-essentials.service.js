@@ -124,8 +124,10 @@ class ItineraryEssentialsService {
           essential.is_completed === true,
       ).length;
     const totalCount = essentials.length;
+    const emergencyContacts = await ItineraryEssentialsRepository.getEmergencyContacts({ itineraryId, userId });
 
     return {
+      emergencyContacts,
       essentials:
         essentials.map(
           (essential) =>
