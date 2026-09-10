@@ -378,9 +378,9 @@ class ItineraryRepository {
             `
               UPDATE trip.trips
               SET
-                status = $3,
+                status = $3::varchar,
                 started_at = CASE
-                  WHEN $3 = 'ONGOING'
+                  WHEN $3::varchar = 'ONGOING'
                     THEN COALESCE(
                       started_at,
                       CURRENT_TIMESTAMP
@@ -388,7 +388,7 @@ class ItineraryRepository {
                   ELSE started_at
                 END,
                 completed_at = CASE
-                  WHEN $3 = 'COMPLETED'
+                  WHEN $3::varchar = 'COMPLETED'
                     THEN CURRENT_TIMESTAMP
                   ELSE completed_at
                 END,
