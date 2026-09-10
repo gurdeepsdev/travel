@@ -1,6 +1,36 @@
 import Database from "../../database/database-manager.js";
 
 class ItineraryEssentialsRepository {
+  async getEmergencyContacts({ itineraryId, userId }) {
+    const { rows } = await Database.query(`
+      WITH destination AS (
+        SELECT trim(itinerary_json->>'city_id') AS city_identifier
+        FROM itinerary.itineraries
+        WHERE id=$1::uuid AND created_by=$2::uuid AND deleted_at IS NULL
+      ), countries AS (
+        SELECT DISTINCT country.id, country.name
+        FROM destination d
+        JOIN poi.cities city ON city.is_active AND (
+          city.id::text=lower(d.city_identifier)
+          OR (city.provider='GOOGLE_PLACES' AND city.provider_id=d.city_identifier)
+        )
+        JOIN poi.countries country ON country.id=city.country_id AND country.is_active
+      )
+      SELECT c.id,c.name, COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'id',e.id,'serviceType',e.service_type,'name',e.name,
+          'phoneNumber',e.phone_number,'notes',e.notes,
+          'sourceUrl',e.source_url,'verifiedAt',e.verified_at
+        ) ORDER BY e.service_type,e.name,e.id)
+        FROM poi.country_emergency_contacts e WHERE e.country_id=c.id AND e.is_active
+      ),'[]'::jsonb) AS contacts FROM countries c
+    `, [itineraryId, userId]);
+    if (rows.length !== 1) {
+      return { resolutionStatus: 'UNRESOLVED', countries: [] };
+    }
+    return { resolutionStatus: 'RESOLVED', countries: rows };
+  }
+
   async findOwnedItineraryTrip({
     itineraryId,
     userId,

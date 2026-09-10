@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 
 const repositoryMock = {
+  getEmergencyContacts: jest.fn().mockResolvedValue({resolutionStatus:'UNRESOLVED',countries:[]}),
   findOwnedItineraryTrip: jest.fn(),
   create: jest.fn(),
   listOwned: jest.fn(),
@@ -114,6 +115,17 @@ describe("ItineraryEssentialsService", () => {
       unmarkedCount: 1,
       completionPercentage: 50,
     });
+    expect(result.emergencyContacts).toEqual({resolutionStatus:'UNRESOLVED',countries:[]});
+  });
+
+  test('returns resolved contacts without counting them as essentials', async () => {
+    const contacts={resolutionStatus:'RESOLVED',countries:[{id:userId,name:'Test',contacts:[]}]};
+    repositoryMock.getEmergencyContacts.mockResolvedValueOnce(contacts);
+    repositoryMock.listOwned.mockResolvedValueOnce([]);
+    const result=await service.listEssentials({itineraryId,userId});
+    expect(result.emergencyContacts).toEqual(contacts);
+    expect(result.summary.totalCount).toBe(0);
+    expect(result.summary.completionPercentage).toBe(0);
   });
 
   test("updates essential fields", async () => {

@@ -29,6 +29,116 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  '/groups/{groupId}':
+    get:
+      tags: [Itinerary Groups]
+      summary: Get an accessible group and its active members
+      operationId: getGroup
+      description: >
+        Returns group details, nullable linked itineraryId, viewerRole and active members
+        with profile photos. Available to the owner or an ACTIVE member only.
+        Standalone groups are supported. Pending invitees, removed members and outsiders
+        receive 404, as do archived/deleted groups and groups linked to deleted itineraries.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Group details fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [group, viewerRole, members, totalCount]
+                        properties:
+                          group:
+                            $ref: '#/components/schemas/StandaloneGroupResponse/properties/data/properties/group'
+                          viewerRole: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                          totalCount: { type: integer, minimum: 0 }
+                          members:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id: { type: string, format: uuid }
+                                role: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                                status: { type: string, enum: [ACTIVE] }
+                                joinedAt: { type: string, format: date-time }
+                                createdAt: { type: string, format: date-time }
+                                updatedAt: { type: string, format: date-time }
+                                user:
+                                  type: object
+                                  properties:
+                                    id: { type: string, format: uuid }
+                                    username: { type: string }
+                                    displayName: { type: string, nullable: true }
+                                    isVerified: { type: boolean }
+                                    profilePhoto:
+                                      type: object
+                                      nullable: true
+                                      properties:
+                                        id: { type: string, format: uuid }
+                                        url: { type: string }
+                                        mimeType: { type: string }
+        '400': { description: Invalid group ID or parameters }
+        '401': { description: Authentication required }
+        '404': { description: Group unavailable or inaccessible }
+  /users/me/groups:
+    get:
+      tags: [Itinerary Groups]
+      summary: List my active owned and joined groups
+      operationId: listMyGroups
+      description: >
+        Returns groups owned by the authenticated user or joined through ACTIVE membership,
+        including standalone groups with null itineraryId. Excludes archived or deleted
+        groups, groups linked to deleted itineraries, and membership based only on pending
+        invitations or removed membership. Newest first by createdAt and ID.
+        Returns group information and viewerRole, not the full member list.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string, maxLength: 1000 }
+      responses:
+        '200':
+          description: Owned and joined groups fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [groups, pagination]
+                        properties:
+                          groups:
+                            type: array
+                            items:
+                              allOf:
+                                - $ref: '#/components/schemas/StandaloneGroupResponse/properties/data/properties/group'
+                                - type: object
+                                  properties:
+                                    viewerRole: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                          pagination:
+                            type: object
+                            properties:
+                              hasMore: { type: boolean }
+                              nextCursor: { type: string, nullable: true }
+        '400': { description: Invalid pagination parameters or cursor }
+        '401': { description: Authentication required }
   /groups:
     post:
       tags: [Itinerary Groups]
@@ -485,6 +595,28 @@ paths:
         '409':
           description: Target is already an active member.
   "/itineraries/{itineraryId}/group":
+    get:
+      tags: [Itinerary Groups]
+      summary: Get the group associated with an itinerary
+      operationId: getItineraryGroup
+      description: >
+        Resolves the itinerary's active group and returns group details, active members
+        with profile photos, totalCount and viewerRole. Only the owner or an ACTIVE
+        group member can access it. Returns 404 for unlinked itineraries, unavailable
+        groups, deleted itineraries, pending invitees, removed members and outsiders.
+        Does not create a group or change the itinerary.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itineraryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          $ref: '#/paths/~1groups~1{groupId}/get/responses/200'
+        '400': { description: Invalid itinerary UUID or parameters }
+        '401': { description: Authentication required }
+        '404': { description: Linked group unavailable or inaccessible }
     post:
       tags:
         - Itinerary Groups
@@ -5079,14 +5211,40 @@ components:
                 essential:
                   $ref: "#/components/schemas/Essential"
     EssentialListResponse:
+      description: Includes reviewed active country emergency contacts independently of completion totals. Resolves city_id using an internal city UUID or stored Google city ID. Unknown or ambiguous destinations return UNRESOLVED. Resolved countries without reviewed contacts return an empty contacts array. Owner-only access is unchanged.
       allOf:
         - $ref: "#/components/schemas/SuccessBase"
         - type: object
           properties:
             data:
               type: object
-              required: [essentials, summary]
+              required: [essentials, summary, emergencyContacts]
               properties:
+                emergencyContacts:
+                  type: object
+                  required: [resolutionStatus, countries]
+                  properties:
+                    resolutionStatus: { type: string, enum: [RESOLVED, UNRESOLVED] }
+                    countries:
+                      type: array
+                      description: At most one country currently; supports future multiple countries.
+                      items:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          name: { type: string }
+                          contacts:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id: { type: string, format: uuid }
+                                serviceType: { type: string, enum: [GENERAL, POLICE, AMBULANCE, FIRE] }
+                                name: { type: string }
+                                phoneNumber: { type: string }
+                                notes: { type: string, nullable: true }
+                                sourceUrl: { type: string, format: uri }
+                                verifiedAt: { type: string, format: date-time }
                 essentials:
                   type: array
                   items:
