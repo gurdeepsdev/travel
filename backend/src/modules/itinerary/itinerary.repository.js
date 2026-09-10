@@ -330,6 +330,30 @@ class ItineraryRepository {
               ],
             );
 
+          await client.query(
+            `
+              INSERT INTO trip.trip_participants (
+                trip_id,
+                user_id,
+                added_by
+              )
+              VALUES (
+                $1::uuid,
+                $2::uuid,
+                $2::uuid
+              )
+              ON CONFLICT (trip_id, user_id)
+              DO UPDATE SET
+                status = 'ACTIVE',
+                removed_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            `,
+            [
+              result.rows[0].trip_id,
+              userId,
+            ],
+          );
+
           return {
             ...result.rows[0],
             id: itinerary.id,
