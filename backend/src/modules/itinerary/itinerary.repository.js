@@ -278,6 +278,7 @@ class ItineraryRepository {
         }
 
         const statusMap = {
+          PLANNED: "PLANNED",
           UPCOMING: "UPCOMING",
           ONGOING: "LIVE",
           COMPLETED: "COMPLETED",
@@ -288,13 +289,13 @@ class ItineraryRepository {
             ? statusMap[
                 itinerary.trip_status
               ]
-            : "SAVED";
+            : "PLANNED";
 
         if (currentStatus === status) {
           return {
             ...itinerary,
             current_status:
-              currentStatus,
+              status,
             previous_status:
               currentStatus,
             updated: false,
@@ -302,12 +303,12 @@ class ItineraryRepository {
         }
 
         const nextStatus = {
-          SAVED: "UPCOMING",
+          PLANNED: "UPCOMING",
           UPCOMING: "LIVE",
           LIVE: "COMPLETED",
         }[currentStatus];
 
-        if (nextStatus !== status) {
+        if (nextStatus !== status && !(currentStatus === "UPCOMING" && status === "PLANNED")) {
           return {
             invalid_transition: true,
             current_status:
@@ -315,7 +316,7 @@ class ItineraryRepository {
           };
         }
 
-        if (status === "UPCOMING") {
+        if (status === "UPCOMING" && !itinerary.trip_id) {
           const result =
             await client.query(
               `
@@ -379,11 +380,11 @@ class ItineraryRepository {
         const databaseStatus =
           status === "LIVE"
             ? "ONGOING"
-            : "COMPLETED";
+            : status;
         const itineraryStatus =
           status === "LIVE"
             ? "ongoing"
-            : "completed";
+            : status === "COMPLETED" ? "completed" : "planned";
 
         const tripResult =
           await client.query(
@@ -472,7 +473,7 @@ class ItineraryRepository {
 
     if (tripStatus === "PLANNED") {
       statusCondition = `
-        AND trip_record.id IS NULL
+        AND (trip_record.id IS NULL OR trip_record.status = 'PLANNED')
       `;
     } else if (tripStatus) {
       const databaseStatus = {

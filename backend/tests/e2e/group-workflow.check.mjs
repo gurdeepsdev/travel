@@ -103,6 +103,11 @@ try {
   await call('get',`/itineraries/${first.id}`,1);
   const solo=await call('post','/itineraries',0,payload,201);
   assert(!solo.group);
+  const initialPlanned=await call('patch',`/itineraries/${solo.itinerary.id}/status`,0,{status:'PLANNED'});
+  assert.equal(initialPlanned.updated,false);
+  assert.equal(initialPlanned.status,'PLANNED');
+  assert.equal(initialPlanned.previousStatus,'PLANNED');
+  assert.equal(initialPlanned.tripId,null);
   await call('patch',`/itineraries/${solo.itinerary.id}/status`,0,{status:'UPCOMING'});
   const essentialsPath=`/itineraries/${solo.itinerary.id}/essentials`;
   assert.equal((await call('get',essentialsPath,0)).emergencyContacts.resolutionStatus,'UNRESOLVED');
@@ -148,6 +153,16 @@ try {
     participants:[{userId:users[0]},{userId:users[1]}]},201);
   await call('get',`${base}/expenses/dashboard`,0);
   const before=await call('get',`${base}/expense-balances`,0);
+  const planned=await call('patch',`${base}/status`,0,{status:'PLANNED'});
+  assert.equal(planned.status,'PLANNED');
+  assert.equal(planned.previousStatus,'UPCOMING');
+  assert.deepEqual(await call('get',`${base}/expense-balances`,0),before);
+  assert.equal((await call('patch',`${base}/status`,0,{status:'PLANNED'})).updated,false);
+  assert((await call('get','/itineraries?status=PLANNED',0)).itineraries.some(i=>i.id===id));
+  const resumed=await call('patch',`${base}/status`,0,{status:'UPCOMING'});
+  assert.equal(resumed.tripId,planned.tripId);
+  await call('patch',`${base}/status`,0,{status:'LIVE'});
+  await call('patch',`${base}/status`,0,{status:'PLANNED'},409);
   const upload=await request(app).post(`/api/v1${base}/vault/documents`)
     .set('Authorization',`Bearer ${tokens[1]}`).field('documentType','OTHER').field('title','Member PDF')
     .attach('documentFile',pdf,{filename:'group-e2e.pdf',contentType:'application/pdf'});
@@ -177,6 +192,8 @@ try {
   await call('get',`${docPath}/download`,0,undefined,404);
   await call('delete',docPath,1);
   await call('get',`${docPath}/download`,1,undefined,404);
+  await call('patch',`${base}/status`,0,{status:'COMPLETED'});
+  await call('patch',`${base}/status`,0,{status:'PLANNED'},409);
   console.log(`PASS: ${checks} HTTP checks with real JWT authentication, local PostgreSQL, multipart upload, and binary download.`);
 } finally {
   try {

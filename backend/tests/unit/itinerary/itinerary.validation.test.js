@@ -226,6 +226,7 @@ describe("itinerary vault validation", () => {
 
 describe("updateItineraryStatusSchema", () => {
   test.each([
+    "PLANNED",
     "UPCOMING",
     "LIVE",
     "COMPLETED",
@@ -253,7 +254,7 @@ describe("updateItineraryStatusSchema", () => {
       updateItineraryStatusSchema
         .safeParse({
           body: {
-            status: "PLANNED",
+            status: "CANCELLED",
           },
           params: {
             itineraryId:
