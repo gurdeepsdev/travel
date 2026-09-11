@@ -1,0 +1,5 @@
+BEGIN;
+ALTER TABLE trip.trips DROP CONSTRAINT chk_trip_status;
+ALTER TABLE trip.trips ADD CONSTRAINT chk_trip_status
+  CHECK (status IN ('PLANNED','UPCOMING','ONGOING','COMPLETED','CANCELLED'));
+COMMIT;

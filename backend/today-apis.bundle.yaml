@@ -2557,7 +2557,7 @@ paths:
         - Itineraries
       summary: Update my itinerary lifecycle status
       description: |
-        Moves an owned itinerary through SAVED, UPCOMING, LIVE, and COMPLETED. Valid transitions are SAVED to UPCOMING, UPCOMING to LIVE, and LIVE to COMPLETED. Repeating the current status is idempotent.
+        Accepts uppercase PLANNED, UPCOMING, LIVE and COMPLETED. PLANNED is the initial state. Allows PLANNED to UPCOMING, UPCOMING to PLANNED or LIVE, and LIVE to COMPLETED. Repeats are idempotent; initial PLANNED is a no-op with nullable tripId. Returning to PLANNED preserves the trip, documents, expenses and participants. LIVE/COMPLETED cannot return to PLANNED.
       operationId: updateItineraryStatus
       security:
         - bearerAuth: []
@@ -6313,6 +6313,7 @@ components:
         status:
           type: string
           enum:
+            - PLANNED
             - UPCOMING
             - LIVE
             - COMPLETED
@@ -6955,16 +6956,18 @@ components:
             tripId:
               type: string
               format: uuid
+              nullable: true
             previousStatus:
               type: string
               enum:
-                - SAVED
+                - PLANNED
                 - UPCOMING
                 - LIVE
                 - COMPLETED
             status:
               type: string
               enum:
+                - PLANNED
                 - UPCOMING
                 - LIVE
                 - COMPLETED

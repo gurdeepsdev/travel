@@ -253,6 +253,7 @@ const updateItineraryStatusSchema = z
     body: z
       .object({
         status: z.enum([
+          "PLANNED",
           "UPCOMING",
           "LIVE",
           "COMPLETED",

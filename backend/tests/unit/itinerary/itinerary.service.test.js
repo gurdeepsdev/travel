@@ -242,7 +242,7 @@ describe("ItineraryService", () => {
           id: ITINERARY_ID,
           trip_id:
             "22222222-2222-4222-8222-222222222222",
-          previous_status: "SAVED",
+          previous_status: "PLANNED",
           current_status: "UPCOMING",
           updated: true,
           started_at: null,
@@ -274,7 +274,7 @@ describe("ItineraryService", () => {
       expect(result).toMatchObject({
         itineraryId:
           ITINERARY_ID,
-        previousStatus: "SAVED",
+        previousStatus: "PLANNED",
         status: "UPCOMING",
         updated: true,
       });
@@ -435,7 +435,7 @@ describe("ItineraryService", () => {
         .updateOwnedLifecycleStatus
         .mockResolvedValue({
           invalid_transition: true,
-          current_status: "SAVED",
+          current_status: "PLANNED",
         });
 
       await expect(
@@ -451,7 +451,7 @@ describe("ItineraryService", () => {
           "ITINERARY.INVALID_STATUS_TRANSITION",
         statusCode: 409,
         details: {
-          currentStatus: "SAVED",
+          currentStatus: "PLANNED",
           requestedStatus: "LIVE",
         },
       });
@@ -916,7 +916,7 @@ describe("ItineraryService", () => {
           title: "Delhi itinerary",
           duration_days: 1,
           visibility: "private",
-          trip_status: "SAVED",
+          trip_status: "PLANNED",
           ai_generated: true,
           itinerary_json: {},
           created_at:
