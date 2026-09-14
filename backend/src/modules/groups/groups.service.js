@@ -66,6 +66,19 @@ class GroupsService {
     return result;
   }
 
+  async unlinkItinerary(args) {
+    const result = await Repository.unlinkItinerary(args);
+    if (!result) {
+      throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
+        message: 'Owned active group not found.', statusCode: 404 });
+    }
+    if (result.financialHistory) {
+      throw new AppError({ code: 'GROUP.UNLINK_FINANCIAL_HISTORY',
+        message: 'Cannot unlink an itinerary with expenses or settlements.', statusCode: 409 });
+    }
+    return { updated: result.updated, itineraryId: result.itineraryId, group: this.mapGroup(result.group) };
+  }
+
   mapInvitation(row) {
     return {
       id: row.id, groupId: row.group_id, itineraryId: row.itinerary_id,
@@ -104,15 +117,15 @@ class GroupsService {
     return { updated: result.updated, invitation: this.mapInvitation(result.invitation) };
   }
 
-  async createInvitation({ itineraryId, userId, input }) {
+  async createInvitation({ itineraryId, groupId, userId, input }) {
     if (userId.toLowerCase() === input.userId.toLowerCase()) {
       throw new AppError({ code: ErrorCodes.GROUP.SELF_INVITATION,
         message: "You cannot invite yourself.", statusCode: HttpStatus.BAD_REQUEST });
     }
-    const result = await Repository.createInvitation({ itineraryId, userId, input });
+    const result = await Repository.createInvitation({ itineraryId, ...(groupId ? { groupId } : {}), userId, input });
     if (!result) {
       throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
-        message: "Owned itinerary group not found.", statusCode: HttpStatus.NOT_FOUND });
+        message: "Owned active group not found.", statusCode: HttpStatus.NOT_FOUND });
     }
     if (result.error) {
       throw new AppError({ code: ErrorCodes.GROUP[result.error],
@@ -125,7 +138,8 @@ class GroupsService {
     return {
       created: result.created,
       invitation: {
-        id: invitation.id, groupId: invitation.group_id, itineraryId,
+        id: invitation.id, groupId: invitation.group_id,
+        itineraryId: result.itineraryId === undefined ? itineraryId : result.itineraryId,
         invitedUserId: invitation.invited_user_id, invitedBy: invitation.invited_by,
         status: invitation.status, message: invitation.message,
         expiresAt: invitation.expires_at, createdAt: invitation.created_at,

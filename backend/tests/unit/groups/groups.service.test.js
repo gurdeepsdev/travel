@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 
 const repositoryMock = {
+  unlinkItinerary: jest.fn(),
   findAccessibleGroup: jest.fn(),
   listMyGroups: jest.fn(),
   createStandaloneGroup: jest.fn(),
@@ -28,6 +29,13 @@ const userId = "22222222-2222-4222-8222-222222222222";
 const groupId = "33333333-3333-4333-8333-333333333333";
 
 describe("GroupsService", () => {
+  test('creates invitations by group ID with a null itinerary', async () => {
+    repositoryMock.createInvitation.mockResolvedValue({created:true,itineraryId:null,invitation:{id:groupId,group_id:groupId,status:'PENDING'}});
+    const input={userId:itineraryId};
+    const result=await service.createInvitation({groupId,userId,input});
+    expect(result.invitation.itineraryId).toBeNull();
+    expect(repositoryMock.createInvitation).toHaveBeenLastCalledWith({groupId,itineraryId:undefined,userId,input});
+  });
   test('resolves group details by itinerary ID', async () => {
     repositoryMock.findAccessibleGroup.mockResolvedValue({id:groupId,itinerary_id:itineraryId,viewer_role:'MEMBER'});
     repositoryMock.listActiveMembers.mockResolvedValue([]);
@@ -87,6 +95,31 @@ describe("GroupsService", () => {
     const result={updated,status:'REMOVED',userId,groupId,itineraryId};
     repositoryMock.removeMember.mockResolvedValue(result);
     await expect(service.removeMember({itineraryId,userId,leave:true})).resolves.toEqual(result);
+  });
+
+  test.each([true,false])('removes standalone membership updated=%s', async updated => {
+    const args={groupId,userId,targetUserId:itineraryId};
+    const result={updated,groupId,itineraryId:null,userId:itineraryId,status:'REMOVED'};
+    repositoryMock.removeMember.mockResolvedValue(result);
+    await expect(service.removeMember(args)).resolves.toEqual(result);
+    expect(repositoryMock.removeMember).toHaveBeenCalledWith(args);
+  });
+
+  test.each([true,false])('leaves standalone group updated=%s', async updated => {
+    const args={groupId,userId,leave:true};
+    const result={updated,groupId,itineraryId:null,userId,status:'REMOVED'};
+    repositoryMock.removeMember.mockResolvedValue(result);
+    await expect(service.removeMember(args)).resolves.toEqual(result);
+    expect(repositoryMock.removeMember).toHaveBeenCalledWith(args);
+  });
+
+  test.each([[null,404],[{financialHistory:true},409]])('rejects unlink %j',async(result,statusCode)=>{
+    repositoryMock.unlinkItinerary.mockResolvedValue(result);
+    await expect(service.unlinkItinerary({groupId,userId})).rejects.toMatchObject({statusCode});
+  });
+  test.each([true,false])('unlink updated=%s',async updated=>{
+    repositoryMock.unlinkItinerary.mockResolvedValue({updated,itineraryId,group:{id:groupId,itinerary_id:null}});
+    await expect(service.unlinkItinerary({groupId,userId})).resolves.toMatchObject({updated,itineraryId,group:{itineraryId:null}});
   });
 
   test.each([

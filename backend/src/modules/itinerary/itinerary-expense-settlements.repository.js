@@ -1,8 +1,11 @@
 import Database from "../../database/database-manager.js";
+import { lockExpenseParticipants } from "./expense-write-lock.js";
 
 class ItineraryExpenseSettlementsRepository {
   async create({ tripId, userId, input }) {
-    const { rows } = await Database.query(
+    return Database.transaction(async client => {
+    await lockExpenseParticipants(client, tripId, [userId, input.toUserId]);
+    const { rows } = await client.query(
       `WITH inserted AS (
          INSERT INTO trip.trip_expense_settlements
            (trip_id, from_user_id, to_user_id, amount, currency_code, created_by)
@@ -22,6 +25,7 @@ class ItineraryExpenseSettlementsRepository {
       [tripId, userId, input.toUserId, input.amount, input.currencyCode],
     );
     return rows[0];
+    });
   }
 
   async list({ tripId, limit, cursor, status }) {

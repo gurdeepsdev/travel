@@ -29,6 +29,241 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  '/users/me/tagged-posts':
+    get:
+      tags: [Posts]
+      summary: Get posts tagging me
+      operationId: getMyTaggedPosts
+      description: >
+        Lists non-deleted posts explicitly tagging the authenticated user, newest post first.
+        Tagging does not grant access to a post. Each post must be PUBLIC or owned by the viewer,
+        or PRIVATE with an accepted connection to its author. Blocks in either direction hide posts.
+        Authentication is required.
+        Cursor pagination preserves ordering for posts with identical timestamps.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        '200':
+          description: Tagged posts fetched successfully; inaccessible sections return an empty list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  requestId: { type: string, format: uuid, nullable: true }
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    type: object
+                    required: [posts, pagination]
+                    properties:
+                      posts:
+                        type: array
+                        description: Existing profile-post response, including assets, video thumbnails, author, tags and viewer interaction states.
+                        items:
+                          $ref: '#/components/schemas/CreatePostData/properties/post'
+                      pagination:
+                        type: object
+                        required: [hasMore, nextCursor]
+                        properties:
+                          hasMore: { type: boolean }
+                          nextCursor: { type: string, nullable: true }
+        '400': { description: Invalid parameters or cursor. }
+        '401': { description: Authentication required. }
+  '/users/{username}/tagged-posts':
+    get:
+      tags: [Posts]
+      summary: Get posts tagging a user
+      operationId: getUserTaggedPosts
+      description: >
+        Lists non-deleted posts explicitly tagging the named user, newest post first.
+        Tagging does not grant access to a post. Each post must be PUBLIC or owned by the viewer,
+        or PRIVATE with an accepted connection to its author. Blocks in either direction hide posts.
+        A private profile's tagged section is visible only to its owner and accepted connections; other viewers receive an empty list. Public profiles allow anonymous viewing. Invalid optional tokens are treated as anonymous, matching existing profile endpoints.
+        Cursor pagination preserves ordering for posts with identical timestamps.
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema: { type: string, minLength: 3, maxLength: 50 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string, maxLength: 1024 }
+      responses:
+        '200':
+          description: Tagged posts fetched successfully; inaccessible sections return an empty list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  requestId: { type: string, format: uuid, nullable: true }
+                  timestamp: { type: string, format: date-time }
+                  data:
+                    type: object
+                    required: [posts, pagination]
+                    properties:
+                      posts:
+                        type: array
+                        description: Existing profile-post response, including assets, video thumbnails, author, tags and viewer interaction states.
+                        items:
+                          $ref: '#/components/schemas/CreatePostData/properties/post'
+                      pagination:
+                        type: object
+                        required: [hasMore, nextCursor]
+                        properties:
+                          hasMore: { type: boolean }
+                          nextCursor: { type: string, nullable: true }
+        '400': { description: Invalid parameters or cursor. }
+        '404': { description: User profile not found. }
+  '/groups/{groupId}/leave':
+    post:
+      tags: [Itinerary Groups]
+      summary: Leave a group without requiring an itinerary
+      operationId: leaveGroup
+      description: >
+        The authenticated member leaves an active group, before or after linking an itinerary.
+        The owner cannot leave. Marks the caller's membership REMOVED and cancels pending
+        invitations for that member. Linked expense participation is removed atomically.
+        Financial history and uploaded documents are preserved. Group-based access is revoked;
+        document owners retain access to their own documents. No trip is created.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Member left; repeated requests return updated=false.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      groupId: { type: string, format: uuid }
+                      itineraryId: { type: string, format: uuid, nullable: true }
+                      memberId: { type: string, format: uuid }
+                      userId: { type: string, format: uuid }
+                      status: { type: string, enum: [REMOVED] }
+                      removedAt: { type: string, format: date-time }
+        '400': { description: Invalid request. }
+        '401': { description: Authentication required. }
+        '404': { description: Accessible group member not found. }
+        '409': { description: The group owner cannot leave. }
+  '/groups/{groupId}/members/{userId}':
+    delete:
+      tags: [Itinerary Groups]
+      summary: Remove a group member without requiring an itinerary
+      operationId: removeGroupMember
+      description: >
+        Only the group owner can remove another member, before or after linking an itinerary.
+        The owner cannot be removed. Marks membership REMOVED and cancels pending invitations.
+        If a trip is linked, expense participation is removed atomically. Expenses, splits,
+        settlements and uploaded documents are retained. Group-based access is revoked;
+        document owners retain access to their own documents. No trip is created.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Membership removed; repeated requests return updated=false.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      groupId: { type: string, format: uuid }
+                      itineraryId: { type: string, format: uuid, nullable: true }
+                      memberId: { type: string, format: uuid }
+                      userId: { type: string, format: uuid }
+                      status: { type: string, enum: [REMOVED] }
+                      removedAt: { type: string, format: date-time }
+        '400': { description: Invalid request. }
+        '401': { description: Authentication required. }
+        '404': { description: Accessible group member not found. }
+        '409': { description: The group owner cannot be removed. }
+  '/groups/{groupId}/invitations':
+    post:
+      tags: [Itinerary Groups]
+      summary: Invite a connection to a group with or without an itinerary
+      operationId: createGroupInvitation
+      description: >
+        Owner-only. Invites an active unblocked accepted connection. No itinerary is
+        required. Pending retries return the same invitation. Invitations expire after
+        seven days. Use the existing my group invitations endpoints to list and respond.
+        Acceptance creates ACTIVE group membership; trip participation is synchronized
+        if a trip exists, or when an itinerary/trip is linked later.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [userId]
+              properties:
+                userId: { type: string, format: uuid }
+                message: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        '200':
+          description: Invitation created or existing pending invitation returned
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          created: { type: boolean }
+                          invitation: { $ref: '#/components/schemas/ReceivedGroupInvitation' }
+        '400': { description: Invalid parameters or self-invitation }
+        '401': { description: Authentication required }
+        '403': { description: Active unblocked connection required }
+        '404': { description: Owned active group not found }
+        '409': { description: User is already an active member }
   '/groups/{groupId}':
     get:
       tags: [Itinerary Groups]
@@ -148,7 +383,7 @@ paths:
         Creates an ACTIVE group and its ACTIVE OWNER membership atomically.
         itineraryId is null until linked. Each successful request creates a new group.
         Save an itinerary without planTogether, then use PUT /groups/{groupId}/itinerary.
-        Invite connections through the existing itinerary group invitations API after linking.
+        Invite connections through POST /groups/{groupId}/invitations before or after linking.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -170,6 +405,58 @@ paths:
         '400': { description: Invalid input }
         '401': { description: Authentication required }
   '/groups/{groupId}/itinerary':
+    delete:
+      tags: [Itinerary Groups]
+      summary: Unlink a group's itinerary
+      operationId: unlinkGroupItinerary
+      description: >
+        Only the group owner can unlink. Returns 409 if any expense or settlement
+        history exists, including deleted expenses and cancelled settlements.
+        Preserves group memberships, itinerary and documents. Removes non-owner
+        trip participation and group-based itinerary access. Document owners retain
+        their own documents; document visibility values are unchanged.
+        A later link restores access according to existing group-sharing rules.
+        Repeated unlink is idempotent. Expense and settlement creation serialize
+        with unlink and revalidate active participants before writing.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Unlinked, or already unlinked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      itineraryId:
+                        type: string
+                        format: uuid
+                        nullable: true
+                        description: Previously linked itinerary, or null on repeat.
+                      group:
+                        type: object
+                        properties:
+                          id: { type: string, format: uuid }
+                          itineraryId: { type: string, format: uuid, nullable: true }
+                          ownerId: { type: string, format: uuid }
+                          name: { type: string }
+                          description: { type: string, nullable: true }
+                          status: { type: string }
+                          createdAt: { type: string, format: date-time }
+                          updatedAt: { type: string, format: date-time }
+        '400': { description: Invalid request. }
+        '401': { description: Authentication required. }
+        '404': { description: Owned active group not found. }
+        '409': { description: GROUP.UNLINK_FINANCIAL_HISTORY - expenses or settlements prevent unlinking. }
     put:
       tags: [Itinerary Groups]
       summary: Link an owned itinerary to an owned group
@@ -299,7 +586,7 @@ paths:
       operationId: listMyGroupInvitations
       description: >
         Lists only invitations addressed to the authenticated user for active
-        itinerary groups. Expired pending invitations are shown as EXPIRED.
+        groups, including groups without an itinerary. Expired pending invitations are shown as EXPIRED.
         Supports status filtering and cursor pagination, newest first.
       security: [{ bearerAuth: [] }]
       parameters:
@@ -6003,7 +6290,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         groupId: { type: string, format: uuid }
-        itineraryId: { type: string, format: uuid }
+        itineraryId: { type: string, format: uuid, nullable: true }
         groupName: { type: string, description: Included when listing invitations. }
         invitedUserId: { type: string, format: uuid }
         invitedBy: { type: string, format: uuid }

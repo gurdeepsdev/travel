@@ -62,6 +62,10 @@ const createGroupInvitationSchema = z.object({
   query: z.object({}).strict(),
 });
 
+export const createStandaloneGroupInvitationSchema = createGroupInvitationSchema.extend({
+  params: getGroupSchema.shape.params,
+});
+
 export {
   removeGroupMemberSchema,
   leaveGroupSchema,
@@ -79,6 +83,12 @@ const removeGroupMemberSchema = z.object({
 });
 
 const leaveGroupSchema = listLinkedGroupMembersSchema;
+
+export const leaveStandaloneGroupSchema = getGroupSchema;
+
+export const removeStandaloneGroupMemberSchema = removeGroupMemberSchema.extend({
+  params: getGroupSchema.shape.params.extend({ userId: z.string().trim().uuid().toLowerCase() }).strict(),
+});
 
 const listGroupInvitationsSchema = z.object({
   body: z.object({}).strict().optional(),

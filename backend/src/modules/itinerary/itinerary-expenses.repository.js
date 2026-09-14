@@ -1,4 +1,5 @@
 import Database from "../../database/database-manager.js";
+import { lockExpenseParticipants } from "./expense-write-lock.js";
 
 class ItineraryExpensesRepository {
   async findAccessibleTrip({ itineraryId, userId }) {
@@ -55,6 +56,7 @@ class ItineraryExpensesRepository {
 
   async create({ tripId, createdBy, input, splits }) {
     return Database.transaction(async (client) => {
+      await lockExpenseParticipants(client, tripId, [createdBy, input.paidBy, ...splits.map(s => s.userId)]);
       const expenseResult = await client.query(
         `
           INSERT INTO trip.trip_expenses (

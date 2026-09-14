@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import UsersController from "./users.controller.js";
+import TaggedPostsController from "./controllers/tagged-posts.controller.js";
 import AuthMiddleware from "../../middleware/auth.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 import memoryMediaUploadMiddleware
@@ -124,6 +125,11 @@ router.delete(
   validate(deleteMemorySchema),
   MemoriesController.deleteMemory,
 );
+
+router.get('/me/tagged-posts', AuthMiddleware.authenticate,
+  validate(getMyPostsSchema), TaggedPostsController.list);
+router.get('/:username/tagged-posts', optionalAuthMiddleware,
+  validate(getUserPostsSchema), TaggedPostsController.list);
 
 router.get(
     "/me/posts",
