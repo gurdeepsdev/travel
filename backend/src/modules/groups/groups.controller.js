@@ -42,6 +42,7 @@ class GroupsController {
   async removeMember(req, res, next) {
     try {
       const result = await Service.removeMember({ itineraryId: req.validated.params.itineraryId,
+        groupId: req.validated.params.groupId,
         userId: req.user.id, targetUserId: req.validated.params.userId });
       return Response.success(res, result, "Group member removed successfully.");
     } catch (error) { return next(error); }
@@ -50,8 +51,16 @@ class GroupsController {
   async leaveGroup(req, res, next) {
     try {
       const result = await Service.removeMember({ itineraryId: req.validated.params.itineraryId,
+        groupId: req.validated.params.groupId,
         userId: req.user.id, leave: true });
       return Response.success(res, result, "Group left successfully.");
+    } catch (error) { return next(error); }
+  }
+
+  async unlinkItinerary(req, res, next) {
+    try {
+      const result = await Service.unlinkItinerary({ groupId: req.validated.params.groupId, userId: req.user.id });
+      return Response.success(res, result, 'Group itinerary unlinked successfully.');
     } catch (error) { return next(error); }
   }
 
@@ -73,6 +82,7 @@ class GroupsController {
   async createInvitation(req, res, next) {
     try {
       const result = await Service.createInvitation({
+        groupId: req.validated.params.groupId,
         itineraryId: req.validated.params.itineraryId,
         userId: req.user.id,
         input: req.validated.body,

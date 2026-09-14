@@ -1,6 +1,32 @@
 import Database from "../../database/database-manager.js";
 
 class GroupsRepository {
+  async lockGroup({ client, groupId }) {
+    // Linking may happen between the initial read and row lock. Retry without
+    // retaining the row lock so the itinerary-before-group lock order is preserved.
+    for (;;) {
+      await client.query('SAVEPOINT group_link_snapshot');
+      const { rows: [snapshot] } = await client.query(
+        'SELECT itinerary_id FROM groups.groups WHERE id=$1::uuid', [groupId]);
+      if (snapshot?.itinerary_id) {
+        await this.lockItinerary({ client, itineraryId: snapshot.itinerary_id });
+      }
+      const { rows: [group] } = await client.query(`
+        SELECT g.* FROM groups.groups g WHERE g.id=$1::uuid
+          AND g.status='ACTIVE' AND g.deleted_at IS NULL
+          AND (g.itinerary_id IS NULL OR EXISTS (
+            SELECT 1 FROM itinerary.itineraries i WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL
+          )) FOR UPDATE OF g
+      `, [groupId]);
+      if (!group || group.itinerary_id === snapshot?.itinerary_id) {
+        await client.query('RELEASE SAVEPOINT group_link_snapshot');
+        return group ?? null;
+      }
+      await client.query('ROLLBACK TO SAVEPOINT group_link_snapshot');
+      await client.query('RELEASE SAVEPOINT group_link_snapshot');
+    }
+  }
+
   async findAccessibleGroup({ groupId, itineraryId, userId }) {
     const { rows } = await Database.query(`
       SELECT g.*,
@@ -82,16 +108,54 @@ class GroupsRepository {
     });
   }
 
-  async removeMember({ itineraryId, userId, targetUserId, leave = false }) {
+  async unlinkItinerary({ groupId, userId }) {
+    return Database.transaction(async client => {
+      const group = await this.lockGroup({ client, groupId });
+      if (!group || group.owner_id !== userId) { return null; }
+      const itineraryId = group.itinerary_id;
+      if (!itineraryId) { return { updated: false, itineraryId: null, group }; }
+      const { rows: [history] } = await client.query(`
+        SELECT EXISTS (
+          SELECT 1 FROM trip.trip_expenses e JOIN trip.trips t ON t.id=e.trip_id
+          WHERE t.itinerary_id=$1::uuid
+        ) OR EXISTS (
+          SELECT 1 FROM trip.trip_expense_settlements s JOIN trip.trips t ON t.id=s.trip_id
+          WHERE t.itinerary_id=$1::uuid
+        ) AS present
+      `, [itineraryId]);
+      if (history.present) { return { financialHistory: true }; }
+      await client.query(`
+        UPDATE trip.trip_participants p SET status='REMOVED',removed_at=CURRENT_TIMESTAMP,
+          updated_at=CURRENT_TIMESTAMP FROM trip.trips t
+        WHERE p.trip_id=t.id AND t.itinerary_id=$1::uuid
+          AND p.user_id<>t.user_id AND p.status='ACTIVE'
+      `, [itineraryId]);
+      const { rows: [updated] } = await client.query(`
+        UPDATE groups.groups SET itinerary_id=NULL,updated_at=CURRENT_TIMESTAMP
+        WHERE id=$1::uuid RETURNING *
+      `, [groupId]);
+      return { updated: true, itineraryId, group: updated };
+    });
+  }
+
+  async removeMember({ itineraryId, groupId, userId, targetUserId, leave = false }) {
     return Database.transaction(async (client) => {
-      await this.lockItinerary({ client, itineraryId });
-      const { rows: [group] } = await client.query(`
-        SELECT g.id,g.owner_id FROM groups.groups g
-        JOIN itinerary.itineraries i ON i.id=g.itinerary_id AND i.deleted_at IS NULL
-        WHERE g.itinerary_id=$1::uuid AND g.status='ACTIVE' AND g.deleted_at IS NULL
-          AND ($3::boolean OR g.owner_id=$2::uuid)
-        FOR UPDATE OF g
-      `, [itineraryId, userId, leave]);
+      let group;
+      if (groupId) {
+        group = await this.lockGroup({ client, groupId });
+        if (!group || (!leave && group.owner_id !== userId)) { return null; }
+        itineraryId = group.itinerary_id;
+      } else {
+        await this.lockItinerary({ client, itineraryId });
+        const { rows } = await client.query(`
+          SELECT g.id,g.owner_id FROM groups.groups g
+          JOIN itinerary.itineraries i ON i.id=g.itinerary_id AND i.deleted_at IS NULL
+          WHERE g.itinerary_id=$1::uuid AND g.status='ACTIVE' AND g.deleted_at IS NULL
+            AND ($3::boolean OR g.owner_id=$2::uuid)
+          FOR UPDATE OF g
+        `, [itineraryId, userId, leave]);
+        [group] = rows;
+      }
       if (!group) { return null; }
       const target = leave ? userId : targetUserId;
       if (group.owner_id === target) { return { error: 'OWNER_REMOVAL_FORBIDDEN' }; }
@@ -132,8 +196,10 @@ class GroupsRepository {
       FROM groups.group_invitations invitation
       JOIN groups.groups g ON g.id = invitation.group_id
         AND g.status = 'ACTIVE' AND g.deleted_at IS NULL
-      JOIN itinerary.itineraries i ON i.id = g.itinerary_id AND i.deleted_at IS NULL
       WHERE invitation.invited_user_id = $1::uuid
+        AND (g.itinerary_id IS NULL OR EXISTS (
+          SELECT 1 FROM itinerary.itineraries i WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL
+        ))
         AND ($2::timestamp IS NULL OR (invitation.created_at, invitation.id) < ($2::timestamp, $3::uuid))
         AND ($4::text IS NULL OR (CASE WHEN invitation.status = 'PENDING'
           AND invitation.expires_at <= CURRENT_TIMESTAMP THEN 'EXPIRED' ELSE invitation.status END) = $4)
@@ -145,19 +211,19 @@ class GroupsRepository {
   async respondToInvitation({ invitationId, userId, status }) {
     return Database.transaction(async (client) => {
       const { rows: [target] } = await client.query(`
-        SELECT g.itinerary_id FROM groups.group_invitations invitation
+        SELECT g.id AS group_id FROM groups.group_invitations invitation
         JOIN groups.groups g ON g.id = invitation.group_id
         WHERE invitation.id = $1::uuid AND invitation.invited_user_id = $2::uuid
       `, [invitationId, userId]);
       if (!target) { return null; }
-      await this.lockItinerary({ client, itineraryId: target.itinerary_id });
+      const group = await this.lockGroup({ client, groupId: target.group_id });
+      if (!group) { return null; }
       const { rows: [invitation] } = await client.query(`
         SELECT invitation.*, g.itinerary_id, g.owner_id,
           (invitation.expires_at <= CURRENT_TIMESTAMP) AS expired
         FROM groups.group_invitations invitation
         JOIN groups.groups g ON g.id = invitation.group_id
           AND g.status = 'ACTIVE' AND g.deleted_at IS NULL
-        JOIN itinerary.itineraries i ON i.id = g.itinerary_id AND i.deleted_at IS NULL
         WHERE invitation.id = $1::uuid AND invitation.invited_user_id = $2::uuid
         FOR UPDATE OF invitation, g
       `, [invitationId, userId]);
@@ -208,11 +274,17 @@ class GroupsRepository {
     });
   }
 
-  async createInvitation({ itineraryId, userId, input }) {
+  async createInvitation({ itineraryId, groupId, userId, input }) {
     return Database.transaction(async (client) => {
-      await this.lockItinerary({ client, itineraryId });
-      const itinerary = await this.findOwnedItinerary({ client, itineraryId, userId });
-      const group = itinerary && await this.findByItineraryId({ client, itineraryId });
+      let group;
+      if (groupId) {
+        group = await this.lockGroup({ client, groupId });
+      } else {
+        await this.lockItinerary({ client, itineraryId });
+        const itinerary = await this.findOwnedItinerary({ client, itineraryId, userId });
+        const linked = itinerary && await this.findByItineraryId({ client, itineraryId });
+        group = linked && await this.lockGroup({ client, groupId: linked.id });
+      }
       if (!group || group.owner_id !== userId || group.status !== 'ACTIVE') {
         return null;
       }
@@ -257,7 +329,7 @@ class GroupsRepository {
         WHERE group_id = $1::uuid AND invited_user_id = $2::uuid AND status = 'PENDING'
       `, [group.id, input.userId]);
       if (pending.length) {
-        return { created: false, invitation: pending[0] };
+        return { created: false, invitation: pending[0], itineraryId: group.itinerary_id };
       }
 
       const { rows } = await client.query(`
@@ -266,7 +338,7 @@ class GroupsRepository {
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, CURRENT_TIMESTAMP + INTERVAL '7 days')
         RETURNING *
       `, [group.id, input.userId, userId, input.message ?? null]);
-      return { created: true, invitation: rows[0] };
+      return { created: true, invitation: rows[0], itineraryId: group.itinerary_id };
     });
   }
 
