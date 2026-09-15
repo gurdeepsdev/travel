@@ -1,5 +1,6 @@
 import Database from "../../database/database-manager.js";
 import GroupsRepository from "../groups/groups.repository.js";
+import PersonalItineraryRepository from "./personal-itinerary.repository.js";
 
 class ItineraryRepository {
   async createPlanTogether(input) {
@@ -219,238 +220,8 @@ class ItineraryRepository {
 
     return rows[0] ?? null;
   }
-
-  async updateOwnedLifecycleStatus({
-    itineraryId,
-    userId,
-    status,
-  }) {
-    return Database.transaction(
-      async (client) => {
-        await client.query(
-          `
-            SELECT pg_advisory_xact_lock(
-              hashtextextended(
-                $1::text,
-                0
-              )
-            )
-          `,
-          [itineraryId],
-        );
-
-        const { rows } =
-          await client.query(
-            `
-              SELECT
-                itinerary.id,
-                itinerary.updated_at,
-                trip_record.id
-                  AS trip_id,
-                trip_record.status
-                  AS trip_status,
-                trip_record.started_at,
-                trip_record.completed_at
-              FROM itinerary.itineraries
-                AS itinerary
-              LEFT JOIN trip.trips
-                AS trip_record
-                ON trip_record.itinerary_id =
-                  itinerary.id
-              WHERE itinerary.id = $1::uuid
-                AND itinerary.created_by =
-                  $2::uuid
-                AND itinerary.deleted_at
-                  IS NULL
-              LIMIT 1
-            `,
-            [
-              itineraryId,
-              userId,
-            ],
-          );
-
-        const itinerary =
-          rows[0] ?? null;
-
-        if (!itinerary) {
-          return null;
-        }
-
-        const statusMap = {
-          PLANNED: "PLANNED",
-          UPCOMING: "UPCOMING",
-          ONGOING: "LIVE",
-          COMPLETED: "COMPLETED",
-          CANCELLED: "CANCELLED",
-        };
-        const currentStatus =
-          itinerary.trip_id
-            ? statusMap[
-                itinerary.trip_status
-              ]
-            : "PLANNED";
-
-        if (currentStatus === status) {
-          return {
-            ...itinerary,
-            current_status:
-              status,
-            previous_status:
-              currentStatus,
-            updated: false,
-          };
-        }
-
-        const nextStatus = {
-          PLANNED: "UPCOMING",
-          UPCOMING: "LIVE",
-          LIVE: "COMPLETED",
-        }[currentStatus];
-
-        if (nextStatus !== status && !(currentStatus === "UPCOMING" && status === "PLANNED")) {
-          return {
-            invalid_transition: true,
-            current_status:
-              currentStatus,
-          };
-        }
-
-        if (status === "UPCOMING" && !itinerary.trip_id) {
-          const result =
-            await client.query(
-              `
-                INSERT INTO trip.trips (
-                  itinerary_id,
-                  user_id,
-                  status
-                )
-                VALUES (
-                  $1::uuid,
-                  $2::uuid,
-                  'UPCOMING'
-                )
-                RETURNING
-                  id AS trip_id,
-                  status AS trip_status,
-                  started_at,
-                  completed_at,
-                  updated_at
-              `,
-              [
-                itineraryId,
-                userId,
-              ],
-            );
-
-          await client.query(
-            `
-              INSERT INTO trip.trip_participants (
-                trip_id,
-                user_id,
-                added_by
-              )
-              VALUES (
-                $1::uuid,
-                $2::uuid,
-                $2::uuid
-              )
-              ON CONFLICT (trip_id, user_id)
-              DO UPDATE SET
-                status = 'ACTIVE',
-                removed_at = NULL,
-                updated_at = CURRENT_TIMESTAMP
-            `,
-            [
-              result.rows[0].trip_id,
-              userId,
-            ],
-          );
-
-          return {
-            ...result.rows[0],
-            id: itinerary.id,
-            current_status: status,
-            previous_status:
-              currentStatus,
-            updated: true,
-          };
-        }
-
-        const databaseStatus =
-          status === "LIVE"
-            ? "ONGOING"
-            : status;
-        const itineraryStatus =
-          status === "LIVE"
-            ? "ongoing"
-            : status === "COMPLETED" ? "completed" : "planned";
-
-        const tripResult =
-          await client.query(
-            `
-              UPDATE trip.trips
-              SET
-                status = $3::varchar,
-                started_at = CASE
-                  WHEN $3::varchar = 'ONGOING'
-                    THEN COALESCE(
-                      started_at,
-                      CURRENT_TIMESTAMP
-                    )
-                  ELSE started_at
-                END,
-                completed_at = CASE
-                  WHEN $3::varchar = 'COMPLETED'
-                    THEN CURRENT_TIMESTAMP
-                  ELSE completed_at
-                END,
-                updated_at =
-                  CURRENT_TIMESTAMP
-              WHERE itinerary_id =
-                $1::uuid
-                AND user_id = $2::uuid
-              RETURNING
-                id AS trip_id,
-                status AS trip_status,
-                started_at,
-                completed_at,
-                updated_at
-            `,
-            [
-              itineraryId,
-              userId,
-              databaseStatus,
-            ],
-          );
-
-        await client.query(
-          `
-            UPDATE itinerary.itineraries
-            SET
-              trip_status = $3,
-              updated_at =
-                CURRENT_TIMESTAMP
-            WHERE id = $1::uuid
-              AND created_by = $2::uuid
-          `,
-          [
-            itineraryId,
-            userId,
-            itineraryStatus,
-          ],
-        );
-
-        return {
-          ...tripResult.rows[0],
-          id: itinerary.id,
-          current_status: status,
-          previous_status:
-            currentStatus,
-          updated: true,
-        };
-      },
-    );
+  async updateOwnedLifecycleStatus(args) {
+    return PersonalItineraryRepository.updateStatus(args);
   }
 
   async listOwned({
@@ -473,18 +244,18 @@ class ItineraryRepository {
 
     if (tripStatus === "PLANNED") {
       statusCondition = `
-        AND (trip_record.id IS NULL OR trip_record.status = 'PLANNED')
+        AND COALESCE(personal.status,'PLANNED') = 'PLANNED'
       `;
     } else if (tripStatus) {
       const databaseStatus = {
         UPCOMING: "UPCOMING",
-        LIVE: "ONGOING",
+        LIVE: "LIVE",
         COMPLETED: "COMPLETED",
       }[tripStatus];
 
       params.push(databaseStatus);
       statusCondition = `
-        AND trip_record.status =
+        AND personal.status =
           $${params.length}::varchar
       `;
     }
@@ -518,16 +289,7 @@ class ItineraryRepository {
         itinerary_record.title,
         itinerary_record.duration_days,
         itinerary_record.visibility,
-        CASE
-          WHEN trip_record.status =
-            'ONGOING'
-            THEN 'live'
-          WHEN trip_record.status IS NOT NULL
-            THEN LOWER(
-              trip_record.status
-            )
-          ELSE 'planned'
-        END AS trip_status,
+        LOWER(COALESCE(personal.status,'PLANNED')) AS trip_status,
         itinerary_record.ai_generated,
         itinerary_record.itinerary_json,
         itinerary_record.created_at,
@@ -540,8 +302,13 @@ class ItineraryRepository {
         AS trip_record
         ON trip_record.itinerary_id =
           itinerary_record.id
-      WHERE itinerary_record.created_by =
-          $1::uuid
+      LEFT JOIN itinerary.user_itinerary_states personal
+        ON personal.itinerary_id=itinerary_record.id AND personal.user_id=$1::uuid
+      WHERE (itinerary_record.created_by=$1::uuid OR EXISTS (
+        SELECT 1 FROM groups.groups g JOIN groups.group_members m ON m.group_id=g.id
+        WHERE g.itinerary_id=itinerary_record.id AND g.status='ACTIVE' AND g.deleted_at IS NULL
+          AND m.user_id=$1::uuid AND m.status='ACTIVE'
+      ))
         AND itinerary_record.deleted_at
           IS NULL
         ${statusCondition}
@@ -584,7 +351,8 @@ class ItineraryRepository {
         title,
         duration_days,
         visibility,
-        trip_status,
+        COALESCE((SELECT LOWER(s.status) FROM itinerary.user_itinerary_states s
+          WHERE s.itinerary_id=itinerary.itineraries.id AND s.user_id=$2::uuid),'planned') AS trip_status,
         ai_generated,
         itinerary_json,
         created_at,
@@ -624,7 +392,8 @@ class ItineraryRepository {
         itinerary_record.title,
         itinerary_record.duration_days,
         itinerary_record.visibility,
-        itinerary_record.trip_status,
+        COALESCE((SELECT LOWER(s.status) FROM itinerary.user_itinerary_states s
+          WHERE s.itinerary_id=itinerary_record.id AND s.user_id=$2::uuid),'planned') AS trip_status,
         itinerary_record.ai_generated,
         itinerary_record.itinerary_json,
         itinerary_record.created_at,
