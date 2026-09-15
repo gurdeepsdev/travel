@@ -725,8 +725,7 @@ paths:
         - Itineraries
       summary: List my saved itineraries
       description: >
-        Returns active itineraries created by the authenticated user in
-        newest-first order.
+        Returns owned and active group-linked itineraries in newest-first order. Status filters use only the authenticated user’s personal status.
       operationId: listMyItineraries
       security:
         - bearerAuth: []
@@ -793,8 +792,7 @@ paths:
         - Itineraries
       summary: List my completed itineraries
       description: >
-        Returns active itineraries created by the authenticated user whose
-        trip status is completed, in newest-first order.
+        Returns owned and active group-linked itineraries whose personal status is COMPLETED, in newest-first order.
       operationId: listMyCompletedItineraries
       security:
         - bearerAuth: []
@@ -1041,7 +1039,7 @@ paths:
         Returns the complete active itinerary for its owner or an ACTIVE member
         of its active linked group. Pending invitees, removed members and other
         users receive the same not-found response. Editing, deletion, sharing
-        and lifecycle changes remain owner-only.
+        remain owner-only; personal lifecycle changes are available to active members.
       operationId: getItinerary
       security:
         - bearerAuth: []
@@ -1181,11 +1179,7 @@ paths:
         - Itineraries
       summary: Update my itinerary lifecycle status
       description: >
-        Accepts uppercase PLANNED, UPCOMING, LIVE and COMPLETED. PLANNED is the initial
-        state without a trip. Allows PLANNED to UPCOMING, UPCOMING to PLANNED
-        or LIVE, and LIVE to COMPLETED. Repeats are idempotent; initial PLANNED is
-        a no-op with nullable tripId. Returning to PLANNED preserves the trip,
-        documents, expenses and participants. LIVE/COMPLETED cannot return to PLANNED.
+        Updates only the authenticated owner or active group member’s personal status. New members start PLANNED. Allows PLANNED to UPCOMING, UPCOMING to PLANNED or LIVE, and LIVE to COMPLETED. Repeats are idempotent. Other members’ statuses never change. Group linking creates one shared trip so expenses work while PLANNED. All active participants share the same expense ledger regardless of personal status. Removal or unlink revokes group-based access without deleting financial history. Existing personal state is retained if a member rejoins.
       operationId: updateItineraryStatus
       security:
         - bearerAuth: []
