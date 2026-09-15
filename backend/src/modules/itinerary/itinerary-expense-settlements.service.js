@@ -101,7 +101,7 @@ class ItineraryExpenseSettlementsService {
     if (!existing) {
       throw this.notFound();
     }
-    const updated = await Repository.resolve({ settlementId, userId, status });
+    const updated = await Repository.resolve({ tripId: trip.trip_id, settlementId, userId, status });
     if (!updated) {
       throw this.notFound();
     }

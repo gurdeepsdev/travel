@@ -1429,7 +1429,7 @@ paths:
     get:
       tags: [Itinerary Expenses]
       summary: Get expense totals and participant balances
-      description: Supplies the expense-tracker screen with expense count, currency totals, category totals, and settlement-adjusted participant balances.
+      description: Supplies expense count, cumulative currency/category spending totals, and settlement-adjusted participant balances. Only CONFIRMED settlements affect netAmount; PENDING reservations do not. After full settlement netAmount is zero while paidAmount, shareAmount, expenseCount, and spending totals remain historical. New expenses add spending and recalculate balances. Refetch after expense or settlement changes.
       operationId: getItineraryExpenseDashboard
       security: [{ bearerAuth: [] }]
       parameters:
@@ -1455,7 +1455,7 @@ paths:
     post:
       tags: [Itinerary Expenses]
       summary: Record a payment toward an expense balance
-      description: Creates a pending settlement from the authenticated debtor to an active creditor without allowing payment above the outstanding balance.
+      description: Creates a pending settlement from the authenticated debtor to an active creditor. A transaction reserves the amount against both users' available net balances in that trip and currency, including pending payments with other counterparties. Pending reservations do not change dashboard balances. Only confirmed payments reduce debt; no funds are transferred by this API.
       operationId: createItineraryExpenseSettlement
       security: [{ bearerAuth: [] }]
       parameters:
@@ -1497,7 +1497,7 @@ paths:
     patch:
       tags: [Itinerary Expenses]
       summary: Confirm, reject, or cancel an expense settlement
-      description: Lets the recipient confirm or reject a pending payment, or lets the sender cancel it; confirmed payments update calculated balances.
+      description: Lets the recipient confirm or reject a pending payment, or lets the sender cancel it. Confirmation locks the trip ledger and rechecks current balances and other pending reservations. Stale or excessive amounts return 422 and remain PENDING so they can be cancelled or rejected. Confirmed payments reduce net balances without changing expense or category totals. Cancellation and rejection release reservations.
       operationId: updateItineraryExpenseSettlement
       security: [{ bearerAuth: [] }]
       parameters:
@@ -1520,6 +1520,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { description: Settlement not found or transition not permitted }
+        "422": { description: Participants are no longer active or current balance after other pending reservations cannot cover this settlement }
   "/itineraries/{itineraryId}/expense-reminders":
     post:
       tags: [Itinerary Expenses]
