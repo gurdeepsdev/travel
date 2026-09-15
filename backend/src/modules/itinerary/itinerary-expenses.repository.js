@@ -1,5 +1,5 @@
 import Database from "../../database/database-manager.js";
-import { lockExpenseParticipants } from "./expense-write-lock.js";
+import { lockExpenseParticipants, lockExpenseRecord } from "./expense-write-lock.js";
 
 class ItineraryExpensesRepository {
   async findAccessibleTrip({ itineraryId, userId }) {
@@ -278,41 +278,45 @@ class ItineraryExpensesRepository {
   }
 
   async update({ expenseId, input }) {
-    const has = (field) => Object.hasOwn(input, field);
-    const { rows } = await Database.query(
-      `
-        UPDATE trip.trip_expenses
-        SET
-          paid_by = CASE WHEN $2 THEN $3::uuid ELSE paid_by END,
-          expense_category = CASE WHEN $4 THEN $5 ELSE expense_category END,
-          title = CASE WHEN $6 THEN $7 ELSE title END,
-          description = CASE WHEN $8 THEN $9 ELSE description END,
-          payment_method = CASE WHEN $10 THEN $11 ELSE payment_method END,
-          expense_date = CASE WHEN $12 THEN $13::date ELSE expense_date END,
-          receipt_asset_id = CASE WHEN $14 THEN $15::uuid ELSE receipt_asset_id END,
-          location_name = CASE WHEN $16 THEN $17 ELSE location_name END,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1::uuid
-          AND deleted_at IS NULL
-        RETURNING *
-      `,
-      [
-        expenseId,
-        has("paidBy"), input.paidBy ?? null,
-        has("category"), input.category ?? null,
-        has("title"), input.title ?? null,
-        has("description"), input.description ?? null,
-        has("paymentMethod"), input.paymentMethod ?? null,
-        has("expenseDate"), input.expenseDate ?? null,
-        has("receiptAssetId"), input.receiptAssetId ?? null,
-        has("locationName"), input.locationName ?? null,
-      ],
-    );
-    return rows[0] ?? null;
+    return Database.transaction(async (client) => {
+      await lockExpenseRecord(client, expenseId);
+      const has = (field) => Object.hasOwn(input, field);
+      const { rows } = await client.query(
+        `
+          UPDATE trip.trip_expenses
+          SET
+            paid_by = CASE WHEN $2 THEN $3::uuid ELSE paid_by END,
+            expense_category = CASE WHEN $4 THEN $5 ELSE expense_category END,
+            title = CASE WHEN $6 THEN $7 ELSE title END,
+            description = CASE WHEN $8 THEN $9 ELSE description END,
+            payment_method = CASE WHEN $10 THEN $11 ELSE payment_method END,
+            expense_date = CASE WHEN $12 THEN $13::date ELSE expense_date END,
+            receipt_asset_id = CASE WHEN $14 THEN $15::uuid ELSE receipt_asset_id END,
+            location_name = CASE WHEN $16 THEN $17 ELSE location_name END,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND deleted_at IS NULL
+          RETURNING *
+        `,
+        [
+          expenseId,
+          has("paidBy"), input.paidBy ?? null,
+          has("category"), input.category ?? null,
+          has("title"), input.title ?? null,
+          has("description"), input.description ?? null,
+          has("paymentMethod"), input.paymentMethod ?? null,
+          has("expenseDate"), input.expenseDate ?? null,
+          has("receiptAssetId"), input.receiptAssetId ?? null,
+          has("locationName"), input.locationName ?? null,
+        ],
+      );
+      return rows[0] ?? null;
+    });
   }
 
   async replaceSplits({ expenseId, amount, splitType, splits }) {
     return Database.transaction(async (client) => {
+      await lockExpenseRecord(client, expenseId);
       const expenseResult = await client.query(
         `
           UPDATE trip.trip_expenses
@@ -348,15 +352,18 @@ class ItineraryExpensesRepository {
   }
 
   async softDelete({ expenseId }) {
-    const { rows } = await Database.query(
-      `UPDATE trip.trip_expenses
-       SET deleted_at = CURRENT_TIMESTAMP,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1::uuid AND deleted_at IS NULL
-       RETURNING id, deleted_at`,
-      [expenseId],
-    );
-    return rows[0] ?? null;
+    return Database.transaction(async (client) => {
+      await lockExpenseRecord(client, expenseId);
+      const { rows } = await client.query(
+        `UPDATE trip.trip_expenses
+         SET deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1::uuid AND deleted_at IS NULL
+         RETURNING id, deleted_at`,
+        [expenseId],
+      );
+      return rows[0] ?? null;
+    });
   }
 
   async getSummary({ tripId }) {
@@ -395,8 +402,8 @@ class ItineraryExpensesRepository {
     return rows[0];
   }
 
-  async getBalances({ tripId }) {
-    const { rows } = await Database.query(
+  async getBalances({ tripId }, client = Database) {
+    const { rows } = await client.query(
       `
         WITH paid AS (
           SELECT paid_by AS user_id, TRIM(currency_code) AS currency_code,
