@@ -3,6 +3,45 @@ import GroupsRepository from "../groups/groups.repository.js";
 import PersonalItineraryRepository from "./personal-itinerary.repository.js";
 
 class ItineraryRepository {
+  async allocateOwnedTitle({
+    client,
+    userId,
+    title,
+    excludeItineraryId = null,
+  }) {
+    await client.query(
+      `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+      [`itinerary-title:${userId}`],
+    );
+
+    const { rows } = await client.query(`
+      SELECT LOWER(title) AS normalized_title
+      FROM itinerary.itineraries
+      WHERE created_by = $1::uuid
+        AND deleted_at IS NULL
+        AND ($2::uuid IS NULL OR id <> $2::uuid)
+    `, [userId, excludeItineraryId]);
+
+    const existingTitles = new Set(
+      rows.map((row) => row.normalized_title),
+    );
+    const requestedTitle = title.trim();
+
+    if (!existingTitles.has(requestedTitle.toLowerCase())) {
+      return requestedTitle;
+    }
+
+    for (let sequence = 1; sequence <= 9999; sequence += 1) {
+      const suffix = ` ${String(sequence).padStart(2, "0")}`;
+      const candidate = `${requestedTitle.slice(0, 255 - suffix.length)}${suffix}`;
+      if (!existingTitles.has(candidate.toLowerCase())) {
+        return candidate;
+      }
+    }
+
+    throw new Error("Unable to allocate a unique itinerary name.");
+  }
+
   async createPlanTogether(input) {
     return Database.transaction(async (client) => {
       const itinerary = await this.create({ ...input, client });
@@ -196,8 +235,15 @@ class ItineraryRepository {
     durationDays,
     itineraryJson,
   }) {
-    const { rows } =
-      await Database.query(
+    return Database.transaction(async (client) => {
+      const allocatedTitle = await this.allocateOwnedTitle({
+        client,
+        userId,
+        title,
+        excludeItineraryId: itineraryId,
+      });
+      const { rows } =
+      await client.query(
         `
           UPDATE itinerary.itineraries
           SET
@@ -223,7 +269,7 @@ class ItineraryRepository {
         [
           itineraryId,
           userId,
-          title,
+          allocatedTitle,
           durationDays,
           JSON.stringify(
             itineraryJson,
@@ -231,7 +277,8 @@ class ItineraryRepository {
         ],
       );
 
-    return rows[0] ?? null;
+      return rows[0] ?? null;
+    });
   }
   async updateOwnedLifecycleStatus(args) {
     return PersonalItineraryRepository.updateStatus(args);
@@ -572,8 +619,26 @@ class ItineraryRepository {
     title,
     durationDays,
     itineraryJson,
-    client = Database,
+    client = null,
   }) {
+    if (!client) {
+      return Database.transaction(
+        (transactionClient) => this.create({
+          userId,
+          title,
+          durationDays,
+          itineraryJson,
+          client: transactionClient,
+        }),
+      );
+    }
+
+    const allocatedTitle = await this.allocateOwnedTitle({
+      client,
+      userId,
+      title,
+    });
+
     const sql = `
       INSERT INTO itinerary.itineraries (
         created_by,
@@ -611,7 +676,7 @@ class ItineraryRepository {
         sql,
         [
           userId,
-          title,
+          allocatedTitle,
           durationDays,
           JSON.stringify(
             itineraryJson,

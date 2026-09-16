@@ -21,6 +21,8 @@ import ItineraryExpenseSettlementsController
   from "./itinerary-expense-settlements.controller.js";
 import ItineraryExpenseRemindersController
   from "./itinerary-expense-reminders.controller.js";
+import ItineraryChangeRequestsController
+  from "./itinerary-change-requests.controller.js";
 import itineraryVaultUploadMiddleware
   from "./itinerary-vault-upload.middleware.js";
 import {
@@ -53,6 +55,10 @@ import {
   listExpenseSettlementsSchema,
   updateExpenseSettlementSchema,
   createExpenseReminderSchema,
+  createItineraryChangeRequestSchema,
+  listItineraryChangeRequestsSchema,
+  getItineraryChangeRequestSchema,
+  reviewItineraryChangeRequestSchema,
 } from "./itinerary.validation.js";
 
 const router = Router();
@@ -185,6 +191,41 @@ router.get(
   ),
   ItineraryController
     .getItineraryDashboard,
+);
+
+router.post(
+  "/:itineraryId/change-requests",
+  AuthMiddleware.authenticate,
+  validate(createItineraryChangeRequestSchema),
+  ItineraryChangeRequestsController.create,
+);
+
+router.get(
+  "/:itineraryId/change-requests",
+  AuthMiddleware.authenticate,
+  validate(listItineraryChangeRequestsSchema),
+  ItineraryChangeRequestsController.list,
+);
+
+router.get(
+  "/:itineraryId/change-requests/:requestId",
+  AuthMiddleware.authenticate,
+  validate(getItineraryChangeRequestSchema),
+  ItineraryChangeRequestsController.get,
+);
+
+router.patch(
+  "/:itineraryId/change-requests/:requestId/review",
+  AuthMiddleware.authenticate,
+  validate(reviewItineraryChangeRequestSchema),
+  ItineraryChangeRequestsController.review,
+);
+
+router.delete(
+  "/:itineraryId/change-requests/:requestId",
+  AuthMiddleware.authenticate,
+  validate(getItineraryChangeRequestSchema),
+  ItineraryChangeRequestsController.cancel,
 );
 
 router.put(

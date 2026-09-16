@@ -324,6 +324,78 @@ const updateItineraryNameSchema = z
     query: z.object({}).strict(),
   });
 
+const changeRequestParamsSchema =
+  itineraryIdParamsSchema.extend({
+    requestId: z.string().trim().uuid(
+      "Change request ID must be a valid UUID.",
+    ),
+  }).strict();
+
+const createItineraryChangeRequestSchema = z
+  .object({
+    body: z.object({
+      days: z.array(itineraryDaySchema)
+        .min(1, "At least one itinerary day is required.")
+        .max(365)
+        .superRefine((days, context) => {
+          const uniqueDays = new Set(
+            days.map((day) => day.day),
+          );
+          if (uniqueDays.size !== days.length) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Itinerary day numbers must be unique.",
+            });
+          }
+        })
+        .refine(
+          (days) => Buffer.byteLength(
+            JSON.stringify(days),
+            "utf8",
+          ) <= MAX_ITINERARY_JSON_BYTES,
+          "Proposed itinerary days cannot exceed 900 KB.",
+        ),
+      message: optionalText(1000),
+    }).strict(),
+    params: itineraryIdParamsSchema,
+    query: z.object({}).strict(),
+  });
+
+const listItineraryChangeRequestsSchema = z
+  .object({
+    body: z.unknown().optional(),
+    params: itineraryIdParamsSchema,
+    query: z.object({
+      status: z.enum([
+        "PENDING",
+        "ACCEPTED",
+        "REJECTED",
+        "CANCELLED",
+        "STALE",
+      ]).optional(),
+      limit: z.coerce.number().int().min(1).max(50)
+        .default(20),
+      cursor: cursorSchema.optional(),
+    }).strict(),
+  });
+
+const getItineraryChangeRequestSchema = z
+  .object({
+    body: z.unknown().optional(),
+    params: changeRequestParamsSchema,
+    query: z.object({}).strict(),
+  });
+
+const reviewItineraryChangeRequestSchema = z
+  .object({
+    body: z.object({
+      decision: z.enum(["ACCEPTED", "REJECTED"]),
+      message: optionalText(1000),
+    }).strict(),
+    params: changeRequestParamsSchema,
+    query: z.object({}).strict(),
+  });
+
 const uploadVaultDocumentSchema = z
   .object({
     body: z
@@ -734,4 +806,8 @@ export {
   listExpenseSettlementsSchema,
   updateExpenseSettlementSchema,
   createExpenseReminderSchema,
+  createItineraryChangeRequestSchema,
+  listItineraryChangeRequestsSchema,
+  getItineraryChangeRequestSchema,
+  reviewItineraryChangeRequestSchema,
 };

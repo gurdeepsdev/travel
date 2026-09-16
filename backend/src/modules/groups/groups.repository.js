@@ -202,16 +202,72 @@ class GroupsRepository {
       if (!group || group.owner_id !== userId) { return null; }
       const itineraryId = group.itinerary_id;
       if (!itineraryId) { return { updated: false, itineraryId: null, group }; }
-      const { rows: [history] } = await client.query(`
-        SELECT EXISTS (
-          SELECT 1 FROM trip.trip_expenses e JOIN trip.trips t ON t.id=e.trip_id
-          WHERE t.itinerary_id=$1::uuid
-        ) OR EXISTS (
-          SELECT 1 FROM trip.trip_expense_settlements s JOIN trip.trips t ON t.id=s.trip_id
-          WHERE t.itinerary_id=$1::uuid
-        ) AS present
+      const { rows: [ledger] } = await client.query(`
+        WITH active_expenses AS (
+          SELECT expense.*
+          FROM trip.trip_expenses expense
+          INNER JOIN trip.trips trip_record ON trip_record.id = expense.trip_id
+          WHERE trip_record.itinerary_id = $1::uuid
+            AND expense.deleted_at IS NULL
+        ),
+        paid AS (
+          SELECT paid_by AS user_id, TRIM(currency_code) AS currency_code,
+            SUM(amount) AS amount
+          FROM active_expenses
+          GROUP BY paid_by, TRIM(currency_code)
+        ),
+        shares AS (
+          SELECT split.user_id, TRIM(expense.currency_code) AS currency_code,
+            SUM(split.amount) AS amount
+          FROM trip.trip_expense_splits split
+          INNER JOIN active_expenses expense ON expense.id = split.expense_id
+          GROUP BY split.user_id, TRIM(expense.currency_code)
+        ),
+        confirmed_settlements AS (
+          SELECT settlement.from_user_id AS user_id,
+            TRIM(settlement.currency_code) AS currency_code,
+            SUM(settlement.amount) AS amount
+          FROM trip.trip_expense_settlements settlement
+          INNER JOIN trip.trips trip_record ON trip_record.id = settlement.trip_id
+          WHERE trip_record.itinerary_id = $1::uuid
+            AND settlement.status = 'CONFIRMED'
+          GROUP BY settlement.from_user_id, TRIM(settlement.currency_code)
+          UNION ALL
+          SELECT settlement.to_user_id, TRIM(settlement.currency_code),
+            -SUM(settlement.amount)
+          FROM trip.trip_expense_settlements settlement
+          INNER JOIN trip.trips trip_record ON trip_record.id = settlement.trip_id
+          WHERE trip_record.itinerary_id = $1::uuid
+            AND settlement.status = 'CONFIRMED'
+          GROUP BY settlement.to_user_id, TRIM(settlement.currency_code)
+        ),
+        entries AS (
+          SELECT user_id, currency_code, amount FROM paid
+          UNION ALL
+          SELECT user_id, currency_code, -amount FROM shares
+          UNION ALL
+          SELECT user_id, currency_code, amount FROM confirmed_settlements
+        ),
+        balances AS (
+          SELECT user_id, currency_code, SUM(amount) AS net_amount
+          FROM entries
+          GROUP BY user_id, currency_code
+        )
+        SELECT
+          EXISTS (SELECT 1 FROM active_expenses) AS has_active_expenses,
+          EXISTS (SELECT 1 FROM balances WHERE net_amount <> 0) AS has_open_balance,
+          EXISTS (
+            SELECT 1
+            FROM trip.trip_expense_settlements settlement
+            INNER JOIN trip.trips trip_record ON trip_record.id = settlement.trip_id
+            WHERE trip_record.itinerary_id = $1::uuid
+              AND settlement.status = 'PENDING'
+          ) AS has_pending_settlement
       `, [itineraryId]);
-      if (history.present) { return { financialHistory: true }; }
+      if (ledger.has_active_expenses
+        && (ledger.has_open_balance || ledger.has_pending_settlement)) {
+        return { financialHistory: true };
+      }
       await client.query(`
         UPDATE trip.trip_participants p SET status='REMOVED',removed_at=CURRENT_TIMESTAMP,
           updated_at=CURRENT_TIMESTAMP FROM trip.trips t

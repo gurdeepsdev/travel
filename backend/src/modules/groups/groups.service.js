@@ -86,7 +86,7 @@ class GroupsService {
     }
     if (result.financialHistory) {
       throw new AppError({ code: 'GROUP.UNLINK_FINANCIAL_HISTORY',
-        message: 'Cannot unlink an itinerary with expenses or settlements.', statusCode: 409 });
+        message: 'Cannot unlink an itinerary with unsettled active expenses.', statusCode: 409 });
     }
     return { updated: result.updated, itineraryId: result.itineraryId, group: this.mapGroup(result.group) };
   }

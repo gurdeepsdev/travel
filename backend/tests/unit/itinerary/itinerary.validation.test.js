@@ -1,4 +1,6 @@
 import {
+  createItineraryChangeRequestSchema,
+  reviewItineraryChangeRequestSchema,
   getItinerarySchema,
   listItinerariesSchema,
   saveItinerarySchema,
@@ -68,6 +70,58 @@ describe("itinerary essentials validation", () => {
       params,
       query: {},
     }).success).toBe(true);
+  });
+});
+
+describe("itinerary place-change request validation", () => {
+  const itineraryId =
+    "11111111-1111-4111-8111-111111111111";
+  const requestId =
+    "22222222-2222-4222-8222-222222222222";
+
+  test("accepts a place-only days proposal", () => {
+    const result = createItineraryChangeRequestSchema.safeParse({
+      body: {
+        days: [{
+          day: 1,
+          items: [{
+            item_type: "poi",
+            title: "Red Fort",
+          }],
+        }],
+        message: "Add Red Fort",
+      },
+      params: { itineraryId },
+      query: {},
+    });
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects duplicate day numbers", () => {
+    const result = createItineraryChangeRequestSchema.safeParse({
+      body: {
+        days: [
+          { day: 1, items: [] },
+          { day: 1, items: [] },
+        ],
+      },
+      params: { itineraryId },
+      query: {},
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("accepts owner review decisions only", () => {
+    expect(reviewItineraryChangeRequestSchema.safeParse({
+      body: { decision: "ACCEPTED" },
+      params: { itineraryId, requestId },
+      query: {},
+    }).success).toBe(true);
+    expect(reviewItineraryChangeRequestSchema.safeParse({
+      body: { decision: "APPROVED" },
+      params: { itineraryId, requestId },
+      query: {},
+    }).success).toBe(false);
   });
 });
 

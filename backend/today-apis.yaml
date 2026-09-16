@@ -448,8 +448,9 @@ paths:
       summary: Unlink a group's itinerary
       operationId: unlinkGroupItinerary
       description: >
-        Only the group owner can unlink. Returns 409 if any expense or settlement
-        history exists, including deleted expenses and cancelled settlements.
+        Only the group owner can unlink. Returns 409 while active expenses have
+        an open balance or pending settlement. Fully settled active expenses and
+        soft-deleted expenses do not prevent unlinking; financial history is retained.
         Preserves group memberships, itinerary and documents. Removes non-owner
         trip participation and group-based itinerary access. Document owners retain
         their own documents; document visibility values are unchanged.
@@ -494,7 +495,7 @@ paths:
         '400': { description: Invalid request. }
         '401': { description: Authentication required. }
         '404': { description: Owned active group not found. }
-        '409': { description: GROUP.UNLINK_FINANCIAL_HISTORY - expenses or settlements prevent unlinking. }
+        '409': { description: GROUP.UNLINK_FINANCIAL_HISTORY - active expenses still have an open balance or pending settlement. }
     put:
       tags: [Itinerary Groups]
       summary: Link an owned itinerary to an owned group
@@ -1211,6 +1212,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  "/itineraries/{itineraryId}/change-requests":
+    post:
+      tags: [Itineraries]
+      summary: Suggest place changes to a group itinerary
+      description: >
+        Creates a versioned place-change request from an active linked-group
+        member who is not the itinerary owner. Only days and their place items
+        may be proposed. The owner's status must be PLANNED, UPCOMING, or LIVE.
+      operationId: createItineraryChangeRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItineraryChangeRequest"
+      responses:
+        "201":
+          description: Place-change request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryChangeRequestResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary unavailable or requester ineligible }
+    get:
+      tags: [Itineraries]
+      summary: List itinerary change requests
+      description: Lists requests for the owner and active linked-group members.
+      operationId: listItineraryChangeRequests
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, ACCEPTED, REJECTED, CANCELLED, STALE]
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: Change requests fetched }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Itinerary not found or inaccessible }
+  "/itineraries/{itineraryId}/change-requests/{requestId}":
+    get:
+      tags: [Itineraries]
+      summary: Get an itinerary change request
+      operationId: getItineraryChangeRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ItineraryChangeRequestId"
+      responses:
+        "200":
+          description: Change request fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryChangeRequestResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Change request not found or inaccessible }
+    delete:
+      tags: [Itineraries]
+      summary: Cancel my pending itinerary change request
+      operationId: cancelItineraryChangeRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ItineraryChangeRequestId"
+      responses:
+        "200": { description: Change request cancelled }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Pending change request not found }
+  "/itineraries/{itineraryId}/change-requests/{requestId}/review":
+    patch:
+      tags: [Itineraries]
+      summary: Accept or reject an itinerary place-change request
+      description: >
+        Only the itinerary owner can review a pending request. Acceptance locks
+        and version-checks the itinerary, revalidates membership and lifecycle,
+        then replaces only days and calculated place counts. Competing pending
+        requests become STALE. Rejection does not alter the itinerary.
+      operationId: reviewItineraryChangeRequest
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ItineraryId"
+        - $ref: "#/components/parameters/ItineraryChangeRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewItineraryChangeRequest"
+      responses:
+        "200": { description: Change request reviewed }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Pending request not found or reviewer unauthorized }
+        "409": { description: Request is stale or itinerary can no longer be changed }
   "/itineraries/{itineraryId}/status":
     patch:
       tags:
@@ -4628,6 +4736,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    ItineraryChangeRequestId:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ItineraryId:
       name: itineraryId
       in: path
@@ -5072,7 +5187,10 @@ components:
           type: string
           minLength: 1
           maxLength: 255
-          description: Itinerary name supplied by the frontend. When omitted, the backend derives a legacy name from city_id.
+          description: >
+            Itinerary name supplied by the frontend. Active names are unique
+            per owner, case-insensitively; duplicates receive 01, 02, 03, and
+            so on. When omitted, the backend derives a legacy name from city_id.
           example: Summer Delhi Trip
         summary:
           type: object
@@ -5341,6 +5459,103 @@ components:
         timestamp:
           type: string
           format: date-time
+    CreateItineraryChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [days]
+      properties:
+        days:
+          type: array
+          minItems: 1
+          maxItems: 365
+          items:
+            type: object
+            required: [day, items]
+            properties:
+              day: { type: integer, minimum: 1, maximum: 365 }
+              items:
+                type: array
+                maxItems: 500
+                items:
+                  type: object
+                  required: [item_type]
+                  properties:
+                    item_type: { type: string, minLength: 1, maxLength: 50 }
+                  additionalProperties: true
+            additionalProperties: true
+        message: { type: string, minLength: 1, maxLength: 1000 }
+    ReviewItineraryChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [ACCEPTED, REJECTED]
+        message: { type: string, minLength: 1, maxLength: 1000 }
+    ItineraryChangeRequest:
+      type: object
+      required:
+        - id
+        - itineraryId
+        - requestType
+        - proposedChanges
+        - status
+        - requester
+        - baseItineraryUpdatedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        itineraryId: { type: string, format: uuid }
+        requestType: { type: string, enum: [PLACE_CHANGES] }
+        proposedChanges:
+          type: object
+          required: [days, totalPlaces]
+          properties:
+            days: { type: array, items: { type: object } }
+            totalPlaces: { type: integer, minimum: 0 }
+        message: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, REJECTED, CANCELLED, STALE]
+        requester: { $ref: "#/components/schemas/ItineraryChangeRequestUser" }
+        reviewer:
+          allOf:
+            - $ref: "#/components/schemas/ItineraryChangeRequestUser"
+          nullable: true
+        reviewMessage: { type: string, nullable: true }
+        baseItineraryUpdatedAt: { type: string, format: date-time }
+        reviewedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ItineraryChangeRequestUser:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, nullable: true }
+        displayName: { type: string, nullable: true }
+    ItineraryChangeRequestResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        data:
+          type: object
+          required: [changeRequest]
+          properties:
+            changeRequest:
+              $ref: "#/components/schemas/ItineraryChangeRequest"
+            itinerary:
+              type: object
+              nullable: true
+              properties:
+                id: { type: string, format: uuid }
+                updatedAt: { type: string, format: date-time }
+        requestId: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
     ItineraryShareLinkResponse:
       type: object
       required:

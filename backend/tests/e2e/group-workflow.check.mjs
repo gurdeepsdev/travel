@@ -64,6 +64,15 @@ try {
   assert.equal((await call('get','/users/me/groups',1)).groups.length,0);
   assert.equal((await call('get','/users/me/groups',0)).groups[0].id,standalone.id);
   const first=(await call('post','/itineraries',0,payload,201)).itinerary;
+  const duplicateNamePayload={...payload,request_id:randomUUID(),city_name:'Weekend Delhi'};
+  const namedFirst=(await call('post','/itineraries',0,duplicateNamePayload,201)).itinerary;
+  const namedSecond=(await call('post','/itineraries',0,
+    {...duplicateNamePayload,request_id:randomUUID()},201)).itinerary;
+  const namedThird=(await call('post','/itineraries',0,
+    {...duplicateNamePayload,request_id:randomUUID()},201)).itinerary;
+  assert.equal(namedFirst.title,'Weekend Delhi');
+  assert.equal(namedSecond.title,'Weekend Delhi 01');
+  assert.equal(namedThird.title,'Weekend Delhi 02');
   const itineraryGroupPath=`/itineraries/${first.id}/group`;
   await call('get',itineraryGroupPath,0,undefined,404);
   await call('get',itineraryGroupPath,null,undefined,401);
@@ -133,6 +142,7 @@ try {
   const saved=await call('post','/itineraries',0,{...payload,planTogether:true},201);
   const id=saved.itinerary.id, base=`/itineraries/${id}`;
   assert.equal(saved.group.ownerId,users[0]);
+  assert.equal(saved.group.name,saved.itinerary.title);
   assert(!('planTogether' in saved.itinerary.itineraryJson));
   await call('get',`${base}/group/members`,null,undefined,401);
   assert.equal((await call('get',`${base}/group/members`,0)).totalCount,1);
@@ -152,6 +162,35 @@ try {
   const memberRename=await call('patch',`${base}/name`,1,{name:'Shared group itinerary'});
   assert.equal(memberRename.itinerary.name,'Shared group itinerary');
   assert.equal((await call('get',base,0)).itinerary.title,'Shared group itinerary');
+  const changesPath=`${base}/change-requests`;
+  const proposedDays=[{day:1,items:[{item_type:'poi',place_id:'member-suggested-place'}]}];
+  await call('post',changesPath,0,{days:proposedDays},404);
+  const rejectedRequest=(await call('post',changesPath,1,
+    {days:proposedDays,message:'Please replace the place'},201)).changeRequest;
+  assert.equal(rejectedRequest.status,'PENDING');
+  assert.equal(rejectedRequest.proposedChanges.totalPlaces,1);
+  await call('get',`${changesPath}/${rejectedRequest.id}`,2,undefined,404);
+  await call('patch',`${changesPath}/${rejectedRequest.id}/review`,1,
+    {decision:'ACCEPTED'},404);
+  assert.equal((await call('patch',`${changesPath}/${rejectedRequest.id}/review`,0,
+    {decision:'REJECTED',message:'Use another place'})).changeRequest.status,'REJECTED');
+  const cancelledRequest=(await call('post',changesPath,1,{days:proposedDays},201)).changeRequest;
+  assert.equal((await call('delete',`${changesPath}/${cancelledRequest.id}`,1)).changeRequest.status,
+    'CANCELLED');
+  const staleRequest=(await call('post',changesPath,1,{days:proposedDays},201)).changeRequest;
+  const acceptedDays=[{day:1,items:[{item_type:'poi',place_id:'accepted-place'},
+    {item_type:'restaurant',place_id:'accepted-food'}]}];
+  const acceptedRequest=(await call('post',changesPath,1,{days:acceptedDays},201)).changeRequest;
+  const acceptedReview=await call('patch',`${changesPath}/${acceptedRequest.id}/review`,0,
+    {decision:'ACCEPTED',message:'Approved'});
+  assert.equal(acceptedReview.changeRequest.status,'ACCEPTED');
+  const changedItinerary=(await call('get',base,1)).itinerary;
+  assert.equal(changedItinerary.title,'Shared group itinerary');
+  assert.deepEqual(changedItinerary.itineraryJson.days,acceptedDays);
+  assert.equal(changedItinerary.itineraryJson.summary.total_places,2);
+  assert.equal((await call('get',`${changesPath}/${staleRequest.id}`,0)).changeRequest.status,'STALE');
+  assert((await call('get',`${changesPath}?status=ACCEPTED&limit=1`,0)).changeRequests
+    .some(changeRequest=>changeRequest.id===acceptedRequest.id));
   const ownerEssential=(await call('post',`${base}/essentials`,0,
     {title:'Owner passport',category:'DOCUMENT'},201)).essential;
   const memberEssential=(await call('post',`${base}/essentials`,1,
@@ -203,6 +242,7 @@ try {
   await call('get',`${base}/expenses/dashboard`,1,undefined,404);
   await call('get',`${base}/essentials`,1,undefined,404);
   await call('patch',`${base}/name`,1,{name:'Removed member edit'},404);
+  await call('post',changesPath,1,{days:proposedDays},404);
   assert.deepEqual(await call('get',`${base}/expense-balances`,0),before);
   assert(!(await call('get','/users/me/groups',1)).groups.some(g=>g.id===saved.group.id));
   await call('get',`/groups/${saved.group.id}`,1,undefined,404);
@@ -308,11 +348,18 @@ try {
   assert.equal((await call('delete',unlinkPath,0)).updated,false);
   await call('put',`/groups/${unlinked.id}/itinerary`,0,{itineraryId:later.id});
   assert.equal((await call('get',`/itineraries/${later.id}/expense-participants`,1)).totalCount,2);
-  const {rows:[settlement]}=await client.query(`INSERT INTO trip.trip_expense_settlements
-    (trip_id,from_user_id,to_user_id,amount,currency_code,created_by,status)
-    VALUES ($1,$2,$3,1,'INR',$2,'CANCELLED') RETURNING id`,[detachedTrip.id,users[1],users[0]]);
-  await call('delete',unlinkPath,0,undefined,409);
-  await client.query('DELETE FROM trip.trip_expense_settlements WHERE id=$1',[settlement.id]);
+  const settledExpense=await call('post',`/itineraries/${later.id}/expenses`,1,{
+    paidBy:users[1],category:'FOOD',title:'Settled unlink test',amount:100,
+    currencyCode:'INR',paymentMethod:'CASH',expenseDate:'2026-09-10',splitType:'EQUAL',
+    participants:[{userId:users[0]},{userId:users[1]}]},201);
+  const settledPayment=await call('post',`/itineraries/${later.id}/expense-settlements`,0,
+    {toUserId:users[1],amount:50,currencyCode:'INR'},201);
+  await call('patch',`/itineraries/${later.id}/expense-settlements/${settledPayment.settlement.id}`,
+    1,{status:'CONFIRMED'});
+  assert.equal((await call('delete',unlinkPath,0)).updated,true);
+  await call('put',`/groups/${unlinked.id}/itinerary`,0,{itineraryId:later.id});
+  await call('delete',`/itineraries/${later.id}/expenses/${settledExpense.expense.id}`,1);
+  assert.equal((await call('delete',unlinkPath,0)).updated,true);
   console.log(`PASS: ${checks} HTTP checks with real JWT authentication, local PostgreSQL, multipart upload, and binary download; stale expense/settlement writes rejected.`);
 } finally {
   try {
