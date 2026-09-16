@@ -195,6 +195,23 @@ postsRepositoryMock
   });
 
   describe("getMySavedPosts", () => {
+  test("mixes saved locations and posts without sending location IDs for post hydration", async () => {
+    repositoryMock.listMySavedPostReferences.mockResolvedValue({
+      rows: [
+        { item_type: 'CITY', location_id: CITY_ID, location_name: 'Delhi', city_id: CITY_ID,
+          city_name: 'Delhi', city_google_id: 'google-delhi', latitude: '28.6', longitude: '77.2' },
+        createSavedPostReference(),
+        { item_type: 'PLACE', location_id: PLACE_ID, location_name: 'Park', image_id: null },
+      ], hasMore: false, lastRow: null,
+    });
+    const result = await SavedContentService.getMySavedPosts({userId: TARGET_USER_ID});
+    expect(result.posts.map(item => item.itemType)).toEqual(['CITY','POST','PLACE']);
+    expect(result.posts[0]).toMatchObject({latitude:28.6,longitude:77.2,
+      city:{id:CITY_ID,googleId:'google-delhi'},viewerState:{saved:true}});
+    expect(result.posts[2].image).toBeNull();
+    expect(postsRepositoryMock.getPostsByIds).toHaveBeenCalledWith({postIds:[POST_ID],viewerUserId:TARGET_USER_ID});
+  });
+
   test(
     "returns complete saved posts in saved-item order",
     async () => {
@@ -232,6 +249,7 @@ postsRepositoryMock
         posts: [
           {
             id: POST_ID,
+            itemType: "POST",
             caption:
               "Two travel plans for Noida.",
             viewerState: {

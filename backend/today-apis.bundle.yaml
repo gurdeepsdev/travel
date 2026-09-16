@@ -3918,6 +3918,7 @@ paths:
       tags:
         - Saved Content
       summary: Get my saved posts
+      description: Returns a mixed list of saved posts and directly saved CITY or PLACE locations in data.posts, newest saved first. Each card has itemType POST, CITY, or PLACE. Post fields and existing post visibility rules are preserved. City cards require an active city; missing location records and inactive saves are omitted. One cursor paginates the complete mixed list. Optional cityId or countryId filters use internal UUIDs and cannot be combined.
       operationId: getMySavedPosts
       security:
         - bearerAuth: []
@@ -3979,7 +3980,14 @@ paths:
                           posts:
                             type: array
                             items:
-                              $ref: '#/components/schemas/CreatePostData/properties/post'
+                              oneOf:
+                                - allOf:
+                                    - $ref: '#/components/schemas/CreatePostData/properties/post'
+                                    - type: object
+                                      required: [itemType]
+                                      properties:
+                                        itemType: { type: string, enum: [POST] }
+                                - $ref: '#/components/schemas/SavedLocationCard'
                           pagination:
                             type: object
                             required:
@@ -6234,6 +6242,42 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: '2026-08-17T05:33:44.704Z'
   schemas:
+    SavedLocationCard:
+      type: object
+      required: [id, itemType, title, viewerState]
+      properties:
+        id: { type: string, format: uuid }
+        itemType: { type: string, enum: [CITY, PLACE] }
+        title: { type: string }
+        savedAt: { type: string, format: date-time }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        address: { type: string, nullable: true }
+        city:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            googleId: { type: string, nullable: true }
+        country:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+        image:
+          type: object
+          nullable: true
+          description: Public location image or city icon; null when unavailable.
+          properties:
+            id: { type: string, format: uuid }
+            url: { type: string, nullable: true }
+            mimeType: { type: string, nullable: true }
+        viewerState:
+          type: object
+          properties:
+            saved: { type: boolean, enum: [true] }
     StandaloneGroupResponse:
       type: object
       properties:

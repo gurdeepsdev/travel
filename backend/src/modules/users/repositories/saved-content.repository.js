@@ -2,7 +2,7 @@ import Database from "../../../database/database-manager.js";
 
 class SavedContentRepository {
   /**
-   * Returns active saved-post references that remain
+   * Returns active saved post/location references that remain
    * accessible to the authenticated owner.
    *
    * Full post hydration is performed separately in
@@ -59,12 +59,29 @@ class SavedContentRepository {
         saved_item.created_at::text
           AS cursor_created_at,
 
-        post.id
-          AS post_id
+        post.id AS post_id,
+        saved_item.item_type,
+        saved_item.item_id AS location_id,
+        CASE WHEN saved_item.item_type = 'CITY' THEN saved_city.name
+          ELSE saved_place.name END AS location_name,
+        saved_city.id AS city_id,
+        saved_city.name AS city_name,
+        saved_city.provider_id AS city_google_id,
+        saved_city.country_id,
+        location_country.name AS country_name,
+        CASE WHEN saved_item.item_type = 'CITY' THEN saved_city.latitude
+          ELSE saved_place.latitude END AS latitude,
+        CASE WHEN saved_item.item_type = 'CITY' THEN saved_city.longitude
+          ELSE saved_place.longitude END AS longitude,
+        saved_place.address,
+        location_image.id AS image_id,
+        location_image.storage_provider AS image_storage_provider,
+        location_image.storage_key AS image_storage_key,
+        location_image.mime_type AS image_mime_type
 
       FROM users.saved_items saved_item
 
-      INNER JOIN explore.posts post
+      LEFT JOIN explore.posts post
         ON saved_item.item_type = 'POST'
         AND post.id = saved_item.item_id
         AND post.deleted_at IS NULL
@@ -76,20 +93,23 @@ class SavedContentRepository {
           IS NULL
 
       LEFT JOIN poi.places saved_place
-        ON saved_place.id =
-          post.place_id
+        ON saved_place.id = CASE WHEN saved_item.item_type = 'PLACE'
+          THEN saved_item.item_id ELSE post.place_id END
 
       LEFT JOIN poi.cities saved_city
-        ON saved_city.id = COALESCE(
-          post.city_id,
-          saved_place.city_id
-        )
+        ON saved_city.id = CASE WHEN saved_item.item_type = 'CITY'
+          THEN saved_item.item_id ELSE COALESCE(post.city_id, saved_place.city_id) END
+
+      LEFT JOIN poi.countries location_country ON location_country.id = saved_city.country_id
+      LEFT JOIN media.assets location_image
+        ON location_image.id = CASE WHEN saved_item.item_type = 'CITY'
+          THEN saved_city.icon_asset_id ELSE saved_place.media_id END
+        AND location_image.deleted_at IS NULL AND location_image.is_public IS TRUE
 
       WHERE saved_item.user_id =
           $1::uuid
 
-        AND saved_item.item_type =
-          'POST'
+        AND saved_item.item_type IN ('POST', 'CITY', 'PLACE')
 
         AND saved_item.is_active
           IS TRUE
@@ -106,6 +126,9 @@ class SavedContentRepository {
         )
 
         AND (
+          (saved_item.item_type = 'CITY' AND saved_city.is_active IS TRUE)
+          OR (saved_item.item_type = 'PLACE' AND saved_place.id IS NOT NULL)
+          OR (saved_item.item_type = 'POST' AND post.id IS NOT NULL AND (
           post.user_id = $1::uuid
 
           OR (
@@ -133,7 +156,7 @@ class SavedContentRepository {
               )
             )
           )
-        )
+        )))
 
         ${cursorCondition}
 
