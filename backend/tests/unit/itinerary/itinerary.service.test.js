@@ -534,6 +534,7 @@ describe("ItineraryService", () => {
           itineraries: [
             {
               id: ITINERARY_ID,
+              ownerId: USER_ID,
               createdBy: USER_ID,
             },
           ],
@@ -739,6 +740,7 @@ describe("ItineraryService", () => {
       expect(result.itinerary)
         .toMatchObject({
           id: ITINERARY_ID,
+          ownerId: USER_ID,
           createdBy: USER_ID,
           title:
             "Summer Delhi Trip",
@@ -794,6 +796,7 @@ describe("ItineraryService", () => {
       expect(result.itinerary)
         .toMatchObject({
           id: ITINERARY_ID,
+          ownerId: USER_ID,
           createdBy: USER_ID,
           title: "Delhi itinerary",
         });

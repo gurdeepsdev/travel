@@ -6777,6 +6777,7 @@ components:
               type: object
               required:
                 - id
+                - ownerId
                 - createdBy
                 - title
                 - durationDays
@@ -6788,6 +6789,9 @@ components:
                 - updatedAt
               properties:
                 id:
+                  type: string
+                  format: uuid
+                ownerId:
                   type: string
                   format: uuid
                 createdBy:
@@ -7516,6 +7520,9 @@ components:
         id:
           type: string
           format: uuid
+        ownerId:
+          type: string
+          format: uuid
         tripId:
           type: string
           format: uuid
@@ -7640,6 +7647,7 @@ components:
       type: object
       required:
         - id
+        - ownerId
         - createdBy
         - title
         - durationDays
@@ -7651,6 +7659,9 @@ components:
         - updatedAt
       properties:
         id:
+          type: string
+          format: uuid
+        ownerId:
           type: string
           format: uuid
         createdBy:

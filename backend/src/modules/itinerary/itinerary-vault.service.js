@@ -24,6 +24,7 @@ function mapDocument(document) {
 
   return {
     id: document.id,
+    ownerId: document.owner_id,
     itineraryId:
       document.itinerary_id ?? null,
     tripId: document.trip_id,

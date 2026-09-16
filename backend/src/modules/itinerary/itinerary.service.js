@@ -80,6 +80,8 @@ function mapItinerary(
   return {
     id:
       itinerary.id,
+    ownerId:
+      itinerary.created_by,
     createdBy:
       itinerary.created_by,
     title:

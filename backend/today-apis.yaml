@@ -5319,6 +5319,7 @@ components:
               type: object
               required:
                 - id
+                - ownerId
                 - createdBy
                 - title
                 - durationDays
@@ -5330,6 +5331,9 @@ components:
                 - updatedAt
               properties:
                 id:
+                  type: string
+                  format: uuid
+                ownerId:
                   type: string
                   format: uuid
                 createdBy:
@@ -6009,6 +6013,7 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid }
         tripId: { type: string, format: uuid }
         documentType:
           $ref: "#/components/schemas/VaultDocumentType"
@@ -6102,6 +6107,7 @@ components:
       type: object
       required:
         - id
+        - ownerId
         - createdBy
         - title
         - durationDays
@@ -6113,6 +6119,9 @@ components:
         - updatedAt
       properties:
         id:
+          type: string
+          format: uuid
+        ownerId:
           type: string
           format: uuid
         createdBy:

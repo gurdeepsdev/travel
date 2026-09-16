@@ -68,6 +68,7 @@ describe("ItineraryVaultService", () => {
         {
           id:
             "33333333-3333-4333-8333-333333333333",
+          owner_id: userId,
           trip_id:
             "22222222-2222-4222-8222-222222222222",
           itinerary_id: itineraryId,
@@ -99,6 +100,7 @@ describe("ItineraryVaultService", () => {
       });
     expect(result.documents[0])
       .toMatchObject({
+        ownerId: userId,
         documentType: "PASSPORT",
         file: {
           downloadUrl:
