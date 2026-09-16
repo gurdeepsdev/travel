@@ -20,6 +20,7 @@ class MediaRepository {
           asset.extension,
           asset.file_size,
           asset.processing_status,
+          asset.hls_manifest_storage_key,
           asset.is_public,
           asset.created_at
 

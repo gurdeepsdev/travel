@@ -1,5 +1,6 @@
 import {
   buildAssetThumbnailUrl,
+  buildAssetStreamUrl,
   buildAssetUrl,
 } from "../utils/asset-url.util.js";
 
@@ -133,6 +134,23 @@ class MemoriesMapper {
                   thumbnailStorageKey:
                     row.thumbnail_storage_key,
                   isPublic,
+                }),
+              )
+            : null,
+
+        streamUrl:
+          (
+            row.processing_status ??
+            "READY"
+          ) === "READY"
+            ? buildAbsoluteUrl(
+                buildAssetStreamUrl({
+                  assetId:
+                    row.asset_id,
+                  storageProvider:
+                    row.storage_provider,
+                  hlsManifestStorageKey:
+                    row.hls_manifest_storage_key,
                 }),
               )
             : null,

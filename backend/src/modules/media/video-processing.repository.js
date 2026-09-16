@@ -74,6 +74,7 @@ class VideoProcessingRepository {
     thumbnailFileSize,
     thumbnailWidth,
     thumbnailHeight,
+    hlsManifestStorageKey,
   }) {
     await Database.transaction(
       async (client) => {
@@ -88,6 +89,7 @@ class VideoProcessingRepository {
               original_width = $4,
               original_height = $5,
               duration_seconds = $6,
+              hls_manifest_storage_key = $7,
               processing_status = 'READY',
               processing_error = NULL,
               processed_at = CURRENT_TIMESTAMP,
@@ -104,6 +106,7 @@ class VideoProcessingRepository {
             width,
             height,
             durationSeconds,
+            hlsManifestStorageKey,
           ],
         );
 

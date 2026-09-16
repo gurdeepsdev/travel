@@ -1,5 +1,7 @@
 import {
   createFfmpegArguments,
+  createHlsArguments,
+  createHlsManifestStorageKey,
   createMp4StorageKey,
   createThumbnailArguments,
   createThumbnailStorageKey,
@@ -39,6 +41,51 @@ describe(
           args[args.length - 1],
         ).toBe(
           "/uploads/output.tmp",
+        );
+      },
+    );
+
+    test(
+      "builds a two-second VOD HLS rendition command",
+      () => {
+        const args = createHlsArguments({
+          inputPath: "/uploads/video.mp4",
+          playlistPath:
+            "/uploads/video.hls/360p/index.m3u8",
+          segmentPattern:
+            "/uploads/video.hls/360p/segment_%06d.ts",
+          rendition: {
+            maxWidth: 640,
+            maxHeight: 360,
+            videoBitrate: "600k",
+            maxRate: "660k",
+            bufferSize: "1200k",
+            audioBitrate: "96k",
+          },
+        });
+
+        expect(args).toEqual(
+          expect.arrayContaining([
+            "600k",
+            "660k",
+            "expr:gte(t,n_forced*2)",
+            "2",
+            "vod",
+            "independent_segments",
+          ]),
+        );
+      },
+    );
+
+    test(
+      "creates a sibling HLS manifest storage key",
+      () => {
+        expect(
+          createHlsManifestStorageKey(
+            "posts/user/clip.mp4",
+          ),
+        ).toBe(
+          "posts/user/clip.hls/master.m3u8",
         );
       },
     );

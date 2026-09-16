@@ -232,6 +232,65 @@ describe(
     );
 
     test(
+      "returns an authorized HLS playlist and immutable segment",
+      async () => {
+        repositoryMock
+          .findDeliveryContext
+          .mockResolvedValue(
+            createAsset({
+              mime_type:
+                "video/mp4",
+              processing_status:
+                "READY",
+              hls_manifest_storage_key:
+                "posts/user/video.hls/master.m3u8",
+            }),
+          );
+
+        resolveStoragePathMock
+          .mockImplementation(
+            (storageKey) =>
+              `/absolute/uploads/${storageKey}`,
+          );
+
+        const playlist =
+          await MediaService
+            .getLocalAssetStreamResource({
+              assetId: ASSET_ID,
+              viewerUserId: USER_ID,
+              rendition: "360p",
+              fileName: "index.m3u8",
+            });
+
+        expect(playlist).toMatchObject({
+          filePath:
+            "/absolute/uploads/posts/user/video.hls/360p/index.m3u8",
+          contentType:
+            "application/vnd.apple.mpegurl",
+          cacheControl:
+            "public, max-age=60",
+        });
+
+        const segment =
+          await MediaService
+            .getLocalAssetStreamResource({
+              assetId: ASSET_ID,
+              viewerUserId: USER_ID,
+              rendition: "720p",
+              fileName:
+                "segment_000001.ts",
+            });
+
+        expect(segment).toMatchObject({
+          contentType:
+            "video/mp2t",
+          cacheControl:
+            "public, max-age=31536000, immutable",
+        });
+      },
+    );
+
+    test(
       "hides a missing or unauthorized asset",
       async () => {
         repositoryMock

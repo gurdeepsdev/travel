@@ -74,6 +74,9 @@ class VideoProcessingService {
 
           thumbnailHeight:
             result.thumbnailHeight,
+
+          hlsManifestStorageKey:
+            result.hlsManifestStorageKey,
         });
     } catch (error) {
       await rollbackTranscode(

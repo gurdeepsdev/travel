@@ -109,6 +109,9 @@ describe(
 
             thumbnailHeight:
               360,
+
+            hlsManifestStorageKey:
+              "posts/user/video.hls/master.m3u8",
           });
 
         repositoryMock
@@ -151,6 +154,9 @@ describe(
 
           thumbnailHeight:
             360,
+
+          hlsManifestStorageKey:
+            "posts/user/video.hls/master.m3u8",
         });
 
         expect(

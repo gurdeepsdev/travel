@@ -152,6 +152,7 @@ class MemoriesRepository {
         asset.original_height,
         asset.duration_seconds,
         asset.processing_status,
+        asset.hls_manifest_storage_key,
         (
           SELECT variant.storage_key
           FROM media.asset_variants variant
@@ -257,6 +258,7 @@ class MemoriesRepository {
         asset.original_height,
         asset.duration_seconds,
         asset.processing_status,
+        asset.hls_manifest_storage_key,
         (
           SELECT variant.storage_key
           FROM media.asset_variants variant
