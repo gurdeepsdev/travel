@@ -120,6 +120,19 @@ const itineraryPayloadSchema = z
       )
       .max(255),
 
+    city_name: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "Itinerary name cannot be empty.",
+      )
+      .max(
+        255,
+        "Itinerary name cannot exceed 255 characters.",
+      )
+      .optional(),
+
     summary: z
       .object({
         num_days: z

@@ -149,7 +149,21 @@ try {
   assert.equal((await call('get',`${base}/group/members`,1)).totalCount,2);
   await call('get',base,1);
   await call('get',`${base}/dashboard`,1);
-  await call('patch',`${base}/name`,1,{name:'Forbidden edit'},404);
+  const memberRename=await call('patch',`${base}/name`,1,{name:'Shared group itinerary'});
+  assert.equal(memberRename.itinerary.name,'Shared group itinerary');
+  assert.equal((await call('get',base,0)).itinerary.title,'Shared group itinerary');
+  const ownerEssential=(await call('post',`${base}/essentials`,0,
+    {title:'Owner passport',category:'DOCUMENT'},201)).essential;
+  const memberEssential=(await call('post',`${base}/essentials`,1,
+    {title:'Member charger',category:'ELECTRONICS'},201)).essential;
+  const ownerEssentials=await call('get',`${base}/essentials`,0);
+  const memberEssentials=await call('get',`${base}/essentials`,1);
+  assert(ownerEssentials.essentials.some(item=>item.id===ownerEssential.id));
+  assert(!ownerEssentials.essentials.some(item=>item.id===memberEssential.id));
+  assert(memberEssentials.essentials.some(item=>item.id===memberEssential.id));
+  assert(!memberEssentials.essentials.some(item=>item.id===ownerEssential.id));
+  await call('patch',`${base}/essentials/${ownerEssential.id}`,1,{title:'Forbidden'},404);
+  await call('patch',`${base}/essentials/${memberEssential.id}/selection`,1,{selected:true});
   await call('post',`${base}/expenses`,1,{paidBy:users[1],category:'FOOD',title:'E2E meal',amount:100,
     currencyCode:'INR',paymentMethod:'CASH',expenseDate:'2026-09-10',splitType:'EQUAL',
     participants:[{userId:users[0]},{userId:users[1]}]},201);
@@ -187,6 +201,8 @@ try {
   await call('get',base,1,undefined,404);
   await call('get',`${base}/dashboard`,1,undefined,404);
   await call('get',`${base}/expenses/dashboard`,1,undefined,404);
+  await call('get',`${base}/essentials`,1,undefined,404);
+  await call('patch',`${base}/name`,1,{name:'Removed member edit'},404);
   assert.deepEqual(await call('get',`${base}/expense-balances`,0),before);
   assert(!(await call('get','/users/me/groups',1)).groups.some(g=>g.id===saved.group.id));
   await call('get',`/groups/${saved.group.id}`,1,undefined,404);

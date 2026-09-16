@@ -17,6 +17,16 @@ class GroupsController {
     } catch (error) { return next(error); }
   }
 
+  async deleteGroup(req, res, next) {
+    try {
+      const result = await Service.deleteGroup({
+        userId: req.user.id,
+        groupId: req.validated.params.groupId,
+      });
+      return Response.success(res, result, "Group deleted successfully.");
+    } catch (error) { return next(error); }
+  }
+
   async listMyGroups(req, res, next) {
     try {
       const result = await Service.listMyGroups({ userId: req.user.id, ...req.validated.query });

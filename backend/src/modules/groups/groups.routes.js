@@ -41,6 +41,9 @@ router.get('/itineraries/:itineraryId/group', AuthMiddleware.authenticate,
 router.get('/groups/:groupId', AuthMiddleware.authenticate,
   validate(getGroupSchema), Controller.getGroup);
 
+router.delete('/groups/:groupId', AuthMiddleware.authenticate,
+  validate(getGroupSchema), Controller.deleteGroup);
+
 router.get('/users/me/groups', AuthMiddleware.authenticate,
   validate(listMyGroupsSchema), Controller.listMyGroups);
 

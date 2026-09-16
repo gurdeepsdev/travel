@@ -275,6 +275,7 @@ function createPayload() {
     status: "success",
     mode: "future",
     city_id: "delhi",
+    city_name: "Summer Delhi Trip",
     summary: {
       num_days: 1,
       total_places: 1,
