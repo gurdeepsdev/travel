@@ -96,6 +96,84 @@ class MediaController {
       return next(error);
     }
   }
+
+  async getAssetStreamManifest(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const result =
+        await MediaService
+          .getLocalAssetStreamResource({
+            assetId:
+              req.validated.params
+                .assetId,
+            viewerUserId:
+              req.user?.id ?? null,
+          });
+
+      res.set({
+        "Cache-Control":
+          result.cacheControl,
+        "Content-Type":
+          result.contentType,
+        "Content-Disposition":
+          "inline",
+      });
+
+      return res.sendFile(
+        result.filePath,
+        (error) => error
+          ? next(error)
+          : undefined,
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async getAssetStreamResource(
+    req,
+    res,
+    next,
+  ) {
+    try {
+      const {
+        assetId,
+        rendition,
+        fileName,
+      } = req.validated.params;
+
+      const result =
+        await MediaService
+          .getLocalAssetStreamResource({
+            assetId,
+            viewerUserId:
+              req.user?.id ?? null,
+            rendition,
+            fileName,
+          });
+
+      res.set({
+        "Cache-Control":
+          result.cacheControl,
+        "Content-Type":
+          result.contentType,
+        "Content-Disposition":
+          "inline",
+      });
+
+      return res.sendFile(
+        result.filePath,
+        (error) => error
+          ? next(error)
+          : undefined,
+      );
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 export default new MediaController();

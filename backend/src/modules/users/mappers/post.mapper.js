@@ -198,6 +198,7 @@
 
 import {
     buildAssetThumbnailUrl,
+    buildAssetStreamUrl,
     buildAssetUrl,
   } from "../utils/asset-url.util.js";
   
@@ -289,6 +290,19 @@ import {
                   asset.thumbnailStorageKey,
                 isPublic:
                   asset.isPublic === true,
+              })
+            : null,
+
+        streamUrl:
+          processingStatus ===
+            "READY"
+            ? buildAssetStreamUrl({
+                assetId:
+                  asset.id,
+                storageProvider:
+                  asset.storageProvider,
+                hlsManifestStorageKey:
+                  asset.hlsManifestStorageKey,
               })
             : null,
 

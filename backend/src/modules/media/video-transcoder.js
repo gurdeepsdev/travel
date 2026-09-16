@@ -3,12 +3,16 @@ import {
 } from "node:child_process";
 
 import {
+  mkdir,
   rename,
+  rm,
   stat,
   unlink,
+  writeFile,
 } from "node:fs/promises";
 
 import {
+  dirname,
   extname,
 } from "node:path";
 
@@ -22,6 +26,40 @@ import {
 
 const PROCESS_TIMEOUT_MS =
   30 * 60 * 1000;
+
+const HLS_RENDITIONS =
+  Object.freeze([
+    {
+      name: "360p",
+      maxWidth: 640,
+      maxHeight: 360,
+      videoBitrate: "600k",
+      maxRate: "660k",
+      bufferSize: "1200k",
+      audioBitrate: "96k",
+      bandwidth: 800000,
+    },
+    {
+      name: "540p",
+      maxWidth: 960,
+      maxHeight: 540,
+      videoBitrate: "1200k",
+      maxRate: "1320k",
+      bufferSize: "2400k",
+      audioBitrate: "128k",
+      bandwidth: 1500000,
+    },
+    {
+      name: "720p",
+      maxWidth: 1280,
+      maxHeight: 720,
+      videoBitrate: "2000k",
+      maxRate: "2200k",
+      bufferSize: "4000k",
+      audioBitrate: "128k",
+      bandwidth: 2400000,
+    },
+  ]);
 
 function runProcess({
   command,
@@ -188,6 +226,62 @@ function createThumbnailArguments({
   ];
 }
 
+function createHlsArguments({
+  inputPath,
+  playlistPath,
+  segmentPattern,
+  rendition,
+}) {
+  return [
+    "-hide_banner",
+    "-nostdin",
+    "-y",
+    "-i",
+    inputPath,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a:0?",
+    "-vf",
+    `scale=w='min(iw,if(gt(iw,ih),${rendition.maxWidth},${rendition.maxHeight}))':h='min(ih,if(gt(iw,ih),${rendition.maxHeight},${rendition.maxWidth}))':force_original_aspect_ratio=decrease:force_divisible_by=2`,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "medium",
+    "-b:v",
+    rendition.videoBitrate,
+    "-maxrate",
+    rendition.maxRate,
+    "-bufsize",
+    rendition.bufferSize,
+    "-pix_fmt",
+    "yuv420p",
+    "-force_key_frames",
+    "expr:gte(t,n_forced*2)",
+    "-sc_threshold",
+    "0",
+    "-c:a",
+    "aac",
+    "-b:a",
+    rendition.audioBitrate,
+    "-ac",
+    "2",
+    "-ar",
+    "48000",
+    "-f",
+    "hls",
+    "-hls_time",
+    "2",
+    "-hls_playlist_type",
+    "vod",
+    "-hls_flags",
+    "independent_segments",
+    "-hls_segment_filename",
+    segmentPattern,
+    playlistPath,
+  ];
+}
+
 async function probeVideo(
   filePath,
 ) {
@@ -346,6 +440,76 @@ function createThumbnailStorageKey(
   return `${baseKey}.thumbnail.jpg`;
 }
 
+function createHlsManifestStorageKey(
+  storageKey,
+) {
+  const extension =
+    extname(storageKey);
+
+  const baseKey = extension
+    ? storageKey.slice(
+        0,
+        -extension.length,
+      )
+    : storageKey;
+
+  return `${baseKey}.hls/master.m3u8`;
+}
+
+async function createHlsPackage({
+  inputPath,
+  outputDirectory,
+}) {
+  await mkdir(
+    outputDirectory,
+    {
+      recursive: true,
+    },
+  );
+
+  for (const rendition of HLS_RENDITIONS) {
+    const renditionDirectory =
+      `${outputDirectory}/${rendition.name}`;
+
+    await mkdir(
+      renditionDirectory,
+      {
+        recursive: true,
+      },
+    );
+
+    await runProcess({
+      command: "ffmpeg",
+      args: createHlsArguments({
+        inputPath,
+        playlistPath:
+          `${renditionDirectory}/index.m3u8`,
+        segmentPattern:
+          `${renditionDirectory}/segment_%06d.ts`,
+        rendition,
+      }),
+    });
+  }
+
+  const masterPlaylist = [
+    "#EXTM3U",
+    "#EXT-X-VERSION:3",
+    ...HLS_RENDITIONS.flatMap(
+      (rendition) => [
+        `#EXT-X-STREAM-INF:BANDWIDTH=${rendition.bandwidth}`,
+        `${rendition.name}/index.m3u8`,
+      ],
+    ),
+    "",
+  ].join("\n");
+
+  await writeFile(
+    `${outputDirectory}/master.m3u8`,
+    masterPlaylist,
+    "utf8",
+  );
+}
+
 async function transcodeLocalVideo({
   assetId,
   storageKey,
@@ -383,6 +547,20 @@ async function transcodeLocalVideo({
 
   const temporaryThumbnailPath =
     `${thumbnailPath}.${assetId}.${randomUUID()}.processing`;
+
+  const hlsManifestStorageKey =
+    createHlsManifestStorageKey(
+      outputStorageKey,
+    );
+
+  const hlsDirectory = dirname(
+    resolveStoragePath(
+      hlsManifestStorageKey,
+    ),
+  );
+
+  const temporaryHlsDirectory =
+    `${hlsDirectory}.${assetId}.${randomUUID()}.processing`;
 
   try {
     await runProcess({
@@ -434,6 +612,13 @@ async function transcodeLocalVideo({
         temporaryThumbnailPath,
       );
 
+    await createHlsPackage({
+      inputPath:
+        temporaryOutputPath,
+      outputDirectory:
+        temporaryHlsDirectory,
+    });
+
     if (outputPath === inputPath) {
       await rename(
         inputPath,
@@ -477,6 +662,37 @@ async function transcodeLocalVideo({
       throw error;
     }
 
+    try {
+      await rm(
+        hlsDirectory,
+        {
+          recursive: true,
+          force: true,
+        },
+      );
+
+      await rename(
+        temporaryHlsDirectory,
+        hlsDirectory,
+      );
+    } catch (error) {
+      await removeIfPresent(
+        outputPath,
+      );
+      await removeIfPresent(
+        thumbnailPath,
+      );
+
+      if (outputPath === inputPath) {
+        await rename(
+          backupPath,
+          inputPath,
+        );
+      }
+
+      throw error;
+    }
+
     return {
       outputPath,
       outputStorageKey,
@@ -500,6 +716,9 @@ async function transcodeLocalVideo({
 
       thumbnailHeight:
         thumbnailMetadata.height,
+
+      hlsDirectory,
+      hlsManifestStorageKey,
       ...metadata,
     };
   } catch (error) {
@@ -509,6 +728,14 @@ async function transcodeLocalVideo({
 
     await removeIfPresent(
       temporaryThumbnailPath,
+    );
+
+    await rm(
+      temporaryHlsDirectory,
+      {
+        recursive: true,
+        force: true,
+      },
     );
 
     throw error;
@@ -540,6 +767,7 @@ async function rollbackTranscode({
   outputPath,
   backupPath,
   thumbnailPath,
+  hlsDirectory,
 }) {
   await removeIfPresent(
     outputPath,
@@ -548,6 +776,16 @@ async function rollbackTranscode({
   await removeIfPresent(
     thumbnailPath,
   );
+
+  if (hlsDirectory) {
+    await rm(
+      hlsDirectory,
+      {
+        recursive: true,
+        force: true,
+      },
+    );
+  }
 
   if (backupPath) {
     await rename(
@@ -559,6 +797,8 @@ async function rollbackTranscode({
 
 export {
   createFfmpegArguments,
+  createHlsArguments,
+  createHlsManifestStorageKey,
   createMp4StorageKey,
   createThumbnailArguments,
   createThumbnailStorageKey,

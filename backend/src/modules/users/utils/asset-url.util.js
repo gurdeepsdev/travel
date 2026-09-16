@@ -162,3 +162,35 @@ export const buildAssetThumbnailUrl = (
     isPublic,
   });
 };
+
+export const buildAssetStreamUrl = (
+  input,
+) => {
+  const {
+    assetId,
+    storageProvider,
+  } = normalizeOptions(input);
+
+  const hlsManifestStorageKey =
+    input?.hlsManifestStorageKey ??
+    null;
+
+  if (!hlsManifestStorageKey) {
+    return null;
+  }
+
+  if (
+    String(
+      storageProvider ?? "",
+    ).trim().toLowerCase() ===
+      "local"
+  ) {
+    return assetId
+      ? `/api/v1/media/assets/${encodeURIComponent(
+          assetId,
+        )}/stream/master.m3u8`
+      : null;
+  }
+
+  return null;
+};

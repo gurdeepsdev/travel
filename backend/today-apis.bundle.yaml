@@ -4134,6 +4134,56 @@ paths:
           $ref: '#/components/responses/MediaAssetNotFound'
         '503':
           $ref: '#/components/responses/MediaContentUnavailable'
+  '/media/assets/{assetId}/stream/master.m3u8':
+    get:
+      tags: [Media Delivery]
+      summary: Get an adaptive HLS master playlist
+      description: >
+        Returns 360p, 540p and 720p adaptive streams for a processed video. Existing MP4 delivery remains available as a fallback. Public assets allow anonymous access; private assets require media authorization.
+      operationId: getMediaAssetStreamManifest
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+      responses:
+        '200':
+          description: HLS master playlist
+          content:
+            application/vnd.apple.mpegurl:
+              schema: {type: string}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/MediaAssetNotFound'}
+        '503': {$ref: '#/components/responses/MediaContentUnavailable'}
+  '/media/assets/{assetId}/stream/{rendition}/{fileName}':
+    get:
+      tags: [Media Delivery]
+      summary: Get an HLS rendition playlist or segment
+      operationId: getMediaAssetStreamResource
+      security:
+        - bearerAuth: []
+        - {}
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+        - name: rendition
+          in: path
+          required: true
+          schema: {type: string, enum: [360p, 540p, 720p]}
+        - name: fileName
+          in: path
+          required: true
+          schema: {type: string, pattern: '^(index\.m3u8|segment_\d{6}\.ts)$'}
+      responses:
+        '200':
+          description: HLS playlist or MPEG-TS segment
+          content:
+            application/vnd.apple.mpegurl:
+              schema: {type: string}
+            video/mp2t:
+              schema: {type: string, format: binary}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/MediaAssetNotFound'}
+        '503': {$ref: '#/components/responses/MediaContentUnavailable'}
   '/users/{username}/saved-places':
     get:
       tags:
@@ -8591,6 +8641,10 @@ components:
           type: string
           nullable: true
           description: JPEG thumbnail URL for a processed video.
+        streamUrl:
+          type: string
+          nullable: true
+          description: Adaptive HLS master playlist URL when available.
         createdAt:
           type: string
           format: date-time
@@ -8823,6 +8877,10 @@ components:
                   thumbnailUrl:
                     type: string
                     nullable: true
+                  streamUrl:
+                    type: string
+                    nullable: true
+                    description: Adaptive HLS master playlist URL when available.
                   originalFilename:
                     type: string
                     nullable: true

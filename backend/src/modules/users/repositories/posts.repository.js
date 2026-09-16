@@ -174,6 +174,7 @@ COALESCE(
           'height', asset.original_height,
           'durationSeconds', asset.duration_seconds,
           'processingStatus', asset.processing_status,
+          'hlsManifestStorageKey', asset.hls_manifest_storage_key,
           'thumbnailStorageKey', (
             SELECT variant.storage_key
             FROM media.asset_variants variant
@@ -741,6 +742,9 @@ async getUserPosts({
 
              'processingStatus',
                asset.processing_status,
+
+             'hlsManifestStorageKey',
+               asset.hls_manifest_storage_key,
 
              'thumbnailStorageKey',
                (
@@ -1443,6 +1447,9 @@ async getPostsByIds({
 
              'processingStatus',
                asset.processing_status,
+
+             'hlsManifestStorageKey',
+               asset.hls_manifest_storage_key,
 
              'thumbnailStorageKey',
                (

@@ -11,6 +11,10 @@ import ErrorCodes from "../../shared/constants/error-codes.js";
 import HttpStatus from "../../shared/constants/http-status.js";
 
 import {
+  posix,
+} from "node:path";
+
+import {
   resolveStoragePath,
 } from "../../providers/storage/local.provider.js";
 
@@ -180,6 +184,91 @@ class MediaService {
       cacheControl:
         thumbnail.is_public === true
           ? "public, max-age=3600"
+          : "private, no-store",
+    };
+  }
+
+  async getLocalAssetStreamResource({
+    assetId,
+    viewerUserId = null,
+    rendition = null,
+    fileName = "master.m3u8",
+  }) {
+    const asset =
+      await MediaRepository
+        .findDeliveryContext({
+          assetId,
+          viewerUserId,
+        });
+
+    if (
+      !asset ||
+      String(
+        asset.storage_provider,
+      ).toLowerCase() !== "local" ||
+      asset.processing_status !==
+        "READY" ||
+      !String(
+        asset.mime_type ?? "",
+      ).startsWith("video/") ||
+      !asset.hls_manifest_storage_key
+    ) {
+      throw createAssetNotFoundError();
+    }
+
+    const manifestDirectory =
+      posix.dirname(
+        asset.hls_manifest_storage_key,
+      );
+
+    const storageKey = rendition
+      ? posix.join(
+          manifestDirectory,
+          rendition,
+          fileName,
+        )
+      : asset.hls_manifest_storage_key;
+
+    let filePath;
+
+    try {
+      filePath = resolveStoragePath(
+        storageKey,
+      );
+
+      await access(
+        filePath,
+        fileConstants.R_OK,
+      );
+    } catch (error) {
+      throw new AppError({
+        code:
+          ErrorCodes.MEDIA
+            .CONTENT_UNAVAILABLE,
+        message:
+          "Video stream is temporarily unavailable.",
+        statusCode:
+          HttpStatus
+            .SERVICE_UNAVAILABLE,
+        details: null,
+        cause: error,
+      });
+    }
+
+    const isSegment =
+      fileName.endsWith(".ts");
+
+    return {
+      asset,
+      filePath,
+      contentType: isSegment
+        ? "video/mp2t"
+        : "application/vnd.apple.mpegurl",
+      cacheControl:
+        asset.is_public === true
+          ? isSegment
+            ? "public, max-age=31536000, immutable"
+            : "public, max-age=60"
           : "private, no-store",
     };
   }
