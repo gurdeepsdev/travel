@@ -38,8 +38,16 @@ const OWNER_FIELDS = [
 
 function buildTitle(
   cityId,
+  cityName = null,
 ) {
-  const cityName = cityId
+  if (
+    typeof cityName === "string" &&
+    cityName.trim()
+  ) {
+    return cityName.trim().slice(0, 255);
+  }
+
+  const derivedCityName = cityId
     .replace(/[_-]+/g, " ")
     .trim()
     .replace(
@@ -48,7 +56,7 @@ function buildTitle(
         character.toUpperCase(),
     );
 
-  return `${cityName} itinerary`
+  return `${derivedCityName} itinerary`
     .slice(0, 255);
 }
 
@@ -201,6 +209,7 @@ class ItineraryService {
           title:
             buildTitle(
               itineraryJson.city_id,
+              itineraryJson.city_name,
             ),
           durationDays:
             itineraryJson.summary
@@ -462,7 +471,7 @@ class ItineraryService {
 
     if (planTogether === true) {
       const { itinerary, group } = await ItineraryRepository.createPlanTogether({
-        userId, title: buildTitle(itineraryJson.city_id),
+        userId, title: buildTitle(itineraryJson.city_id, itineraryJson.city_name),
         durationDays: itineraryJson.summary.num_days, itineraryJson,
       });
       return { itinerary: mapItinerary(itinerary), group: {
@@ -478,6 +487,7 @@ class ItineraryService {
         title:
           buildTitle(
             itineraryJson.city_id,
+            itineraryJson.city_name,
           ),
         durationDays:
           itineraryJson.summary

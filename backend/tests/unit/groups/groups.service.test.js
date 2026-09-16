@@ -1,6 +1,7 @@
 import { jest } from "@jest/globals";
 
 const repositoryMock = {
+  deleteGroup: jest.fn(),
   unlinkItinerary: jest.fn(),
   findAccessibleGroup: jest.fn(),
   listMyGroups: jest.fn(),
@@ -29,6 +30,28 @@ const userId = "22222222-2222-4222-8222-222222222222";
 const groupId = "33333333-3333-4333-8333-333333333333";
 
 describe("GroupsService", () => {
+  test("deletes an owned group", async () => {
+    repositoryMock.deleteGroup.mockResolvedValue({
+      updated: true,
+      groupId,
+      itineraryId,
+      status: "ARCHIVED",
+    });
+    await expect(service.deleteGroup({ groupId, userId })).resolves.toMatchObject({
+      updated: true,
+      groupId,
+      itineraryId,
+      status: "ARCHIVED",
+    });
+  });
+
+  test("hides a missing or unowned group during deletion", async () => {
+    repositoryMock.deleteGroup.mockResolvedValue(null);
+    await expect(service.deleteGroup({ groupId, userId })).rejects.toMatchObject({
+      code: "GROUP.NOT_FOUND",
+      statusCode: 404,
+    });
+  });
   test('creates invitations by group ID with a null itinerary', async () => {
     repositoryMock.createInvitation.mockResolvedValue({created:true,itineraryId:null,invitation:{id:groupId,group_id:groupId,status:'PENDING'}});
     const input={userId:itineraryId};

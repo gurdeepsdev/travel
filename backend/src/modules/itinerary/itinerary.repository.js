@@ -130,8 +130,21 @@ class ItineraryRepository {
             updated_at =
               CURRENT_TIMESTAMP
           WHERE id = $1::uuid
-            AND created_by = $2::uuid
             AND deleted_at IS NULL
+            AND (
+              created_by = $2::uuid
+              OR EXISTS (
+                SELECT 1
+                FROM groups.groups user_group
+                INNER JOIN groups.group_members member
+                  ON member.group_id = user_group.id
+                  AND member.user_id = $2::uuid
+                  AND member.status = 'ACTIVE'
+                WHERE user_group.itinerary_id = itinerary.itineraries.id
+                  AND user_group.status = 'ACTIVE'
+                  AND user_group.deleted_at IS NULL
+              )
+            )
           RETURNING
             id,
             title,

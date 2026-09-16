@@ -17,6 +17,18 @@ class GroupsService {
       members: this.mapMembers(members), totalCount: members.length };
   }
 
+  async deleteGroup({ groupId, userId }) {
+    const result = await Repository.deleteGroup({ groupId, userId });
+    if (!result) {
+      throw new AppError({
+        code: ErrorCodes.GROUP.NOT_FOUND,
+        message: "Owned group not found.",
+        statusCode: HttpStatus.NOT_FOUND,
+      });
+    }
+    return result;
+  }
+
   async listMyGroups({ userId, limit = 20, cursor }) {
     const rows = await Repository.listMyGroups({ userId, limit, cursor: decodeCursor(cursor) });
     const items = rows.slice(0, limit);

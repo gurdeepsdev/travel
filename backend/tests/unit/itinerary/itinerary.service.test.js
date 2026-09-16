@@ -292,6 +292,7 @@ describe("ItineraryService", () => {
         status: "success",
         mode: "future",
         city_id: "new-delhi",
+        city_name: "Family Delhi Holiday",
         summary: {
           num_days: 2,
           total_places: 0,
@@ -342,7 +343,7 @@ describe("ItineraryService", () => {
           ITINERARY_ID,
         userId: USER_ID,
         title:
-          "New Delhi itinerary",
+          "Family Delhi Holiday",
         durationDays: 2,
         itineraryJson:
           expect.not.objectContaining({
@@ -667,6 +668,7 @@ describe("ItineraryService", () => {
         status: "success",
         mode: "future",
         city_id: "delhi",
+        city_name: "Summer Delhi Trip",
         summary: {
           num_days: 1,
           total_places: 1,
@@ -725,7 +727,7 @@ describe("ItineraryService", () => {
         repositoryMock.create,
       ).toHaveBeenCalledWith({
         userId: USER_ID,
-        title: "Delhi itinerary",
+        title: "Summer Delhi Trip",
         durationDays: 1,
         itineraryJson:
           expect.not.objectContaining({
@@ -739,7 +741,7 @@ describe("ItineraryService", () => {
           id: ITINERARY_ID,
           createdBy: USER_ID,
           title:
-            "Delhi itinerary",
+            "Summer Delhi Trip",
           durationDays: 1,
         });
     },

@@ -326,6 +326,44 @@ paths:
         '400': { description: Invalid group ID or parameters }
         '401': { description: Authentication required }
         '404': { description: Group unavailable or inaccessible }
+    delete:
+      tags: [Itinerary Groups]
+      summary: Delete an owned group
+      operationId: deleteGroup
+      description: >
+        Soft-deletes a group owned by the authenticated user. The linked itinerary is
+        preserved and unlinked, active memberships are removed, pending invitations are
+        cancelled, and non-owner expense participation is revoked without deleting
+        expenses, settlements, documents, personal itinerary state, or audit history.
+        Repeating the request as the owner is idempotent.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Group deleted or was already deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessBase'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [updated, groupId, status, deletedAt]
+                        properties:
+                          updated: { type: boolean }
+                          groupId: { type: string, format: uuid }
+                          itineraryId: { type: string, format: uuid, nullable: true }
+                          status: { type: string, enum: [ARCHIVED] }
+                          deletedAt: { type: string, format: date-time }
+        '400': { description: Invalid group ID }
+        '401': { description: Authentication required }
+        '404': { description: Owned group not found }
   /users/me/groups:
     get:
       tags: [Itinerary Groups]
@@ -2890,7 +2928,7 @@ paths:
         - Itineraries
       summary: Update my itinerary name
       description: |
-        Updates only the display name of an active itinerary owned by the authenticated user.
+        Updates the shared display name of an active itinerary when the authenticated user is its owner or an ACTIVE member of its linked ACTIVE group. The linked group's separate name is unchanged. Removed members, pending invitees and outsiders receive 404.
       operationId: updateItineraryName
       security:
         - bearerAuth: []
@@ -3245,6 +3283,7 @@ paths:
       tags: [Itinerary Essentials]
       summary: Add a travel essential
       operationId: createItineraryEssential
+      description: The itinerary owner or an active linked-group member adds an item to only their own private checklist.
       security:
         - bearerAuth: []
       parameters:
@@ -3274,6 +3313,7 @@ paths:
       tags: [Itinerary Essentials]
       summary: List travel essentials
       operationId: listItineraryEssentials
+      description: Returns only the authenticated itinerary member's checklist. Other members' essentials are never returned.
       security:
         - bearerAuth: []
       parameters:
@@ -3298,6 +3338,7 @@ paths:
       tags: [Itinerary Essentials]
       summary: Update a travel essential
       operationId: updateItineraryEssential
+      description: Updates only an essential owned by the authenticated itinerary member.
       security:
         - bearerAuth: []
       parameters:
@@ -3326,6 +3367,7 @@ paths:
       tags: [Itinerary Essentials]
       summary: Delete a travel essential
       operationId: deleteItineraryEssential
+      description: Deletes only an essential owned by the authenticated itinerary member.
       security:
         - bearerAuth: []
       parameters:
@@ -3349,6 +3391,7 @@ paths:
       tags: [Itinerary Essentials]
       summary: Select or deselect a travel essential
       operationId: setItineraryEssentialSelection
+      description: Changes selection only for an essential owned by the authenticated itinerary member.
       security:
         - bearerAuth: []
       parameters:
@@ -6483,6 +6526,12 @@ components:
           type: string
           maxLength: 255
           example: delhi
+        city_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Itinerary name supplied by the frontend. When omitted, the backend derives a legacy name from city_id.
+          example: Summer Delhi Trip
         summary:
           type: object
           required:

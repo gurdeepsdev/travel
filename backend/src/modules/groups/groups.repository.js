@@ -72,6 +72,94 @@ class GroupsRepository {
     });
   }
 
+  async deleteGroup({ groupId, userId }) {
+    return Database.transaction(async (client) => {
+      const { rows: [snapshot] } = await client.query(`
+        SELECT itinerary_id
+        FROM groups.groups
+        WHERE id = $1::uuid
+          AND owner_id = $2::uuid
+      `, [groupId, userId]);
+
+      if (!snapshot) { return null; }
+      if (snapshot.itinerary_id) {
+        await this.lockItinerary({ client, itineraryId: snapshot.itinerary_id });
+      }
+
+      const { rows: [group] } = await client.query(`
+        SELECT *
+        FROM groups.groups
+        WHERE id = $1::uuid
+          AND owner_id = $2::uuid
+        FOR UPDATE
+      `, [groupId, userId]);
+
+      if (!group) { return null; }
+      if (group.deleted_at || group.status === 'ARCHIVED') {
+        return {
+          updated: false,
+          groupId: group.id,
+          itineraryId: group.itinerary_id,
+          status: 'ARCHIVED',
+          deletedAt: group.deleted_at,
+        };
+      }
+
+      const itineraryId = group.itinerary_id;
+
+      await client.query(`
+        UPDATE groups.group_invitations
+        SET status = 'CANCELLED',
+            responded_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE group_id = $1::uuid
+          AND status = 'PENDING'
+      `, [group.id]);
+
+      await client.query(`
+        UPDATE groups.group_members
+        SET status = 'REMOVED',
+            removed_at = COALESCE(removed_at, CURRENT_TIMESTAMP),
+            removed_by = COALESCE(removed_by, $2::uuid),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE group_id = $1::uuid
+          AND status = 'ACTIVE'
+      `, [group.id, userId]);
+
+      if (itineraryId) {
+        await client.query(`
+          UPDATE trip.trip_participants participant
+          SET status = 'REMOVED',
+              removed_at = CURRENT_TIMESTAMP,
+              updated_at = CURRENT_TIMESTAMP
+          FROM trip.trips trip_record
+          WHERE participant.trip_id = trip_record.id
+            AND trip_record.itinerary_id = $1::uuid
+            AND participant.user_id <> trip_record.user_id
+            AND participant.status = 'ACTIVE'
+        `, [itineraryId]);
+      }
+
+      const { rows: [deleted] } = await client.query(`
+        UPDATE groups.groups
+        SET itinerary_id = NULL,
+            status = 'ARCHIVED',
+            deleted_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1::uuid
+        RETURNING id, status, deleted_at
+      `, [group.id]);
+
+      return {
+        updated: true,
+        groupId: deleted.id,
+        itineraryId,
+        status: deleted.status,
+        deletedAt: deleted.deleted_at,
+      };
+    });
+  }
+
   async linkItinerary({ groupId, itineraryId, userId }) {
     return Database.transaction(async (client) => {
       // Same lock order as invitation, trip creation and itinerary-first group creation.
