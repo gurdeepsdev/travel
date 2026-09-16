@@ -13,7 +13,7 @@ class SavedContentService {
 
 /**
  * Returns the authenticated user's active saved
- * posts as complete post response objects.
+ * posts and directly saved locations in one saved-item ordered page.
  */
 async getMySavedPosts({
   userId,
@@ -36,7 +36,7 @@ async getMySavedPosts({
       });
 
   const postIds =
-    savedReferences.rows.map(
+    savedReferences.rows.filter(row => row.post_id).map(
       (row) => row.post_id,
     );
 
@@ -62,9 +62,16 @@ async getMySavedPosts({
         })
       : null;
 
+  const postsById = new Map(posts.map(post => [post.id, post]));
   return SavedContentMapper
     .toMySavedPostsResponse({
-      posts,
+      posts: savedReferences.rows.map(row => {
+        if (row.item_type === 'CITY' || row.item_type === 'PLACE') {
+          return SavedContentMapper.toSavedLocation(row);
+        }
+        const post = postsById.get(row.post_id);
+        return post ? { ...post, itemType: 'POST' } : null;
+      }).filter(Boolean),
       hasMore:
         savedReferences.hasMore,
       nextCursor,

@@ -3,6 +3,25 @@ import {
 } from "../utils/asset-url.util.js";
 
 class SavedContentMapper {
+static toSavedLocation(row) {
+  return {
+    id: row.location_id,
+    itemType: row.item_type,
+    title: row.location_name,
+    savedAt: row.saved_at,
+    latitude: row.latitude === null || row.latitude === undefined ? null : Number(row.latitude),
+    longitude: row.longitude === null || row.longitude === undefined ? null : Number(row.longitude),
+    address: row.address ?? null,
+    city: row.city_id ? { id: row.city_id, name: row.city_name,
+      googleId: row.city_google_id ?? null } : null,
+    country: row.country_id ? { id: row.country_id, name: row.country_name } : null,
+    image: row.image_id ? { id: row.image_id, mimeType: row.image_mime_type,
+      url: buildAssetUrl({ assetId: row.image_id, storageProvider: row.image_storage_provider,
+        storageKey: row.image_storage_key, isPublic: true }) } : null,
+    viewerState: { saved: true },
+  };
+}
+
 static toMySavedPostGroupsResponse({
   rows,
   postsById,
