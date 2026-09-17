@@ -86,12 +86,6 @@ class SavedContentRepository {
         AND post.id = saved_item.item_id
         AND post.deleted_at IS NULL
 
-      LEFT JOIN users.profiles owner_profile
-        ON owner_profile.user_id =
-          post.user_id
-        AND owner_profile.deleted_at
-          IS NULL
-
       LEFT JOIN poi.places saved_place
         ON saved_place.id = CASE WHEN saved_item.item_type = 'PLACE'
           THEN saved_item.item_id ELSE post.place_id END
@@ -129,17 +123,19 @@ class SavedContentRepository {
           (saved_item.item_type = 'CITY' AND saved_city.is_active IS TRUE)
           OR (saved_item.item_type = 'PLACE' AND saved_place.id IS NOT NULL)
           OR (saved_item.item_type = 'POST' AND post.id IS NOT NULL AND (
-          post.user_id = $1::uuid
-
-          OR (
-            UPPER(post.visibility) =
-              'PUBLIC'
-
-            AND COALESCE(
-              owner_profile.is_private,
-              FALSE
-            ) IS FALSE
-
+            (
+              post.user_id = $1::uuid
+              OR UPPER(post.visibility) =
+                'PUBLIC'
+              OR EXISTS (
+                SELECT 1
+                FROM users.connections connection
+                WHERE connection.user_low_id =
+                    LEAST($1::uuid, post.user_id)
+                  AND connection.user_high_id =
+                    GREATEST($1::uuid, post.user_id)
+              )
+            )
             AND NOT EXISTS (
               SELECT 1
               FROM users.blocked_users blocked
@@ -155,7 +151,6 @@ class SavedContentRepository {
                   $1::uuid
               )
             )
-          )
         )))
 
         ${cursorCondition}
@@ -251,12 +246,6 @@ class SavedContentRepository {
           AND post.id = saved_item.item_id
           AND post.deleted_at IS NULL
 
-        LEFT JOIN users.profiles owner_profile
-          ON owner_profile.user_id =
-            post.user_id
-          AND owner_profile.deleted_at
-            IS NULL
-
         LEFT JOIN poi.places saved_place
           ON saved_place.id =
             post.place_id
@@ -276,28 +265,32 @@ class SavedContentRepository {
           AND ${groupIdExpression}
             IS NOT NULL
           AND (
-            post.user_id = $1::uuid
-            OR (
-              UPPER(post.visibility) =
+            (
+              post.user_id = $1::uuid
+              OR UPPER(post.visibility) =
                 'PUBLIC'
-              AND COALESCE(
-                owner_profile.is_private,
-                FALSE
-              ) IS FALSE
-              AND NOT EXISTS (
+              OR EXISTS (
                 SELECT 1
-                FROM users.blocked_users blocked
-                WHERE (
-                  blocked.user_id = $1::uuid
-                  AND blocked.blocked_user_id =
-                    post.user_id
-                )
-                OR (
-                  blocked.user_id =
-                    post.user_id
-                  AND blocked.blocked_user_id =
-                    $1::uuid
-                )
+                FROM users.connections connection
+                WHERE connection.user_low_id =
+                    LEAST($1::uuid, post.user_id)
+                  AND connection.user_high_id =
+                    GREATEST($1::uuid, post.user_id)
+              )
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM users.blocked_users blocked
+              WHERE (
+                blocked.user_id = $1::uuid
+                AND blocked.blocked_user_id =
+                  post.user_id
+              )
+              OR (
+                blocked.user_id =
+                  post.user_id
+                AND blocked.blocked_user_id =
+                  $1::uuid
               )
             )
           )
