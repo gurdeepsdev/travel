@@ -70,10 +70,28 @@ describe("GroupsService", () => {
     await expect(service.getGroup({groupId,userId})).rejects.toMatchObject({code:'GROUP.NOT_FOUND',statusCode:404});
   });
   test('returns standalone group details and viewer role', async () => {
-    repositoryMock.findAccessibleGroup.mockResolvedValue({id:groupId,itinerary_id:null,viewer_role:'OWNER'});
+    repositoryMock.findAccessibleGroup.mockResolvedValue({
+      id: groupId,
+      itinerary_id: null,
+      viewer_role: 'OWNER',
+      cover_asset_id: itineraryId,
+      cover_asset_mime_type: 'image/png',
+    });
     repositoryMock.listActiveMembers.mockResolvedValue([{id:userId,user_id:userId,role:'OWNER',status:'ACTIVE'}]);
     const result=await service.getGroup({groupId,userId});
-    expect(result).toMatchObject({group:{id:groupId,itineraryId:null},viewerRole:'OWNER',totalCount:1});
+    expect(result).toMatchObject({
+      group: {
+        id: groupId,
+        itineraryId: null,
+        coverImage: {
+          assetId: itineraryId,
+          url: `/api/v1/media/assets/${itineraryId}/content`,
+          mimeType: 'image/png',
+        },
+      },
+      viewerRole: 'OWNER',
+      totalCount: 1,
+    });
     expect(result.members[0].user).toMatchObject({id:userId,profilePhoto:null});
   });
   test('lists groups with a precise pagination cursor and viewer role', async () => {
@@ -92,7 +110,10 @@ describe("GroupsService", () => {
     await expect(service.listMyGroups({userId,cursor:'bad'})).rejects.toMatchObject({statusCode:400});
   });
   test('creates a standalone group with a null itinerary', async () => {
-    repositoryMock.createStandaloneGroup.mockResolvedValue({id:groupId,itinerary_id:null,owner_id:userId});
+    repositoryMock.createStandaloneGroup.mockResolvedValue({
+      group: { id: groupId, itinerary_id: null, owner_id: userId },
+      cleanupObjects: [],
+    });
     await expect(service.createStandaloneGroup({userId,input:{name:'Trip'}}))
       .resolves.toMatchObject({created:true,group:{id:groupId,itineraryId:null,ownerId:userId}});
   });

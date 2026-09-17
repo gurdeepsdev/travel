@@ -442,6 +442,10 @@ components:
           nullable: true
         aiGenerated:
           type: boolean
+        itineraryJson:
+          type: object
+          additionalProperties: true
+          description: Complete stored itinerary payload, including days, activities, and places.
         createdAt:
           type: string
         updatedAt:
@@ -483,6 +487,7 @@ components:
           nullable: true
         postType:
           type: string
+          enum: [PLACE, CITY, ITINERARY, IMAGE_ITINERARY, VIDEO_ITINERARY]
         visibility:
           type: string
         createdAt:

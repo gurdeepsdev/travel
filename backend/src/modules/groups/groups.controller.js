@@ -36,7 +36,11 @@ class GroupsController {
 
   async createStandaloneGroup(req, res, next) {
     try {
-      const result = await Service.createStandaloneGroup({ userId: req.user.id, input: req.validated.body });
+      const result = await Service.createStandaloneGroup({
+        userId: req.user.id,
+        input: req.validated.body,
+        groupImageFile: req.file,
+      });
       return Response.success(res, result, "Group created successfully.");
     } catch (error) { return next(error); }
   }

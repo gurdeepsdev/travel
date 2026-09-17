@@ -653,7 +653,7 @@ class ItineraryRepository {
         $1::uuid,
         $2,
         $3,
-        'private',
+        'public',
         'planned',
         TRUE,
         $4::jsonb

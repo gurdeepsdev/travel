@@ -2,6 +2,8 @@ import AppError from "../../core/errors/app-error.js";
 import HttpStatus from "../../shared/constants/http-status.js";
 import ErrorCodes from "../../shared/constants/error-codes.js";
 import { buildAssetUrl } from "../users/utils/asset-url.util.js";
+import StorageManager from "../../providers/storage/storage-manager.js";
+import { inspectProfilePhotoFile } from "../users/utils/profile-photo-file.util.js";
 import Repository from "./groups.repository.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 
@@ -44,12 +46,40 @@ class GroupsService {
   mapGroup(group) {
     return { id: group.id, itineraryId: group.itinerary_id, ownerId: group.owner_id,
       name: group.name, description: group.description, status: group.status,
+      coverImage: group.cover_asset_id ? {
+        assetId: group.cover_asset_id,
+        url: `/api/v1/media/assets/${encodeURIComponent(group.cover_asset_id)}/content`,
+        mimeType: group.cover_asset_mime_type ?? null,
+      } : null,
       createdAt: group.created_at, updatedAt: group.updated_at };
   }
 
-  async createStandaloneGroup(args) {
-    const group = await Repository.createStandaloneGroup(args);
-    return { created: true, group: this.mapGroup(group) };
+  async createStandaloneGroup({ userId, input, groupImageFile }) {
+    let storedImage = null;
+    let committed = false;
+    try {
+      if (groupImageFile) {
+        const inspected = await inspectProfilePhotoFile(groupImageFile);
+        const stored = await StorageManager.store({
+          temporaryPath: inspected.temporaryPath,
+          category: "group-images",
+          userId,
+          extension: inspected.extension,
+        });
+        storedImage = { ...inspected, ...stored };
+      }
+      const result = await Repository.createStandaloneGroup({ userId, input, storedImage });
+      committed = true;
+      for (const object of result.cleanupObjects) {
+        try { await StorageManager.remove(object); } catch { /* best-effort post-commit cleanup */ }
+      }
+      return { created: true, group: this.mapGroup(result.group) };
+    } catch (error) {
+      if (!committed && storedImage?.storageKey) {
+        try { await StorageManager.remove(storedImage); } catch { /* preserve original error */ }
+      }
+      throw error;
+    }
   }
 
   async linkItinerary(args) {
@@ -186,16 +216,7 @@ class GroupsService {
     const { group } = result;
     return {
       created: result.created,
-      group: {
-        id: group.id,
-        itineraryId: group.itinerary_id,
-        ownerId: group.owner_id,
-        name: group.name,
-        description: group.description,
-        status: group.status,
-        createdAt: group.created_at,
-        updatedAt: group.updated_at,
-      },
+      group: this.mapGroup(group),
     };
   }
 
@@ -218,14 +239,7 @@ class GroupsService {
     });
 
     return {
-      group: {
-        id: group.id,
-        itineraryId: group.itinerary_id,
-        ownerId: group.owner_id,
-        name: group.name,
-        description: group.description,
-        status: group.status,
-      },
+      group: this.mapGroup(group),
       members: this.mapMembers(members),
       totalCount: members.length,
     };

@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const optionalDescription = z.preprocess(
+  (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().trim().min(1).max(2000).optional(),
+);
+
 export const getGroupSchema = z.object({
   body: z.object({}).strict().optional(),
   params: z.object({ groupId: z.string().trim().uuid() }).strict(),
@@ -22,7 +27,7 @@ export const listMyGroupsSchema = z.object({
 export const createStandaloneGroupSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1).max(150),
-    description: z.string().trim().min(1).max(2000).optional(),
+    description: optionalDescription,
   }).strict(),
   params: z.object({}).strict(),
   query: z.object({}).strict(),
@@ -37,7 +42,7 @@ export const linkGroupItinerarySchema = z.object({
 const createLinkedGroupSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1).max(150).optional(),
-    description: z.string().trim().min(1).max(2000).optional(),
+    description: optionalDescription,
   }).strict(),
   params: z.object({
     itineraryId: z.string().trim().uuid(

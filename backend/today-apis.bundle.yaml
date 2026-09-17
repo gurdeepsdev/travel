@@ -426,6 +426,18 @@ paths:
       requestBody:
         required: true
         content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                description: { type: string, minLength: 1, maxLength: 2000 }
+                groupImage:
+                  type: string
+                  format: binary
+                  description: Optional group image. JPEG, PNG, WebP, HEIC, or HEIF; maximum 10 MB.
           application/json:
             schema:
               type: object
@@ -2494,8 +2506,10 @@ paths:
         the complete data.itinerary. Omitted or false keeps the solo save behavior.
         The flag is not stored inside itineraryJson. Invite connections using the
         group invitations endpoint; they receive membership only after acceptance.
-        This does not start the trip or change itinerary visibility. Each successful
-        save creates a new itinerary; reuse its ID when retrying group operations.
+        New itineraries use PUBLIC visibility and PLANNED lifecycle status so their
+        owners can attach them to posts. Existing itinerary visibility is unchanged.
+        This does not start the trip. Each successful save creates a new itinerary;
+        reuse its ID when retrying group operations.
       security:
         - bearerAuth: []
       requestBody:
@@ -6506,6 +6520,14 @@ components:
                 ownerId: { type: string, format: uuid }
                 name: { type: string }
                 description: { type: string, nullable: true }
+                coverImage:
+                  type: object
+                  nullable: true
+                  required: [assetId, url, mimeType]
+                  properties:
+                    assetId: { type: string, format: uuid }
+                    url: { type: string }
+                    mimeType: { type: string, nullable: true }
                 status: { type: string, enum: [ACTIVE, ARCHIVED] }
                 createdAt: { type: string, format: date-time }
                 updatedAt: { type: string, format: date-time }
@@ -6535,6 +6557,13 @@ components:
                     ownerId: { type: string, format: uuid }
                     name: { type: string }
                     description: { type: string, nullable: true }
+                    coverImage:
+                      type: object
+                      nullable: true
+                      properties:
+                        assetId: { type: string, format: uuid }
+                        url: { type: string }
+                        mimeType: { type: string, nullable: true }
                     status: { type: string, enum: [ACTIVE] }
                     createdAt: { type: string, format: date-time }
                     updatedAt: { type: string, format: date-time }
@@ -7673,6 +7702,8 @@ components:
           type: integer
         visibility:
           type: string
+          enum: [public, private, friends]
+          description: New itineraries default to public.
         tripStatus:
           type: string
           enum:
@@ -8983,7 +9014,7 @@ components:
       type: object
       additionalProperties: false
       description: |
-        Provide a Google city or Google place identifier already present in Artictern. The backend resolves and stores its internal city UUID. New posts are city-based and are stored with postType CITY.
+        Provide a Google city or Google place identifier already present in Artictern. The backend resolves and stores its internal city UUID. New posts without an itinerary use postType CITY. Itinerary-only posts use ITINERARY; itinerary posts with image or video media use IMAGE_ITINERARY or VIDEO_ITINERARY respectively.
       required:
         - cityId
       properties:
@@ -9079,6 +9110,9 @@ components:
               enum:
                 - PLACE
                 - CITY
+                - ITINERARY
+                - IMAGE_ITINERARY
+                - VIDEO_ITINERARY
             visibility:
               type: string
             createdAt:
@@ -9234,6 +9268,10 @@ components:
                     nullable: true
                   aiGenerated:
                     type: boolean
+                  itineraryJson:
+                    type: object
+                    additionalProperties: true
+                    description: Complete stored itinerary payload, including days, activities, and places.
                   createdAt:
                     type: string
                   updatedAt:

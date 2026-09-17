@@ -3,6 +3,7 @@ import { Router } from "express";
 import AuthMiddleware from "../../middleware/auth.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 import Controller from "./groups.controller.js";
+import groupImageUploadMiddleware from "./group-image-upload.middleware.js";
 import {
   leaveStandaloneGroupSchema,
   removeStandaloneGroupMemberSchema,
@@ -48,6 +49,7 @@ router.get('/users/me/groups', AuthMiddleware.authenticate,
   validate(listMyGroupsSchema), Controller.listMyGroups);
 
 router.post('/groups', AuthMiddleware.authenticate,
+  groupImageUploadMiddleware,
   validate(createStandaloneGroupSchema), Controller.createStandaloneGroup);
 router.put('/groups/:groupId/itinerary', AuthMiddleware.authenticate,
   validate(linkGroupItinerarySchema), Controller.linkItinerary);

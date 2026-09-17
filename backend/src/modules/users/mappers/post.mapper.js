@@ -392,6 +392,9 @@ import {
   
         aiGenerated:
           itinerary.aiGenerated ?? false,
+
+        itineraryJson:
+          itinerary.itineraryJson ?? {},
   
         createdAt:
           itinerary.createdAt ?? null,

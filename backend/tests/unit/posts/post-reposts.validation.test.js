@@ -11,6 +11,10 @@ describe(
   () => {
     test.each([
       [
+        "an omitted body",
+        undefined,
+      ],
+      [
         "an empty body",
         {},
       ],
@@ -35,7 +39,9 @@ describe(
                   POST_ID,
               },
               query: {},
-              body,
+              ...(body === undefined
+                ? {}
+                : { body }),
             })
             .success,
         ).toBe(true);

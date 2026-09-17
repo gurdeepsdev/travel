@@ -34,7 +34,8 @@ const setPostRepostSchema = z.object({
         )
         .optional(),
     })
-    .strict(),
+    .strict()
+    .default({}),
 
   query: z.object({}).strict(),
 });

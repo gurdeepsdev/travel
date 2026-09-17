@@ -1,4 +1,5 @@
 import Database from "../../database/database-manager.js";
+import MediaRepository from "../media/media.repository.js";
 
 class GroupsRepository {
   async lockGroup({ client, groupId }) {
@@ -29,9 +30,11 @@ class GroupsRepository {
 
   async findAccessibleGroup({ groupId, itineraryId, userId }) {
     const { rows } = await Database.query(`
-      SELECT g.*,
+      SELECT g.*, cover_asset.mime_type AS cover_asset_mime_type,
         CASE WHEN g.owner_id=$2::uuid THEN 'OWNER' ELSE m.role END AS viewer_role
       FROM groups.groups g
+      LEFT JOIN media.assets cover_asset ON cover_asset.id=g.cover_asset_id
+        AND cover_asset.deleted_at IS NULL
       LEFT JOIN groups.group_members m ON m.group_id=g.id
         AND m.user_id=$2::uuid AND m.status='ACTIVE'
       WHERE (g.id=$1::uuid OR ($1::uuid IS NULL AND g.itinerary_id=$3::uuid))
@@ -46,9 +49,12 @@ class GroupsRepository {
 
   async listMyGroups({ userId, limit, cursor }) {
     const { rows } = await Database.query(`
-      SELECT g.*, g.created_at::text AS cursor_created_at,
+      SELECT g.*, cover_asset.mime_type AS cover_asset_mime_type,
+        g.created_at::text AS cursor_created_at,
         CASE WHEN g.owner_id=$1::uuid THEN 'OWNER' ELSE m.role END AS viewer_role
       FROM groups.groups g
+      LEFT JOIN media.assets cover_asset ON cover_asset.id=g.cover_asset_id
+        AND cover_asset.deleted_at IS NULL
       LEFT JOIN groups.group_members m ON m.group_id=g.id
         AND m.user_id=$1::uuid AND m.status='ACTIVE'
       WHERE g.status='ACTIVE' AND g.deleted_at IS NULL
@@ -63,12 +69,33 @@ class GroupsRepository {
     return rows;
   }
 
-  async createStandaloneGroup({ userId, input }) {
+  async createStandaloneGroup({ userId, input, storedImage }) {
     return Database.transaction(async (client) => {
+      let coverAssetId = null;
+      let cleanupObjects = [];
+      if (storedImage) {
+        const resolved = await MediaRepository.resolveUploadedAssets({
+          client,
+          userId,
+          isPublic: true,
+          uploads: [{ ...storedImage, fileIndex: 0 }],
+        });
+        coverAssetId = resolved.assets[0]?.id ?? null;
+        cleanupObjects = [
+          ...resolved.unusedStoredObjects,
+          ...resolved.supersededStoredObjects,
+        ];
+      }
       const group = await this.createLinked({ client, itineraryId: null, ownerId: userId,
-        name: input.name, description: input.description ?? null });
+        name: input.name, description: input.description ?? null, coverAssetId });
       await this.ensureOwnerMember({ client, groupId: group.id, ownerId: userId });
-      return group;
+      return {
+        group: {
+          ...group,
+          cover_asset_mime_type: storedImage?.mimeType ?? null,
+        },
+        cleanupObjects,
+      };
     });
   }
 
@@ -521,6 +548,7 @@ class GroupsRepository {
           itinerary_id,
           name,
           description,
+          cover_asset_id,
           status,
           created_at,
           updated_at
@@ -534,27 +562,29 @@ class GroupsRepository {
     return rows[0] ?? null;
   }
 
-  async createLinked({ client, itineraryId, ownerId, name, description }) {
+  async createLinked({ client, itineraryId, ownerId, name, description, coverAssetId = null }) {
     const { rows } = await client.query(
       `
         INSERT INTO groups.groups (
           owner_id,
           itinerary_id,
           name,
-          description
+          description,
+          cover_asset_id
         )
-        VALUES ($1::uuid, $2::uuid, $3, $4)
+        VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid)
         RETURNING
           id,
           owner_id,
           itinerary_id,
           name,
           description,
+          cover_asset_id,
           status,
           created_at,
           updated_at
       `,
-      [ownerId, itineraryId, name, description],
+      [ownerId, itineraryId, name, description, coverAssetId],
     );
     return rows[0];
   }
@@ -568,10 +598,15 @@ class GroupsRepository {
           user_group.itinerary_id,
           user_group.name,
           user_group.description,
+          user_group.cover_asset_id,
+          cover_asset.mime_type AS cover_asset_mime_type,
           user_group.status,
           user_group.created_at,
           user_group.updated_at
         FROM groups.groups user_group
+        LEFT JOIN media.assets cover_asset
+          ON cover_asset.id = user_group.cover_asset_id
+          AND cover_asset.deleted_at IS NULL
         INNER JOIN itinerary.itineraries itinerary
           ON itinerary.id = user_group.itinerary_id
           AND itinerary.deleted_at IS NULL

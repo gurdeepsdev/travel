@@ -35,5 +35,47 @@ describe(
         );
       },
     );
+
+    test(
+      "includes complete itinerary JSON in a post itinerary",
+      () => {
+        const itineraryJson = {
+          city_name:
+            "Delhi",
+          itinerary: [
+            {
+              day: 1,
+              items: [
+                {
+                  name:
+                    "India Gate",
+                },
+              ],
+            },
+          ],
+        };
+
+        const result =
+          PostMapper.toResponse({
+            id:
+              "44444444-4444-4444-8444-444444444444",
+            user_id:
+              "b3fe5214-e569-4300-8509-589785ad86f2",
+            assets: [],
+            itineraries: [
+              {
+                id:
+                  "55555555-5555-4555-8555-555555555555",
+                itineraryJson,
+              },
+            ],
+          });
+
+        expect(
+          result.itineraries[0]
+            .itineraryJson,
+        ).toEqual(itineraryJson);
+      },
+    );
   },
 );

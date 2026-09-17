@@ -441,7 +441,7 @@ describe(
             CITY_ID,
 
           postType:
-            "CITY",
+            "ITINERARY",
         });
 
         expect(
@@ -475,6 +475,98 @@ describe(
           post:
             createCanonicalPost(),
         });
+      },
+    );
+
+    test(
+      "creates an image itinerary post when an itinerary has image media",
+      async () => {
+        inspectPostMediaFilesMock
+          .mockResolvedValue([
+            createInspectedFile(),
+          ]);
+
+        mediaRepositoryMock
+          .resolveUploadedAssets
+          .mockResolvedValue({
+            assets: [
+              createUploadedAsset(),
+            ],
+            unusedStoredObjects: [],
+            supersededStoredObjects: [],
+          });
+
+        await PostCreateService
+          .createPost(
+            createRequest({
+              files: [
+                {
+                  path:
+                    "/tmp/artictern-test-upload",
+                },
+              ],
+            }),
+          );
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            postType:
+              "IMAGE_ITINERARY",
+          }),
+        );
+      },
+    );
+
+    test(
+      "creates a video itinerary post when an itinerary has video media",
+      async () => {
+        inspectPostMediaFilesMock
+          .mockResolvedValue([
+            createInspectedFile({
+              mimeType:
+                "video/mp4",
+              mediaType:
+                "VIDEO",
+            }),
+          ]);
+
+        mediaRepositoryMock
+          .resolveUploadedAssets
+          .mockResolvedValue({
+            assets: [
+              createUploadedAsset({
+                mime_type:
+                  "video/mp4",
+              }),
+            ],
+            unusedStoredObjects: [],
+            supersededStoredObjects: [],
+          });
+
+        await PostCreateService
+          .createPost(
+            createRequest({
+              files: [
+                {
+                  path:
+                    "/tmp/artictern-test-upload",
+                },
+              ],
+            }),
+          );
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            postType:
+              "VIDEO_ITINERARY",
+          }),
+        );
       },
     );
 
@@ -556,6 +648,53 @@ describe(
             cityId:
               CITY_ID,
 
+            postType:
+              "ITINERARY",
+          }),
+        );
+      },
+    );
+
+    test(
+      "keeps a media post without an itinerary as a city post",
+      async () => {
+        inspectPostMediaFilesMock
+          .mockResolvedValue([
+            createInspectedFile(),
+          ]);
+
+        mediaRepositoryMock
+          .resolveUploadedAssets
+          .mockResolvedValue({
+            assets: [
+              createUploadedAsset(),
+            ],
+            unusedStoredObjects: [],
+            supersededStoredObjects: [],
+          });
+
+        postCreateRepositoryMock
+          .findOwnedItineraries
+          .mockResolvedValue([]);
+
+        await PostCreateService
+          .createPost(
+            createRequest({
+              files: [
+                {
+                  path:
+                    "/tmp/artictern-test-upload",
+                },
+              ],
+              itineraryIds: [],
+            }),
+          );
+
+        expect(
+          postCreateRepositoryMock
+            .insertPost,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
             postType:
               "CITY",
           }),

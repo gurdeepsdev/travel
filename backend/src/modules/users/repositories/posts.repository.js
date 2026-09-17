@@ -221,6 +221,7 @@ FROM explore.post_assets AS post_asset
               'visibility', itinerary_data.visibility,
               'tripStatus', itinerary_data.trip_status,
               'aiGenerated', itinerary_data.ai_generated,
+              'itineraryJson', itinerary_data.itinerary_json,
               'createdAt', itinerary_data.created_at,
               'updatedAt', itinerary_data.updated_at,
               'linkedAt', post_itinerary.created_at,
@@ -830,6 +831,9 @@ async getUserPosts({
 
              'aiGenerated',
                itinerary_data.ai_generated,
+
+             'itineraryJson',
+               itinerary_data.itinerary_json,
 
              'createdAt',
                itinerary_data.created_at,
@@ -1535,6 +1539,9 @@ async getPostsByIds({
 
              'aiGenerated',
                itinerary_data.ai_generated,
+
+             'itineraryJson',
+               itinerary_data.itinerary_json,
 
              'createdAt',
                itinerary_data.created_at,

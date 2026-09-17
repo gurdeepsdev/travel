@@ -271,6 +271,33 @@ function resolveOrderedAssetIds({
   return orderedAssetIds;
 }
 
+function resolvePostType({
+  itineraryIds,
+  existingAssets,
+  uploadedAssets,
+}) {
+  if ((itineraryIds ?? []).length === 0) {
+    return "CITY";
+  }
+
+  const assets = [
+    ...(existingAssets ?? []),
+    ...(uploadedAssets ?? []),
+  ];
+
+  if (assets.length === 0) {
+    return "ITINERARY";
+  }
+
+  return assets.some((asset) =>
+    asset?.mime_type
+      ?.toLowerCase()
+      .startsWith("video/"),
+  )
+    ? "VIDEO_ITINERARY"
+    : "IMAGE_ITINERARY";
+}
+
 class PostCreateService {
   async createPost({
     userId,
@@ -567,6 +594,16 @@ class PostCreateService {
                 mediaOrder,
               });
 
+            const postType =
+              resolvePostType({
+                itineraryIds:
+                  normalizedItineraryIds,
+                existingAssets,
+                uploadedAssets:
+                  uploadedResolution
+                    .assets,
+              });
+
             if (
               effectiveVisibility ===
                 "PUBLIC" &&
@@ -597,8 +634,7 @@ class PostCreateService {
                   cityId:
                     city.id,
 
-                  postType:
-                    "CITY",
+                  postType,
                 });
 
             await PostCreateRepository

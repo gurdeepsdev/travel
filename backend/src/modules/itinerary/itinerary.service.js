@@ -479,6 +479,11 @@ class ItineraryService {
       return { itinerary: mapItinerary(itinerary), group: {
         id: group.id, itineraryId: group.itinerary_id, ownerId: group.owner_id,
         name: group.name, description: group.description, status: group.status,
+        coverImage: group.cover_asset_id ? {
+          assetId: group.cover_asset_id,
+          url: `/api/v1/media/assets/${encodeURIComponent(group.cover_asset_id)}/content`,
+          mimeType: null,
+        } : null,
         createdAt: group.created_at, updatedAt: group.updated_at,
       } };
     }
