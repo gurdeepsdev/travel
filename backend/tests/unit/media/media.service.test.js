@@ -153,6 +153,9 @@ describe(
           filePath:
             "/absolute/uploads/posts/user/photo.png",
 
+          storageKey:
+            "posts/user/photo.png",
+
           cacheControl:
             "public, max-age=3600",
         });

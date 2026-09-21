@@ -1,4 +1,44 @@
 import MediaService from "./media.service.js";
+import mediaDelivery from "../../config/media-delivery.js";
+
+function buildInternalRedirect(
+  storageKey,
+) {
+  const encodedStorageKey =
+    String(storageKey)
+      .split("/")
+      .map((segment) =>
+        encodeURIComponent(segment),
+      )
+      .join("/");
+
+  return `${mediaDelivery.internalPrefix}/${encodedStorageKey}`;
+}
+
+function deliverLocalFile({
+  res,
+  next,
+  filePath,
+  storageKey,
+}) {
+  if (mediaDelivery.xAccelEnabled) {
+    res.set(
+      "X-Accel-Redirect",
+      buildInternalRedirect(
+        storageKey,
+      ),
+    );
+
+    return res.status(200).end();
+  }
+
+  return res.sendFile(
+    filePath,
+    (error) => error
+      ? next(error)
+      : undefined,
+  );
+}
 
 class MediaController {
   /**
@@ -18,6 +58,7 @@ class MediaController {
       const {
         asset,
         filePath,
+        storageKey,
         cacheControl,
       } = await MediaService
         .getLocalAssetContent({
@@ -39,16 +80,12 @@ class MediaController {
           "inline",
       });
 
-      return res.sendFile(
+      return deliverLocalFile({
+        res,
+        next,
         filePath,
-        (error) => {
-          if (error) {
-            return next(error);
-          }
-
-          return undefined;
-        },
-      );
+        storageKey,
+      });
     } catch (error) {
       return next(error);
     }
@@ -65,6 +102,7 @@ class MediaController {
 
       const {
         filePath,
+        storageKey,
         cacheControl,
       } = await MediaService
         .getLocalAssetThumbnail({
@@ -82,16 +120,12 @@ class MediaController {
           "inline",
       });
 
-      return res.sendFile(
+      return deliverLocalFile({
+        res,
+        next,
         filePath,
-        (error) => {
-          if (error) {
-            return next(error);
-          }
-
-          return undefined;
-        },
-      );
+        storageKey,
+      });
     } catch (error) {
       return next(error);
     }
@@ -122,12 +156,14 @@ class MediaController {
           "inline",
       });
 
-      return res.sendFile(
-        result.filePath,
-        (error) => error
-          ? next(error)
-          : undefined,
-      );
+      return deliverLocalFile({
+        res,
+        next,
+        filePath:
+          result.filePath,
+        storageKey:
+          result.storageKey,
+      });
     } catch (error) {
       return next(error);
     }
@@ -164,12 +200,14 @@ class MediaController {
           "inline",
       });
 
-      return res.sendFile(
-        result.filePath,
-        (error) => error
-          ? next(error)
-          : undefined,
-      );
+      return deliverLocalFile({
+        res,
+        next,
+        filePath:
+          result.filePath,
+        storageKey:
+          result.storageKey,
+      });
     } catch (error) {
       return next(error);
     }
@@ -177,3 +215,8 @@ class MediaController {
 }
 
 export default new MediaController();
+
+export {
+  buildInternalRedirect,
+  deliverLocalFile,
+};

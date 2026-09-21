@@ -124,6 +124,8 @@ class MediaService {
     return {
       asset,
       filePath,
+      storageKey:
+        asset.storage_key,
 
       cacheControl:
         asset.is_public === true
@@ -181,6 +183,8 @@ class MediaService {
     return {
       thumbnail,
       filePath,
+      storageKey:
+        thumbnail.storage_key,
       cacheControl:
         thumbnail.is_public === true
           ? "public, max-age=3600"
@@ -261,6 +265,7 @@ class MediaService {
     return {
       asset,
       filePath,
+      storageKey,
       contentType: isSegment
         ? "video/mp2t"
         : "application/vnd.apple.mpegurl",
