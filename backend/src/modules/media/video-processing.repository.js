@@ -95,6 +95,52 @@ class VideoProcessingRepository {
     return rowCount === 1;
   }
 
+  async markForReprocessing(
+    assetId,
+  ) {
+    const { rowCount } =
+      await Database.query(
+        `
+          UPDATE media.assets
+          SET
+            processing_status =
+              'PROCESSING',
+            processing_error = NULL,
+            processed_at = NULL,
+            updated_at =
+              CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND deleted_at IS NULL
+            AND is_public IS TRUE
+            AND storage_provider =
+              'local'
+            AND mime_type LIKE
+              'video/%'
+            AND processing_status =
+              'READY'
+            AND (
+              hls_manifest_storage_key
+                IS NULL
+              OR NOT EXISTS (
+                SELECT 1
+                FROM media.asset_variants
+                  variant
+                WHERE variant.asset_id =
+                    media.assets.id
+                  AND variant.variant_name =
+                    'thumbnail'
+                  AND variant.format =
+                    'jpg'
+                  AND variant.quality = 85
+              )
+            )
+        `,
+        [assetId],
+      );
+
+    return rowCount === 1;
+  }
+
   async findPendingAssets({
     limit = 1000,
   } = {}) {

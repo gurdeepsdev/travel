@@ -7,6 +7,13 @@ const repositoryMock = {
     jest.fn(),
   markStorageProvider:
     jest.fn(),
+  markForReprocessing:
+    jest.fn(),
+};
+
+const processingServiceMock = {
+  process:
+    jest.fn(),
 };
 
 const providerMock = {
@@ -31,6 +38,14 @@ jest.unstable_mockModule(
   "../../../src/providers/storage/video-object-storage.provider.js",
   () => ({
     default: providerMock,
+  }),
+);
+
+jest.unstable_mockModule(
+  "../../../src/modules/media/video-processing.service.js",
+  () => ({
+    default:
+      processingServiceMock,
   }),
 );
 
@@ -72,7 +87,41 @@ describe(
     beforeEach(() => {
       jest.clearAllMocks();
       providerMock.enabled = true;
+      processingServiceMock
+        .process
+        .mockResolvedValue({
+          skipped: false,
+        });
     });
+
+    test(
+      "reprocesses a public local legacy video before R2 publication",
+      async () => {
+        const asset = createAsset({
+          hls_manifest_storage_key:
+            null,
+        });
+        repositoryMock
+          .findStorageSyncAsset
+          .mockResolvedValue(asset);
+        repositoryMock
+          .markForReprocessing
+          .mockResolvedValue(true);
+
+        await expect(
+          service.sync(asset.id),
+        ).resolves.toEqual({
+          skipped: false,
+          action: "REPROCESSED",
+        });
+
+        expect(
+          processingServiceMock.process,
+        ).toHaveBeenCalledWith(
+          asset.id,
+        );
+      },
+    );
 
     test(
       "publishes a public local video and changes provider after upload",

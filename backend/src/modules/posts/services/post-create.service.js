@@ -8,6 +8,7 @@ import StorageManager from "../../../providers/storage/storage-manager.js";
 
 import {
   enqueueVideoAssets,
+  enqueueVideoStorageSync,
 } from "../../media/video-processing.queue.js";
 
 import MediaRepository from "../../media/media.repository.js";
@@ -687,6 +688,16 @@ class PostCreateService {
               supersededStoredObjects:
                 uploadedResolution
                   .supersededStoredObjects,
+
+              storageSyncAssets:
+                effectiveVisibility ===
+                  "PUBLIC"
+                  ? [
+                    ...existingAssets,
+                    ...uploadedResolution
+                      .assets,
+                  ]
+                  : [],
             };
           },
         );
@@ -777,6 +788,33 @@ class PostCreateService {
           },
         },
         "Failed to enqueue post video processing.",
+      );
+    }
+
+    try {
+      await enqueueVideoStorageSync(
+        transactionResult
+          .storageSyncAssets,
+      );
+    } catch (error) {
+      logger?.error(
+        {
+          postId:
+            transactionResult
+              .postId,
+
+          error: {
+            name:
+              error.name,
+
+            message:
+              error.message,
+
+            stack:
+              error.stack,
+          },
+        },
+        "Failed to enqueue post video storage synchronization.",
       );
     }
 

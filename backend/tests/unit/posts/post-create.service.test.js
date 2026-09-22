@@ -20,6 +20,9 @@ const ITINERARY_ID =
 const EXISTING_ASSET_ID =
   "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1";
 
+const READY_HLS_ASSET_ID =
+  "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2";
+
 const UPLOADED_ASSET_ID =
   "d6000000-0000-4000-8000-000000000001";
 
@@ -51,6 +54,7 @@ const mediaRepositoryMock = {
 
   makeAssetsPublic:
     jest.fn(),
+
 };
 
 const userPostsRepositoryMock = {
@@ -90,11 +94,17 @@ const inspectPostMediaFilesMock =
 const enqueueVideoAssetsMock =
   jest.fn();
 
+const enqueueVideoStorageSyncMock =
+  jest.fn();
+
 jest.unstable_mockModule(
   "../../../src/modules/media/video-processing.queue.js",
   () => ({
     enqueueVideoAssets:
       enqueueVideoAssetsMock,
+
+    enqueueVideoStorageSync:
+      enqueueVideoStorageSyncMock,
   }),
 );
 
@@ -299,6 +309,9 @@ describe(
     enqueueVideoAssetsMock
       .mockResolvedValue();
 
+    enqueueVideoStorageSyncMock
+      .mockResolvedValue();
+
       databaseMock
         .transaction
         .mockImplementation(
@@ -378,6 +391,7 @@ describe(
         .mockResolvedValue(
           undefined,
         );
+
 
       postCreateRepositoryMock
         .insertPost
@@ -475,6 +489,59 @@ describe(
           post:
             createCanonicalPost(),
         });
+      },
+    );
+
+    test(
+      "prepares existing public videos for HLS processing and R2 synchronization",
+      async () => {
+        const legacyVideo =
+          createUploadedAsset({
+            id:
+              EXISTING_ASSET_ID,
+            mime_type:
+              "video/mp4",
+            processing_status:
+              "READY",
+          });
+
+        const readyHlsVideo =
+          createUploadedAsset({
+            id:
+              READY_HLS_ASSET_ID,
+            mime_type:
+              "video/mp4",
+            processing_status:
+              "READY",
+          });
+
+        mediaRepositoryMock
+          .findOwnedPostAssets
+          .mockResolvedValue([
+            legacyVideo,
+            readyHlsVideo,
+          ]);
+
+        await PostCreateService
+          .createPost(
+            createRequest({
+              existingAssetIds: [
+                EXISTING_ASSET_ID,
+                READY_HLS_ASSET_ID,
+              ],
+            }),
+          );
+
+        expect(
+          enqueueVideoAssetsMock,
+        ).toHaveBeenCalledWith([]);
+
+        expect(
+          enqueueVideoStorageSyncMock,
+        ).toHaveBeenCalledWith([
+          legacyVideo,
+          readyHlsVideo,
+        ]);
       },
     );
 

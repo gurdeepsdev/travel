@@ -9,6 +9,8 @@ import VideoObjectStorageProvider
   from "../../providers/storage/video-object-storage.provider.js";
 import VideoProcessingRepository
   from "./video-processing.repository.js";
+import VideoProcessingService
+  from "./video-processing.service.js";
 
 function buildTranscodeDescriptor(
   asset,
@@ -51,8 +53,42 @@ class VideoStorageSyncService {
           assetId,
         );
 
+    if (!asset) {
+      return { skipped: true };
+    }
+
     if (
-      !asset ||
+      asset.is_public === true &&
+      asset.storage_provider ===
+        "local" &&
+      (
+        !asset.thumbnail_storage_key ||
+        !asset.hls_manifest_storage_key
+      )
+    ) {
+      const marked =
+        await VideoProcessingRepository
+          .markForReprocessing(
+            assetId,
+          );
+
+      if (!marked) {
+        return {
+          skipped: false,
+          action: "STALE",
+        };
+      }
+
+      await VideoProcessingService
+        .process(assetId);
+
+      return {
+        skipped: false,
+        action: "REPROCESSED",
+      };
+    }
+
+    if (
       !asset.thumbnail_storage_key ||
       !asset.hls_manifest_storage_key
     ) {
