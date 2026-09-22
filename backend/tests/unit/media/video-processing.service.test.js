@@ -19,11 +19,27 @@ const finalizeTranscodeMock =
 const rollbackTranscodeMock =
   jest.fn();
 
+const videoObjectStorageMock = {
+  enabled: false,
+  publishTranscode:
+    jest.fn(),
+  removeMany:
+    jest.fn(),
+};
+
 jest.unstable_mockModule(
   "../../../src/modules/media/video-processing.repository.js",
   () => ({
     default:
       repositoryMock,
+  }),
+);
+
+jest.unstable_mockModule(
+  "../../../src/providers/storage/video-object-storage.provider.js",
+  () => ({
+    default:
+      videoObjectStorageMock,
   }),
 );
 
@@ -51,6 +67,8 @@ describe(
   () => {
     beforeEach(() => {
       jest.clearAllMocks();
+      videoObjectStorageMock.enabled =
+        false;
     });
 
     test(
@@ -157,11 +175,106 @@ describe(
 
           hlsManifestStorageKey:
             "posts/user/video.hls/master.m3u8",
+
+          storageProvider:
+            "local",
+
+          bucket:
+            "local",
         });
 
         expect(
           finalizeTranscodeMock,
         ).toHaveBeenCalled();
+      },
+    );
+
+    test(
+      "publishes a public video when object storage is enabled",
+      async () => {
+        videoObjectStorageMock.enabled =
+          true;
+
+        repositoryMock
+          .findProcessableAsset
+          .mockResolvedValue({
+            id:
+              "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            storage_provider:
+              "local",
+            storage_key:
+              "posts/user/video.mov",
+            is_public:
+              true,
+          });
+
+        const transcode = {
+          outputStorageKey:
+            "posts/user/video.mp4",
+          outputPath:
+            "/uploads/video.mp4",
+          sourcePath:
+            "/uploads/video.mov",
+          backupPath: null,
+          fileSize: 1000,
+          width: 1280,
+          height: 720,
+          durationSeconds: 12,
+          thumbnailPath:
+            "/uploads/video.thumbnail.jpg",
+          thumbnailStorageKey:
+            "posts/user/video.thumbnail.jpg",
+          thumbnailFileSize: 25000,
+          thumbnailWidth: 640,
+          thumbnailHeight: 360,
+          hlsDirectory:
+            "/uploads/video.hls",
+          hlsManifestStorageKey:
+            "posts/user/video.hls/master.m3u8",
+        };
+
+        transcodeLocalVideoMock
+          .mockResolvedValue(transcode);
+
+        videoObjectStorageMock
+          .publishTranscode
+          .mockResolvedValue({
+            storageProvider: "r2",
+            bucket: "uat-media",
+            uploadedKeys: [
+              "posts/user/video.mp4",
+            ],
+          });
+
+        repositoryMock.markReady
+          .mockResolvedValue();
+
+        await service.process(
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        );
+
+        expect(
+          videoObjectStorageMock
+            .publishTranscode,
+        ).toHaveBeenCalledWith(
+          transcode,
+        );
+
+        expect(
+          repositoryMock.markReady,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            storageProvider: "r2",
+            bucket: "uat-media",
+          }),
+        );
+
+        expect(
+          finalizeTranscodeMock,
+        ).toHaveBeenCalledWith({
+          ...transcode,
+          removeOutputs: false,
+        });
       },
     );
 

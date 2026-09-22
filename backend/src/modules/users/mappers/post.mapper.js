@@ -303,6 +303,8 @@ import {
                   asset.storageProvider,
                 hlsManifestStorageKey:
                   asset.hlsManifestStorageKey,
+                isPublic:
+                  asset.isPublic === true,
               })
             : null,
 

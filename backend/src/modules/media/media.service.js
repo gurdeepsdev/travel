@@ -50,11 +50,12 @@ class MediaService {
 
     if (
       !asset ||
-      String(
-        asset.storage_provider,
+      (
+        String(
+          asset.storage_provider,
+        ).toLowerCase() !== "local" &&
+        asset.is_public === true
       )
-        .toLowerCase() !==
-        "local"
     ) {
       throw createAssetNotFoundError();
     }
@@ -147,9 +148,12 @@ class MediaService {
 
     if (
       !thumbnail ||
-      String(
-        thumbnail.storage_provider,
-      ).toLowerCase() !== "local"
+      (
+        String(
+          thumbnail.storage_provider,
+        ).toLowerCase() !== "local" &&
+        thumbnail.is_public === true
+      )
     ) {
       throw createAssetNotFoundError();
     }
@@ -207,9 +211,12 @@ class MediaService {
 
     if (
       !asset ||
-      String(
-        asset.storage_provider,
-      ).toLowerCase() !== "local" ||
+      (
+        String(
+          asset.storage_provider,
+        ).toLowerCase() !== "local" &&
+        asset.is_public === true
+      ) ||
       asset.processing_status !==
         "READY" ||
       !String(

@@ -7,6 +7,9 @@ import {
   transcodeLocalVideo,
 } from "./video-transcoder.js";
 
+import VideoObjectStorageProvider
+  from "../../providers/storage/video-object-storage.provider.js";
+
 class VideoProcessingService {
   async process(
     assetId,
@@ -42,7 +45,18 @@ class VideoProcessingService {
           asset.storage_key,
       });
 
+    let published = null;
+
     try {
+      if (
+        asset.is_public === true &&
+        VideoObjectStorageProvider.enabled
+      ) {
+        published =
+          await VideoObjectStorageProvider
+            .publishTranscode(result);
+      }
+
       await VideoProcessingRepository
         .markReady({
           assetId:
@@ -77,8 +91,25 @@ class VideoProcessingService {
 
           hlsManifestStorageKey:
             result.hlsManifestStorageKey,
+
+          storageProvider:
+            published?.storageProvider ??
+            "local",
+
+          bucket:
+            published?.bucket ??
+            "local",
         });
     } catch (error) {
+      if (published) {
+        await Promise.allSettled([
+          VideoObjectStorageProvider
+            .removeMany(
+              published.uploadedKeys,
+            ),
+        ]);
+      }
+
       await rollbackTranscode(
         result,
       );
@@ -87,7 +118,10 @@ class VideoProcessingService {
     }
 
     await finalizeTranscode(
-      result,
+      {
+        ...result,
+        removeOutputs: false,
+      },
     );
 
     return {

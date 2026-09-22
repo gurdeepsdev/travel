@@ -638,7 +638,7 @@ describe("MemoriesService", () => {
                 false,
 
               url:
-                null,
+                `http://localhost:3001/api/v1/media/assets/${ASSET_ID}/content`,
 
               createdAt:
                 new Date(
@@ -892,7 +892,7 @@ describe("MemoriesService", () => {
                   false,
 
                 url:
-                  null,
+                  `http://localhost:3001/api/v1/media/assets/${ASSET_ID}/content`,
               },
             },
           ],

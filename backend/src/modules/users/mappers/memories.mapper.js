@@ -151,6 +151,7 @@ class MemoriesMapper {
                     row.storage_provider,
                   hlsManifestStorageKey:
                     row.hls_manifest_storage_key,
+                  isPublic,
                 }),
               )
             : null,

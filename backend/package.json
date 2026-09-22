@@ -22,6 +22,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1135.0",
     "@socket.io/redis-streams-adapter": "^0.3.1",
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",

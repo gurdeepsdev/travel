@@ -12,6 +12,7 @@ import {
   VIDEO_PROCESSING_JOB,
   VIDEO_PROCESSING_QUEUE,
   VIDEO_PROCESSING_STATUS,
+  VIDEO_STORAGE_SYNC_JOB,
 } from "./video-processing.constants.js";
 
 const connection = {
@@ -125,9 +126,36 @@ async function enqueueVideoAssets(
   }
 }
 
+async function enqueueVideoStorageSync(
+  assets,
+) {
+  const jobs = (assets ?? [])
+    .filter((asset) =>
+      asset?.id &&
+      String(
+        asset.mime_type ?? "",
+      ).startsWith("video/") &&
+      asset.processing_status ===
+        VIDEO_PROCESSING_STATUS.READY,
+    )
+    .map((asset) => ({
+      name:
+        VIDEO_STORAGE_SYNC_JOB,
+      data: {
+        assetId:
+          asset.id,
+      },
+    }));
+
+  if (jobs.length > 0) {
+    await queue.addBulk(jobs);
+  }
+}
+
 export {
   connection,
   createVideoProcessingJobs,
   enqueueVideoAssets,
+  enqueueVideoStorageSync,
   queue,
 };

@@ -90,19 +90,21 @@ export const buildAssetUrl = (
         )}/content`
       : null;
   }
-  /*
-   * Non-local private assets require a signed
-   * URL implementation and must not use the
-   * public R2 base URL.
-   */
   if (!isPublic) {
-    return null;
+    return assetId
+      ? `/api/v1/media/assets/${encodeURIComponent(
+          assetId,
+        )}/content`
+      : null;
   }
 
   const baseUrl =
-    process.env
-      .R2_PUBLIC_BASE_URL
-      ?.trim();
+    (
+      process.env
+        .VIDEO_CDN_PUBLIC_BASE_URL ??
+      process.env
+        .R2_PUBLIC_BASE_URL
+    )?.trim();
 
   if (!baseUrl) {
     return null;
@@ -154,6 +156,14 @@ export const buildAssetThumbnailUrl = (
       : null;
   }
 
+  if (!isPublic) {
+    return assetId
+      ? `/api/v1/media/assets/${encodeURIComponent(
+          assetId,
+        )}/thumbnail`
+      : null;
+  }
+
   return buildAssetUrl({
     assetId,
     storageProvider,
@@ -192,5 +202,20 @@ export const buildAssetStreamUrl = (
       : null;
   }
 
-  return null;
+  if (input?.isPublic !== true) {
+    return assetId
+      ? `/api/v1/media/assets/${encodeURIComponent(
+          assetId,
+        )}/stream/master.m3u8`
+      : null;
+  }
+
+  return buildAssetUrl({
+    assetId,
+    storageProvider,
+    storageKey:
+      hlsManifestStorageKey,
+    isPublic:
+      input?.isPublic === true,
+  });
 };

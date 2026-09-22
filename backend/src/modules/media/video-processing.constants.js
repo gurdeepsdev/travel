@@ -4,6 +4,9 @@ const VIDEO_PROCESSING_QUEUE =
 const VIDEO_PROCESSING_JOB =
   "transcode-video";
 
+const VIDEO_STORAGE_SYNC_JOB =
+  "sync-video-storage";
+
 const VIDEO_PROCESSING_STATUS =
   Object.freeze({
     PROCESSING:
@@ -20,4 +23,5 @@ export {
   VIDEO_PROCESSING_JOB,
   VIDEO_PROCESSING_QUEUE,
   VIDEO_PROCESSING_STATUS,
+  VIDEO_STORAGE_SYNC_JOB,
 };

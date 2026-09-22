@@ -84,7 +84,8 @@ LIMIT 1
           return null;
         }
 
-        await client.query(
+        const assetResult =
+          await client.query(
           `
             UPDATE media.assets asset
             SET is_public = EXISTS (
@@ -104,46 +105,85 @@ LIMIT 1
             )
               AND asset.uploaded_by = $2::uuid
               AND asset.deleted_at IS NULL
+            RETURNING
+              asset.id,
+              asset.mime_type,
+              asset.processing_status
           `,
           [postId, userId],
         );
 
-        return post;
+        return {
+          ...post,
+          storage_sync_assets:
+            assetResult.rows,
+        };
       },
     );
   }
 
-    async softDeleteOwned({
+  async softDeleteOwned({
     postId,
     userId,
   }) {
-    const sql = `
-      UPDATE explore.posts
-      SET
-        deleted_at =
-          CURRENT_TIMESTAMP,
-        updated_at =
-          CURRENT_TIMESTAMP
-      WHERE id = $1
-        AND user_id = $2
-        AND deleted_at IS NULL
-      RETURNING
-        id,
-        user_id,
-        deleted_at
-    `;
+    return Database.transaction(
+      async (client) => {
+        const { rows } =
+          await client.query(
+            `
+              UPDATE explore.posts
+              SET deleted_at = CURRENT_TIMESTAMP,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = $1::uuid
+                AND user_id = $2::uuid
+                AND deleted_at IS NULL
+              RETURNING id, user_id, deleted_at
+            `,
+            [postId, userId],
+          );
 
-    const {
-      rows,
-    } = await Database.query(
-      sql,
-      [
-        postId,
-        userId,
-      ],
+        const post = rows[0] ?? null;
+
+        if (!post) {
+          return null;
+        }
+
+        const assetResult =
+          await client.query(
+            `
+              UPDATE media.assets asset
+              SET is_public = EXISTS (
+                SELECT 1
+                FROM explore.post_assets usage
+                INNER JOIN explore.posts used_post
+                  ON used_post.id = usage.post_id
+                  AND used_post.deleted_at IS NULL
+                  AND UPPER(used_post.visibility) =
+                    'PUBLIC'
+                WHERE usage.asset_id = asset.id
+              )
+              WHERE asset.id IN (
+                SELECT asset_id
+                FROM explore.post_assets
+                WHERE post_id = $1::uuid
+              )
+                AND asset.uploaded_by = $2::uuid
+                AND asset.deleted_at IS NULL
+              RETURNING
+                asset.id,
+                asset.mime_type,
+                asset.processing_status
+            `,
+            [postId, userId],
+          );
+
+        return {
+          ...post,
+          storage_sync_assets:
+            assetResult.rows,
+        };
+      },
     );
-
-    return rows[0] ?? null;
   }
 }
 

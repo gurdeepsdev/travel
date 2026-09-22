@@ -18,11 +18,22 @@ const postsRepositoryMock = {
     jest.fn(),
 };
 
+const enqueueVideoStorageSyncMock =
+  jest.fn();
+
 jest.unstable_mockModule(
   "../../../src/modules/posts/repositories/posts.repository.js",
   () => ({
     default:
       postsRepositoryMock,
+  }),
+);
+
+jest.unstable_mockModule(
+  "../../../src/modules/media/video-processing.queue.js",
+  () => ({
+    enqueueVideoStorageSync:
+      enqueueVideoStorageSyncMock,
   }),
 );
 
@@ -55,6 +66,14 @@ describe(
 
             deleted_at:
               DELETED_AT,
+
+            storage_sync_assets: [
+              {
+                id: "asset-id",
+                mime_type: "video/mp4",
+                processing_status: "READY",
+              },
+            ],
           });
 
         const result =
@@ -89,6 +108,14 @@ describe(
               DELETED_AT,
           },
         });
+
+        expect(
+          enqueueVideoStorageSyncMock,
+        ).toHaveBeenCalledWith([
+          expect.objectContaining({
+            id: "asset-id",
+          }),
+        ]);
       },
     );
 

@@ -12,6 +12,11 @@ import PostDeleteMapper
 
 import PostsRepository
   from "../repositories/posts.repository.js";
+import logger
+  from "../../../core/logger/logger.js";
+import {
+  enqueueVideoStorageSync,
+} from "../../media/video-processing.queue.js";
 
 class PostDeleteService {
   async deletePost({
@@ -40,6 +45,21 @@ class PostDeleteService {
         statusCode:
           HttpStatus.NOT_FOUND,
       });
+    }
+
+    try {
+      await enqueueVideoStorageSync(
+        deletedPost
+          .storage_sync_assets,
+      );
+    } catch (error) {
+      logger.error(
+        {
+          postId,
+          error,
+        },
+        "Video storage sync could not be queued after post deletion.",
+      );
     }
 
     return PostDeleteMapper

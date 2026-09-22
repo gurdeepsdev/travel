@@ -44,6 +44,32 @@ const envSchema = z.object({
 
   UPLOAD_PATH: z.string(),
 
+  VIDEO_OBJECT_STORAGE_ENABLED:
+    z.enum(["true", "false"])
+      .default("false"),
+
+  VIDEO_OBJECT_STORAGE_PROVIDER:
+    z.enum(["r2", "s3"])
+      .default("r2"),
+
+  VIDEO_OBJECT_STORAGE_ENDPOINT:
+    z.string().url().optional(),
+
+  VIDEO_OBJECT_STORAGE_REGION:
+    z.string().default("auto"),
+
+  VIDEO_OBJECT_STORAGE_BUCKET:
+    z.string().optional(),
+
+  VIDEO_OBJECT_STORAGE_ACCESS_KEY_ID:
+    z.string().optional(),
+
+  VIDEO_OBJECT_STORAGE_SECRET_ACCESS_KEY:
+    z.string().optional(),
+
+  VIDEO_CDN_PUBLIC_BASE_URL:
+    z.string().url().optional(),
+
   TIMEZONE: z.string(),
 
   // OTP_PROVIDER: z.string(),
@@ -118,6 +144,46 @@ if (fixedTestOtpEnabled) {
       ].join("\n"),
     );
 
+    process.exit(1);
+  }
+}
+
+if (
+  parsed.data
+    .VIDEO_OBJECT_STORAGE_ENABLED ===
+  "true"
+) {
+  const requiredVideoStorageValues = [
+    "VIDEO_OBJECT_STORAGE_BUCKET",
+    "VIDEO_CDN_PUBLIC_BASE_URL",
+  ];
+
+  if (
+    parsed.data
+      .VIDEO_OBJECT_STORAGE_PROVIDER ===
+    "r2"
+  ) {
+    requiredVideoStorageValues.push(
+      "VIDEO_OBJECT_STORAGE_ENDPOINT",
+      "VIDEO_OBJECT_STORAGE_ACCESS_KEY_ID",
+      "VIDEO_OBJECT_STORAGE_SECRET_ACCESS_KEY",
+    );
+  }
+
+  const missingVideoStorageValues =
+    requiredVideoStorageValues.filter(
+      (name) =>
+        !String(
+          parsed.data[name] ?? "",
+        ).trim(),
+    );
+
+  if (
+    missingVideoStorageValues.length > 0
+  ) {
+    console.error(
+      `Missing video object storage configuration: ${missingVideoStorageValues.join(", ")}`,
+    );
     process.exit(1);
   }
 }

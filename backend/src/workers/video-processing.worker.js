@@ -11,10 +11,12 @@ import logger from "../core/logger/logger.js";
 import {
   connection,
   enqueueVideoAssets,
+  enqueueVideoStorageSync,
 } from "../modules/media/video-processing.queue.js";
 
 import {
   VIDEO_PROCESSING_QUEUE,
+  VIDEO_STORAGE_SYNC_JOB,
 } from "../modules/media/video-processing.constants.js";
 
 import VideoProcessingRepository
@@ -22,6 +24,8 @@ import VideoProcessingRepository
 
 import VideoProcessingService
   from "../modules/media/video-processing.service.js";
+import VideoStorageSyncService
+  from "../modules/media/video-storage-sync.service.js";
 
 await connectInfrastructure();
 
@@ -33,14 +37,33 @@ await enqueueVideoAssets(
   pendingAssets,
 );
 
+const storageSyncCandidates =
+  await VideoProcessingRepository
+    .findStorageSyncCandidates();
+
+await enqueueVideoStorageSync(
+  storageSyncCandidates,
+);
+
 const worker =
   new Worker(
     VIDEO_PROCESSING_QUEUE,
-    async (job) =>
-      VideoProcessingService
+    async (job) => {
+      if (
+        job.name ===
+          VIDEO_STORAGE_SYNC_JOB
+      ) {
+        return VideoStorageSyncService
+          .sync(
+            job.data.assetId,
+          );
+      }
+
+      return VideoProcessingService
         .process(
           job.data.assetId,
-        ),
+        );
+    },
     {
       connection,
       concurrency:
@@ -56,10 +79,13 @@ worker.on(
         jobId:
           job.id,
 
+        jobName:
+          job.name,
+
         assetId:
           job.data.assetId,
       },
-      "Video processing completed.",
+      "Video worker job completed.",
     );
   },
 );
@@ -92,11 +118,13 @@ worker.on(
             error.stack,
         },
       },
-      "Video processing failed.",
+      "Video worker job failed.",
     );
 
     if (
       job &&
+      job.name !==
+        VIDEO_STORAGE_SYNC_JOB &&
       job.attemptsMade >=
         (job.opts.attempts ?? 1)
     ) {

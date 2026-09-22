@@ -1,6 +1,100 @@
 import Database from "../../database/database-manager.js";
 
 class VideoProcessingRepository {
+  async findStorageSyncCandidates({
+    limit = 1000,
+  } = {}) {
+    const { rows } =
+      await Database.query(
+        `
+          SELECT id, mime_type,
+            processing_status
+          FROM media.assets
+          WHERE deleted_at IS NULL
+            AND mime_type LIKE 'video/%'
+            AND processing_status = 'READY'
+            AND (
+              (is_public IS TRUE
+                AND storage_provider = 'local')
+              OR
+              (is_public IS FALSE
+                AND storage_provider IN ('r2', 's3'))
+            )
+          ORDER BY updated_at ASC
+          LIMIT $1
+        `,
+        [limit],
+      );
+
+    return rows;
+  }
+
+  async findStorageSyncAsset(
+    assetId,
+  ) {
+    const { rows } =
+      await Database.query(
+        `
+          SELECT
+            asset.id,
+            asset.storage_provider,
+            asset.bucket,
+            asset.storage_key,
+            asset.mime_type,
+            asset.processing_status,
+            asset.is_public,
+            asset.hls_manifest_storage_key,
+            variant.storage_key
+              AS thumbnail_storage_key
+          FROM media.assets asset
+          LEFT JOIN media.asset_variants variant
+            ON variant.asset_id = asset.id
+            AND variant.variant_name = 'thumbnail'
+            AND variant.format = 'jpg'
+            AND variant.quality = 85
+          WHERE asset.id = $1::uuid
+            AND asset.deleted_at IS NULL
+            AND asset.mime_type LIKE 'video/%'
+            AND asset.processing_status = 'READY'
+          LIMIT 1
+        `,
+        [assetId],
+      );
+
+    return rows[0] ?? null;
+  }
+
+  async markStorageProvider({
+    assetId,
+    expectedIsPublic,
+    expectedStorageProvider,
+    storageProvider,
+    bucket,
+  }) {
+    const { rowCount } =
+      await Database.query(
+        `
+          UPDATE media.assets
+          SET storage_provider = $4,
+              bucket = $5,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1::uuid
+            AND deleted_at IS NULL
+            AND is_public = $2
+            AND storage_provider = $3
+        `,
+        [
+          assetId,
+          expectedIsPublic,
+          expectedStorageProvider,
+          storageProvider,
+          bucket,
+        ],
+      );
+
+    return rowCount === 1;
+  }
+
   async findPendingAssets({
     limit = 1000,
   } = {}) {
@@ -11,7 +105,8 @@ class VideoProcessingRepository {
             id,
             storage_key,
             mime_type,
-            processing_status
+            processing_status,
+            is_public
 
           FROM media.assets
 
@@ -43,7 +138,8 @@ class VideoProcessingRepository {
             storage_provider,
             storage_key,
             mime_type,
-            processing_status
+            processing_status,
+            is_public
 
           FROM media.assets
 
@@ -75,6 +171,8 @@ class VideoProcessingRepository {
     thumbnailWidth,
     thumbnailHeight,
     hlsManifestStorageKey,
+    storageProvider = "local",
+    bucket = "local",
   }) {
     await Database.transaction(
       async (client) => {
@@ -90,6 +188,8 @@ class VideoProcessingRepository {
               original_height = $5,
               duration_seconds = $6,
               hls_manifest_storage_key = $7,
+              storage_provider = $8,
+              bucket = $9,
               processing_status = 'READY',
               processing_error = NULL,
               processed_at = CURRENT_TIMESTAMP,
@@ -107,6 +207,8 @@ class VideoProcessingRepository {
             height,
             durationSeconds,
             hlsManifestStorageKey,
+            storageProvider,
+            bucket,
           ],
         );
 

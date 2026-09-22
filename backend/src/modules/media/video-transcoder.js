@@ -746,18 +746,36 @@ async function finalizeTranscode({
   sourcePath,
   outputPath,
   backupPath,
+  thumbnailPath,
+  hlsDirectory,
+  removeOutputs = false,
 }) {
   if (backupPath) {
     await removeIfPresent(
       backupPath,
     );
 
-    return;
-  }
-
-  if (sourcePath !== outputPath) {
+  } else if (sourcePath !== outputPath) {
     await removeIfPresent(
       sourcePath,
+    );
+  }
+
+  if (removeOutputs) {
+    await removeIfPresent(
+      outputPath,
+    );
+
+    await removeIfPresent(
+      thumbnailPath,
+    );
+
+    await rm(
+      hlsDirectory,
+      {
+        recursive: true,
+        force: true,
+      },
     );
   }
 }
