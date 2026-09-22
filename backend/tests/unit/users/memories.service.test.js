@@ -616,6 +616,12 @@ describe("MemoriesService", () => {
             streamUrl:
               null,
 
+            startupStreamUrl:
+              null,
+
+            renditionUrls:
+              null,
+
             mimeType:
                 "image/jpeg",
 

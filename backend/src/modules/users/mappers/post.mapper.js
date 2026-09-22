@@ -197,6 +197,8 @@
 
 
 import {
+    buildAssetRenditionUrls,
+    buildAssetStartupStreamUrl,
     buildAssetThumbnailUrl,
     buildAssetStreamUrl,
     buildAssetUrl,
@@ -297,6 +299,36 @@ import {
           processingStatus ===
             "READY"
             ? buildAssetStreamUrl({
+                assetId:
+                  asset.id,
+                storageProvider:
+                  asset.storageProvider,
+                hlsManifestStorageKey:
+                  asset.hlsManifestStorageKey,
+                isPublic:
+                  asset.isPublic === true,
+              })
+            : null,
+
+        startupStreamUrl:
+          processingStatus ===
+            "READY"
+            ? buildAssetStartupStreamUrl({
+                assetId:
+                  asset.id,
+                storageProvider:
+                  asset.storageProvider,
+                hlsManifestStorageKey:
+                  asset.hlsManifestStorageKey,
+                isPublic:
+                  asset.isPublic === true,
+              })
+            : null,
+
+        renditionUrls:
+          processingStatus ===
+            "READY"
+            ? buildAssetRenditionUrls({
                 assetId:
                   asset.id,
                 storageProvider:

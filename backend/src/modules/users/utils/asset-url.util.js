@@ -219,3 +219,88 @@ export const buildAssetStreamUrl = (
       input?.isPublic === true,
   });
 };
+
+const HLS_RENDITIONS = [
+  "360p",
+  "540p",
+  "720p",
+];
+
+export const buildAssetRenditionUrl = (
+  input,
+  rendition,
+) => {
+  if (
+    !HLS_RENDITIONS.includes(
+      rendition,
+    ) ||
+    !input?.hlsManifestStorageKey
+  ) {
+    return null;
+  }
+
+  const {
+    assetId,
+    storageProvider,
+  } = normalizeOptions(input);
+
+  const requiresAuthenticatedDelivery =
+    String(
+      storageProvider ?? "",
+    ).trim().toLowerCase() ===
+      "local" ||
+    input?.isPublic !== true;
+
+  if (requiresAuthenticatedDelivery) {
+    return assetId
+      ? `/api/v1/media/assets/${encodeURIComponent(
+          assetId,
+        )}/stream/${rendition}/index.m3u8`
+      : null;
+  }
+
+  const manifestStorageKey =
+    String(
+      input.hlsManifestStorageKey,
+    );
+  const manifestDirectory =
+    manifestStorageKey.replace(
+      /master\.m3u8$/,
+      "",
+    );
+
+  return buildAssetUrl({
+    assetId,
+    storageProvider,
+    storageKey:
+      `${manifestDirectory}${rendition}/index.m3u8`,
+    isPublic: true,
+  });
+};
+
+export const buildAssetStartupStreamUrl = (
+  input,
+) => buildAssetRenditionUrl(
+  input,
+  "360p",
+);
+
+export const buildAssetRenditionUrls = (
+  input,
+) => {
+  if (!input?.hlsManifestStorageKey) {
+    return null;
+  }
+
+  return Object.fromEntries(
+    HLS_RENDITIONS.map(
+      (rendition) => [
+        rendition,
+        buildAssetRenditionUrl(
+          input,
+          rendition,
+        ),
+      ],
+    ),
+  );
+};

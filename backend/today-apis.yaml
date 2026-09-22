@@ -7414,6 +7414,25 @@ components:
           type: string
           nullable: true
           description: Adaptive HLS master playlist URL when available.
+        startupStreamUrl:
+          type: string
+          nullable: true
+          description: Direct 360p HLS playlist URL for faster playback startup when available.
+        renditionUrls:
+          type: object
+          nullable: true
+          additionalProperties: false
+          description: Direct HLS media playlist URLs for explicit quality selection.
+          properties:
+            360p:
+              type: string
+              nullable: true
+            540p:
+              type: string
+              nullable: true
+            720p:
+              type: string
+              nullable: true
         createdAt:
           type: string
           format: date-time
@@ -7669,6 +7688,25 @@ components:
                     type: string
                     nullable: true
                     description: Adaptive HLS master playlist URL when available.
+                  startupStreamUrl:
+                    type: string
+                    nullable: true
+                    description: Direct 360p HLS playlist URL for faster playback startup when available.
+                  renditionUrls:
+                    type: object
+                    nullable: true
+                    additionalProperties: false
+                    description: Direct HLS media playlist URLs for explicit quality selection.
+                    properties:
+                      360p:
+                        type: string
+                        nullable: true
+                      540p:
+                        type: string
+                        nullable: true
+                      720p:
+                        type: string
+                        nullable: true
                   originalFilename:
                     type: string
                     nullable: true

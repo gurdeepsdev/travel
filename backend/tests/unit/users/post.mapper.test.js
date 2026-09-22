@@ -77,5 +77,54 @@ describe(
         ).toEqual(itineraryJson);
       },
     );
+
+    test(
+      "includes startup and rendition URLs for a ready HLS asset",
+      () => {
+        process.env
+          .VIDEO_CDN_PUBLIC_BASE_URL =
+            "https://media.example.com";
+
+        const result =
+          PostMapper.toResponse({
+            id:
+              "44444444-4444-4444-8444-444444444444",
+            user_id:
+              "b3fe5214-e569-4300-8509-589785ad86f2",
+            assets: [
+              {
+                id: "asset-id",
+                mimeType: "video/mp4",
+                processingStatus:
+                  "READY",
+                storageProvider: "r2",
+                storageKey:
+                  "posts/user/video.mp4",
+                hlsManifestStorageKey:
+                  "posts/user/video.hls/master.m3u8",
+                isPublic: true,
+              },
+            ],
+            itineraries: [],
+          });
+
+        expect(
+          result.assets[0],
+        ).toMatchObject({
+          streamUrl:
+            "https://media.example.com/posts/user/video.hls/master.m3u8",
+          startupStreamUrl:
+            "https://media.example.com/posts/user/video.hls/360p/index.m3u8",
+          renditionUrls: {
+            "360p":
+              "https://media.example.com/posts/user/video.hls/360p/index.m3u8",
+            "540p":
+              "https://media.example.com/posts/user/video.hls/540p/index.m3u8",
+            "720p":
+              "https://media.example.com/posts/user/video.hls/720p/index.m3u8",
+          },
+        });
+      },
+    );
   },
 );

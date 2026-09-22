@@ -1,4 +1,6 @@
 import {
+  buildAssetRenditionUrls,
+  buildAssetStartupStreamUrl,
   buildAssetThumbnailUrl,
   buildAssetStreamUrl,
   buildAssetUrl,
@@ -39,6 +41,28 @@ const buildAbsoluteAssetUrl = (
 ) => buildAbsoluteUrl(
   buildAssetUrl(asset),
 );
+
+const buildAbsoluteRenditionUrls = (
+  asset,
+) => {
+  const renditionUrls =
+    buildAssetRenditionUrls(asset);
+
+  if (!renditionUrls) {
+    return null;
+  }
+
+  return Object.fromEntries(
+    Object.entries(
+      renditionUrls,
+    ).map(
+      ([rendition, url]) => [
+        rendition,
+        buildAbsoluteUrl(url),
+      ],
+    ),
+  );
+};
 
 class MemoriesMapper {
   static toMemory(row) {
@@ -154,6 +178,40 @@ class MemoriesMapper {
                   isPublic,
                 }),
               )
+            : null,
+
+        startupStreamUrl:
+          (
+            row.processing_status ??
+            "READY"
+          ) === "READY"
+            ? buildAbsoluteUrl(
+                buildAssetStartupStreamUrl({
+                  assetId:
+                    row.asset_id,
+                  storageProvider:
+                    row.storage_provider,
+                  hlsManifestStorageKey:
+                    row.hls_manifest_storage_key,
+                  isPublic,
+                }),
+              )
+            : null,
+
+        renditionUrls:
+          (
+            row.processing_status ??
+            "READY"
+          ) === "READY"
+            ? buildAbsoluteRenditionUrls({
+                assetId:
+                  row.asset_id,
+                storageProvider:
+                  row.storage_provider,
+                hlsManifestStorageKey:
+                  row.hls_manifest_storage_key,
+                isPublic,
+              })
             : null,
 
         createdAt:
