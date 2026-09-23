@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Artictern Reel Delivery Diagnostic</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <header class="toolbar">
+      <div>
+        <strong>Artictern Reel Delivery</strong>
+        <span id="summary">Not loaded</span>
+      </div>
+      <details>
+        <summary>Configuration</summary>
+        <form id="config-form">
+          <label>
+            Feed URL
+            <input
+              id="feed-url"
+              type="url"
+              value="https://apitest.artictern.com/api/v1/explore/videos?limit=20"
+              required
+            />
+          </label>
+          <label>
+            Bearer token (optional)
+            <input id="access-token" type="password" autocomplete="off" />
+          </label>
+          <button type="submit">Load reels</button>
+        </form>
+      </details>
+    </header>
+
+    <main id="reels" aria-live="polite">
+      <section class="empty-state">
+        <h1>Backend playback diagnostic</h1>
+        <p>Open Configuration and load the UAT feed.</p>
+      </section>
+    </main>
+  </body>
+</html>
