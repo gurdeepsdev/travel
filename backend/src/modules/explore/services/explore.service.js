@@ -3,6 +3,7 @@ import ExploreRepository
 
 import ExploreMapper
   from "../mappers/explore.mapper.js";
+import { resolveExploreImages } from "./explore-images.service.js";
 
 import PostsRepository
   from "../../users/repositories/posts.repository.js";
@@ -47,6 +48,8 @@ class ExploreService {
           viewerUserId,
         });
 
+    const images = await resolveExploreImages("cities", cityRows);
+
     return {
       cities:
         cityRows
@@ -63,7 +66,9 @@ class ExploreService {
           )
           .filter(
             Boolean,
-          ),
+          ).map((city) => images?.has(city.id)
+            ? { ...city, image: images.get(city.id) }
+            : city),
     };
   }
 
@@ -84,6 +89,8 @@ class ExploreService {
             null,
         });
 
+    const images = await resolveExploreImages("places", placeRows);
+
     return {
       cityId,
 
@@ -98,7 +105,9 @@ class ExploreService {
           )
           .filter(
             Boolean,
-          ),
+          ).map((place) => images?.has(place.id)
+            ? { ...place, image: images.get(place.id) }
+            : place),
     };
   }
 
