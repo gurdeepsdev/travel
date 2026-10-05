@@ -119,14 +119,14 @@ const updateMyProfileBodySchema = z
       ).optional(),
 
     countryId:
-      nullableUuidSchema(
-        "Country ID must be a valid UUID.",
-      ).optional(),
+      z.preprocess(parseMultipartNull, z.union([
+        z.uuid(), z.string().regex(/^[A-Za-z0-9_-]{20,255}$/),
+      ]).nullable()).optional(),
 
     cityId:
-      nullableUuidSchema(
-        "City ID must be a valid UUID.",
-      ).optional(),
+      z.preprocess(parseMultipartNull, z.union([
+        z.uuid(), z.string().regex(/^[A-Za-z0-9_-]{20,255}$/),
+      ]).nullable()).optional(),
 
    isPrivate: z
       .preprocess(

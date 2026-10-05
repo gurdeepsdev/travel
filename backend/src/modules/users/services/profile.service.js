@@ -9,6 +9,7 @@ import HttpStatus from "../../../shared/constants/http-status.js";
 import MediaRepository from "../../media/media.repository.js";
 
 import profileMapper from "../mappers/profile.mapper.js";
+import { resolveProfileLocation } from "./profile-location.service.js";
 import { profilesRepository } from "../repositories/index.js";
 import ConnectionsRepository
   from "../repositories/connections.repository.js";
@@ -422,6 +423,8 @@ async updateMyProfile({
       });
     }
   }
+
+  changes = await resolveProfileLocation(changes, currentProfile);
 
   const countryWasProvided =
     Object.hasOwn(
