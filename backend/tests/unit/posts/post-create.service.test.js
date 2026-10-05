@@ -5,6 +5,11 @@ import {
 const USER_ID =
   "63aae149-8f8f-4b30-b30d-211da764c080";
 
+const resolvePostCityLocationMock = jest.fn();
+jest.unstable_mockModule("../../../src/modules/users/services/profile-location.service.js", () => ({
+  resolvePostCityLocation: resolvePostCityLocationMock,
+}));
+
 const POST_ID =
   "d5000000-0000-4000-8000-000000000001";
 
@@ -305,6 +310,7 @@ describe(
   () => {
     beforeEach(() => {
     jest.clearAllMocks();
+    resolvePostCityLocationMock.mockResolvedValue(null);
 
     enqueueVideoAssetsMock
       .mockResolvedValue();
@@ -795,6 +801,19 @@ describe(
         ).not.toHaveBeenCalled();
       },
     );
+
+    test("resolves an unknown city in the post transaction and stores its internal ID", async () => {
+      postCreateRepositoryMock.findEligibleCity.mockResolvedValue(null);
+      resolvePostCityLocationMock.mockResolvedValue({ id: CITY_ID, name: "Delhi" });
+      await PostCreateService.createPost(createRequest());
+      expect(resolvePostCityLocationMock).toHaveBeenCalledWith(GOOGLE_LOCATION_ID, transactionClient);
+      expect(postCreateRepositoryMock.insertPost).toHaveBeenCalledWith(expect.objectContaining({ cityId: CITY_ID, client: transactionClient }));
+    });
+
+    test("existing eligible cities bypass Google resolution", async () => {
+      await PostCreateService.createPost(createRequest());
+      expect(resolvePostCityLocationMock).not.toHaveBeenCalled();
+    });
 
     test(
       "rejects a request with no media or itinerary before opening a transaction",
