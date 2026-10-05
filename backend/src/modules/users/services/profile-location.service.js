@@ -28,9 +28,13 @@ async function details(id, kind) {
   }
   const component = (type) => data?.addressComponents?.find((part) => part.types?.includes(type));
   const country = component("country");
-  const city = component("locality") || component("postal_town") || component("administrative_area_level_3");
+  // Google classifies some city selections (including Delhi) as administrative areas.
+  // Match the selected place's type, not an enclosing address component.
+  const cityTypes = ["locality", "postal_town", "administrative_area_level_3", "administrative_area_level_2", "administrative_area_level_1"];
+  const city = cityTypes.filter((type) => data?.types?.includes(type))
+    .map(component).find((part) => part?.longText);
   const validType = kind === "country" ? data?.types?.includes("country")
-    : data?.types?.some((type) => ["locality", "postal_town", "administrative_area_level_3"].includes(type));
+    : Boolean(city);
   if (!data?.id || !validType || !/^[A-Z]{2}$/.test(country?.shortText || "") ||
       !country?.longText || (kind === "city" && !city?.longText)) {
     fail(`${kind.toUpperCase()}_NOT_FOUND`, `Select a valid Google ${kind}.`);

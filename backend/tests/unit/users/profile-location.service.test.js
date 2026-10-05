@@ -111,3 +111,30 @@ test("rejects businesses passed as cities", async () => {
   await expect(resolveProfileLocation({ cityId: googleCity }, {})).rejects.toMatchObject({ code: "PROFILE.CITY_NOT_FOUND" });
   expect(transaction).not.toHaveBeenCalled();
 });
+
+test.each(["administrative_area_level_1", "administrative_area_level_2"])("accepts Google %s selections using the matching component", async (type) => {
+  get.mockResolvedValue({ data: {
+    id: googleCity,
+    types: [type, "political"],
+    addressComponents: [
+      { longText: "Delhi", shortText: "DL", types: ["administrative_area_level_1", "political"] },
+      { longText: "Delhi Division", types: ["administrative_area_level_2", "political"] },
+      { longText: "India", shortText: "IN", types: ["country", "political"] },
+    ],
+  } });
+  query.mockImplementation(async (sql) => ({ rows:
+    sql.includes("FROM poi.countries") ? [country] :
+    sql.includes("FROM poi.regions") ? [{ id: "region-id", is_active: true }] :
+    sql.includes("INSERT INTO poi.cities") ? [city] : [] }));
+  expect(await resolveProfileLocation({ countryId, cityId: googleCity }, {})).toEqual({ countryId, cityId });
+  const insert = query.mock.calls.find(([sql]) => sql.includes("INSERT INTO poi.cities"));
+  expect(insert[1][2]).toBe(type === "administrative_area_level_1" ? "Delhi" : "Delhi Division");
+});
+
+test("does not use a parent region when the selected city's component is missing", async () => {
+  get.mockResolvedValue({ data: { ...response(googleCity, "locality").data,
+    addressComponents: response(googleCity, "locality").data.addressComponents.filter((part) => !part.types.includes("locality")),
+  } });
+  await expect(resolveProfileLocation({ countryId, cityId: googleCity }, {})).rejects.toMatchObject({ code: "PROFILE.CITY_NOT_FOUND" });
+  expect(transaction).not.toHaveBeenCalled();
+});
