@@ -128,6 +128,28 @@ LIMIT 1
   }) {
     return Database.transaction(
       async (client) => {
+        const repostResult = await client.query(
+          `SELECT repost.shared_post_id
+           FROM explore.post_reshare repost
+           INNER JOIN explore.posts post ON post.id = repost.post_id
+           WHERE repost.post_id = $1::uuid
+             AND repost.user_id = $2::uuid
+             AND post.user_id = $2::uuid
+             AND post.deleted_at IS NULL`,
+          [postId, userId],
+        );
+        const originalPostId = repostResult.rows[0]?.shared_post_id;
+
+        // Match repost set/remove lock ordering before acquiring the post row lock.
+        if (originalPostId) {
+          await client.query(
+            `SELECT pg_advisory_xact_lock(
+              hashtextextended($1::text || ':' || $2::text, 0)
+            )`,
+            [userId, originalPostId],
+          );
+        }
+
         const { rows } =
           await client.query(
             `
@@ -146,6 +168,24 @@ LIMIT 1
 
         if (!post) {
           return null;
+        }
+
+        if (originalPostId) {
+          const removed = await client.query(
+            `DELETE FROM explore.post_reshare
+             WHERE post_id = $1::uuid AND user_id = $2::uuid
+               AND shared_post_id = $3::uuid
+             RETURNING shared_post_id`,
+            [postId, userId, originalPostId],
+          );
+          if (removed.rows.length > 0) {
+            await client.query(
+              `UPDATE explore.posts
+               SET share_count = GREATEST(COALESCE(share_count, 0) - 1, 0)
+               WHERE id = $1::uuid`,
+              [originalPostId],
+            );
+          }
         }
 
         const assetResult =
