@@ -443,6 +443,8 @@ class ExploreRepository {
       SELECT
         place.id,
         place.name,
+        place.provider,
+        place.provider_id,
         place.description,
         place.address,
         place.postal_code,
