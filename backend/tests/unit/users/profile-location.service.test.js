@@ -6,7 +6,7 @@ const query = jest.fn();
 const transaction = jest.fn((work) => work({ query }));
 jest.unstable_mockModule("axios", () => ({ default: { get } }));
 jest.unstable_mockModule("../../../src/database/database-manager.js", () => ({ default: { transaction } }));
-const { resolveProfileLocation } = await import("../../../src/modules/users/services/profile-location.service.js");
+const { resolveProfileLocation, resolvePostCityLocation } = await import("../../../src/modules/users/services/profile-location.service.js");
 const countryId = "060de7c3-9c68-4507-aff7-62a5411bf60a";
 const cityId = "187cef7e-0554-42f0-a0b9-4e44b9824cee";
 const googleCountry = "ChIJcountry12345678901234";
@@ -110,6 +110,35 @@ test("rejects businesses passed as cities", async () => {
   get.mockResolvedValue(response(googleCity, "restaurant"));
   await expect(resolveProfileLocation({ cityId: googleCity }, {})).rejects.toMatchObject({ code: "PROFILE.CITY_NOT_FOUND" });
   expect(transaction).not.toHaveBeenCalled();
+});
+
+test("post city resolution derives country from Google and uses the caller transaction", async () => {
+  expect(await resolvePostCityLocation(googleCity, { query })).toEqual({ id: cityId, name: "Delhi" });
+  expect(transaction).not.toHaveBeenCalled();
+  expect(get).toHaveBeenCalledTimes(1);
+});
+test("post resolver creates missing location records in the caller transaction", async () => {
+  query.mockImplementation(async (sql) => ({ rows:
+    sql.includes("INSERT INTO poi.countries") ? [country] :
+    sql.includes("INSERT INTO poi.regions") ? [{ id: "region-id", is_active: true }] :
+    sql.includes("INSERT INTO poi.cities") ? [city] : [] }));
+  expect(await resolvePostCityLocation(googleCity, { query })).toEqual({ id: cityId, name: "Delhi" });
+  expect(transaction).not.toHaveBeenCalled();
+});
+test("post resolver preserves inactive city rejection", async () => {
+  query.mockImplementation(async (sql) => ({ rows: sql.includes("FROM poi.countries") ? [country] : sql.includes("FROM poi.cities") ? [{ ...city, is_active: false }] : [] }));
+  await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED", statusCode: 404 });
+});
+test("post resolver maps provider outage without credentials", async () => {
+  get.mockRejectedValue(new Error("test-only-secret"));
+  await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.LOCATION_LOOKUP_UNAVAILABLE", statusCode: 503 });
+  expect(query).not.toHaveBeenCalled();
+});
+test("post resolver rejects businesses and arbitrary internal UUIDs", async () => {
+  get.mockResolvedValue(response(googleCity, "restaurant"));
+  await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
+  await expect(resolvePostCityLocation(cityId, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
+  expect(query).not.toHaveBeenCalled();
 });
 
 test.each(["administrative_area_level_1", "administrative_area_level_2"])("accepts Google %s selections using the matching component", async (type) => {

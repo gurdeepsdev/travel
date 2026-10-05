@@ -50,7 +50,29 @@ export async function resolveProfileLocation(changes, currentProfile) {
   const city = external(changes.cityId) ? await details(changes.cityId, "city") : null;
   if (country && city && country.code !== city.code) mismatch();
 
-  return Database.transaction(async (client) => {
+  return Database.transaction((client) => persistLocation(changes, currentProfile, country, city, client));
+}
+
+// Post creation supplies its transaction so location creation rolls back with the post.
+export async function resolvePostCityLocation(cityId, client) {
+  try {
+    if (!external(cityId) || !/^[A-Za-z0-9_-]{20,255}$/.test(cityId)) {
+      fail("CITY_NOT_FOUND", "Select a valid Google city.");
+    }
+    const city = await details(cityId, "city");
+    const result = await persistLocation({}, {}, city, city, client);
+    return { id: result.cityId, name: city.name };
+  } catch (error) {
+    if (!(error instanceof AppError)) throw error;
+    throw new AppError({
+      code: error.statusCode === 503 ? "POST.LOCATION_LOOKUP_UNAVAILABLE" : "POST.PLACE_NOT_ALLOWED",
+      message: error.statusCode === 503 ? "Google location lookup is temporarily unavailable." : "Post city was not found or is not available.",
+      statusCode: error.statusCode === 503 ? 503 : 404,
+    });
+  }
+}
+
+async function persistLocation(changes, currentProfile, country, city, client) {
     const one = async (sql, params) => (await client.query(sql, params)).rows[0];
     const result = { ...changes };
     let selectedCountry;
@@ -96,5 +118,4 @@ export async function resolveProfileLocation(changes, currentProfile) {
       result.cityId = record.id;
     }
     return result;
-  });
 }

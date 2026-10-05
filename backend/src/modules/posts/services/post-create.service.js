@@ -299,6 +299,8 @@ function resolvePostType({
     : "IMAGE_ITINERARY";
 }
 
+import { resolvePostCityLocation } from "../../users/services/profile-location.service.js";
+
 class PostCreateService {
   async createPost({
     userId,
@@ -474,12 +476,14 @@ class PostCreateService {
                 ? "PRIVATE"
                 : "PUBLIC";
 
-            const city =
+            let city =
               await PostCreateRepository
                 .findEligibleCity({
                   client,
                   cityId,
                 });
+
+            if (!city) city = await resolvePostCityLocation(cityId, client);
 
             if (!city) {
               throw createReferenceError({
