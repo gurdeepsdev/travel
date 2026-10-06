@@ -6,6 +6,8 @@ const VIDEO_PROCESSING_JOB =
 
 const VIDEO_STORAGE_SYNC_JOB =
   "sync-video-storage";
+const IMAGE_JOB = "optimize-post-image";
+const IMAGE_PROCESSING_QUEUE = "media-post-images";
 
 const VIDEO_PROCESSING_STATUS =
   Object.freeze({
@@ -20,6 +22,8 @@ const VIDEO_PROCESSING_STATUS =
   });
 
 export {
+  IMAGE_JOB,
+  IMAGE_PROCESSING_QUEUE,
   VIDEO_PROCESSING_JOB,
   VIDEO_PROCESSING_QUEUE,
   VIDEO_PROCESSING_STATUS,

@@ -2707,12 +2707,33 @@ paths:
           $ref: "#/components/responses/MediaAssetNotFound"
         "503":
           $ref: "#/components/responses/MediaContentUnavailable"
+  "/media/assets/{assetId}/images/{size}":
+    get:
+      tags: [Media Delivery]
+      summary: Get an optimized post image variant
+      description: Generated WebP variants preserve aspect ratio without upscaling. Original URLs and private media authorization remain unchanged.
+      operationId: getMediaAssetImageVariant
+      security: [{ bearerAuth: [] }, {}]
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+        - name: size
+          in: path
+          required: true
+          schema: { type: string, enum: ['320', '640', '1080', '1600'] }
+      responses:
+        '200':
+          description: Optimized image
+          content:
+            image/webp:
+              schema: { type: string, format: binary }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/MediaAssetNotFound' }
   "/media/assets/{assetId}/stream/master.m3u8":
     get:
       tags: [Media Delivery]
       summary: Get an adaptive HLS master playlist
       description: >
-        Returns 360p, 540p and 720p adaptive streams for a processed video.
+        Returns 360p, 540p and 720p adaptive streams, plus 1080p when the uploaded source supports it.
         Existing MP4 delivery remains available as a fallback. Public assets
         allow anonymous access; private assets require media authorization.
       operationId: getMediaAssetStreamManifest
@@ -2743,7 +2764,7 @@ paths:
         - name: rendition
           in: path
           required: true
-          schema: { type: string, enum: [360p, 540p, 720p] }
+          schema: { type: string, enum: [360p, 540p, 720p, 1080p] }
         - name: fileName
           in: path
           required: true
@@ -6210,6 +6231,19 @@ components:
           properties:
             data:
               $ref: "#/components/schemas/DeletePostData"
+    ImageVariant:
+      type: object
+      required: [size, width, height, fileSize, mimeType, url]
+      properties:
+        size:
+          type: integer
+          enum: [320, 640, 1080, 1600]
+          description: Maximum long-edge pixels; actual dimensions may be smaller.
+        width: { type: integer }
+        height: { type: integer }
+        fileSize: { type: integer }
+        mimeType: { type: string, enum: [image/webp] }
+        url: { type: string, nullable: true }
     ExploreAsset:
       type: object
       required:
@@ -7681,6 +7715,12 @@ components:
                   url:
                     type: string
                     nullable: true
+                  imageVariants:
+                    type: array
+                    nullable: true
+                    description: Optimized WebP variants. Empty when pending or unsupported; fall back to url. Private variants require authentication.
+                    items:
+                      $ref: '#/components/schemas/ImageVariant'
                   thumbnailUrl:
                     type: string
                     nullable: true
@@ -7707,6 +7747,10 @@ components:
                       720p:
                         type: string
                         nullable: true
+                      1080p:
+                        type: string
+                        nullable: true
+                        description: Present only when a 1080p rendition was generated.
                   originalFilename:
                     type: string
                     nullable: true

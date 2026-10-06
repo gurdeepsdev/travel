@@ -217,6 +217,7 @@ class VideoProcessingRepository {
     thumbnailWidth,
     thumbnailHeight,
     hlsManifestStorageKey,
+    hlsRenditions = null,
     storageProvider = "local",
     bucket = "local",
   }) {
@@ -234,6 +235,7 @@ class VideoProcessingRepository {
               original_height = $5,
               duration_seconds = $6,
               hls_manifest_storage_key = $7,
+              hls_renditions = $10::text[],
               storage_provider = $8,
               bucket = $9,
               processing_status = 'READY',
@@ -255,6 +257,7 @@ class VideoProcessingRepository {
             hlsManifestStorageKey,
             storageProvider,
             bucket,
+            hlsRenditions,
           ],
         );
 

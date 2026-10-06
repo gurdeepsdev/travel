@@ -38,6 +38,7 @@ const getAssetStreamResourceSchema =
           "360p",
           "540p",
           "720p",
+          "1080p",
         ]),
         fileName: z
           .string()
@@ -52,7 +53,13 @@ const getAssetStreamResourceSchema =
     query: z.object({}).strict(),
   });
 
+const getImageVariantSchema = z.object({
+  params: z.object({ assetId: z.string().uuid(), size: z.enum(['320', '640', '1080', '1600']) }).strict(),
+  body: z.unknown().optional(), query: z.object({}).strict(),
+});
+
 export {
   getAssetContentSchema,
   getAssetStreamResourceSchema,
+  getImageVariantSchema,
 };

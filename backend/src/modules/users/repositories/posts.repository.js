@@ -175,6 +175,15 @@ COALESCE(
           'durationSeconds', asset.duration_seconds,
           'processingStatus', asset.processing_status,
           'hlsManifestStorageKey', asset.hls_manifest_storage_key,
+          'hlsRenditions', asset.hls_renditions,
+          'imageVariants', (
+            SELECT COALESCE(jsonb_agg(jsonb_build_object('name', v.variant_name, 'width', v.width,
+              'height', v.height, 'fileSize', v.file_size, 'storageKey', v.storage_key,
+              'storageProvider', v.storage_provider) ORDER BY v.width, v.height), '[]'::jsonb)
+            FROM media.asset_variants v WHERE v.asset_id = asset.id AND v.format = 'webp' AND v.quality = 82
+              AND v.variant_name IN ('small','medium','large','custom')
+              AND starts_with(v.storage_key, asset.storage_key || '.images-v1/')
+          ),
           'thumbnailStorageKey', (
             SELECT variant.storage_key
             FROM media.asset_variants variant
@@ -746,6 +755,15 @@ async getUserPosts({
 
              'hlsManifestStorageKey',
                asset.hls_manifest_storage_key,
+             'hlsRenditions', asset.hls_renditions,
+             'imageVariants', (
+               SELECT COALESCE(jsonb_agg(jsonb_build_object('name', v.variant_name, 'width', v.width,
+                 'height', v.height, 'fileSize', v.file_size, 'storageKey', v.storage_key,
+                 'storageProvider', v.storage_provider) ORDER BY v.width, v.height), '[]'::jsonb)
+               FROM media.asset_variants v WHERE v.asset_id = asset.id AND v.format = 'webp' AND v.quality = 82
+                 AND v.variant_name IN ('small','medium','large','custom')
+                 AND starts_with(v.storage_key, asset.storage_key || '.images-v1/')
+             ),
 
              'thumbnailStorageKey',
                (
@@ -1454,6 +1472,15 @@ async getPostsByIds({
 
              'hlsManifestStorageKey',
                asset.hls_manifest_storage_key,
+             'hlsRenditions', asset.hls_renditions,
+             'imageVariants', (
+               SELECT COALESCE(jsonb_agg(jsonb_build_object('name', v.variant_name, 'width', v.width,
+                 'height', v.height, 'fileSize', v.file_size, 'storageKey', v.storage_key,
+                 'storageProvider', v.storage_provider) ORDER BY v.width, v.height), '[]'::jsonb)
+               FROM media.asset_variants v WHERE v.asset_id = asset.id AND v.format = 'webp' AND v.quality = 82
+                 AND v.variant_name IN ('small','medium','large','custom')
+                 AND starts_with(v.storage_key, asset.storage_key || '.images-v1/')
+             ),
 
              'thumbnailStorageKey',
                (

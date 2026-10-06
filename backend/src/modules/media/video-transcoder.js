@@ -59,6 +59,16 @@ const HLS_RENDITIONS =
       audioBitrate: "128k",
       bandwidth: 2400000,
     },
+    {
+      name: "1080p",
+      maxWidth: 1920,
+      maxHeight: 1080,
+      videoBitrate: "4500k",
+      maxRate: "4950k",
+      bufferSize: "9000k",
+      audioBitrate: "128k",
+      bandwidth: 5500000,
+    },
   ]);
 
 function runProcess({
@@ -459,6 +469,7 @@ function createHlsManifestStorageKey(
 async function createHlsPackage({
   inputPath,
   outputDirectory,
+  renditions = HLS_RENDITIONS.slice(0, 3),
 }) {
   await mkdir(
     outputDirectory,
@@ -467,7 +478,7 @@ async function createHlsPackage({
     },
   );
 
-  for (const rendition of HLS_RENDITIONS) {
+  for (const rendition of renditions) {
     const renditionDirectory =
       `${outputDirectory}/${rendition.name}`;
 
@@ -494,7 +505,7 @@ async function createHlsPackage({
   const masterPlaylist = [
     "#EXTM3U",
     "#EXT-X-VERSION:3",
-    ...HLS_RENDITIONS.flatMap(
+    ...renditions.flatMap(
       (rendition) => [
         `#EXT-X-STREAM-INF:BANDWIDTH=${rendition.bandwidth}`,
         `${rendition.name}/index.m3u8`,
@@ -563,6 +574,8 @@ async function transcodeLocalVideo({
     `${hlsDirectory}.${assetId}.${randomUUID()}.processing`;
 
   try {
+    const source = await probeImage(inputPath);
+    const renditions = selectHlsRenditions(source);
     await runProcess({
       command:
         "ffmpeg",
@@ -614,9 +627,10 @@ async function transcodeLocalVideo({
 
     await createHlsPackage({
       inputPath:
-        temporaryOutputPath,
+        inputPath,
       outputDirectory:
         temporaryHlsDirectory,
+      renditions,
     });
 
     if (outputPath === inputPath) {
@@ -694,6 +708,7 @@ async function transcodeLocalVideo({
     }
 
     return {
+      hlsRenditions: renditions.map((rendition) => rendition.name),
       outputPath,
       outputStorageKey,
       sourcePath:
@@ -813,7 +828,12 @@ async function rollbackTranscode({
   }
 }
 
+function selectHlsRenditions({ width, height }) {
+  return HLS_RENDITIONS.filter((rendition) => rendition.name !== "1080p" || Math.min(width, height) >= 1080);
+}
+
 export {
+  selectHlsRenditions,
   createFfmpegArguments,
   createHlsArguments,
   createHlsManifestStorageKey,

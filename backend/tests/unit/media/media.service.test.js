@@ -9,6 +9,7 @@ const USER_ID =
   "63aae149-8f8f-4b30-b30d-211da764c080";
 
 const repositoryMock = {
+  findImageVariant: jest.fn(),
   findDeliveryContext:
     jest.fn(),
 
@@ -52,6 +53,23 @@ const {
 } = await import(
   "../../../src/modules/media/media.service.js"
 );
+
+test('image variants cannot bypass existing asset authorization', async () => {
+  repositoryMock.findDeliveryContext.mockResolvedValue(null);
+  repositoryMock.findImageVariant.mockClear();
+  await expect(MediaService.getLocalImageVariant({ assetId: ASSET_ID, size: '640' }))
+    .rejects.toMatchObject({ statusCode: 404 });
+  expect(repositoryMock.findImageVariant).not.toHaveBeenCalled();
+});
+
+test('authorized private image variant uses private cache policy', async () => {
+  repositoryMock.findDeliveryContext.mockResolvedValue({ mime_type: 'image/jpeg', processing_status: 'READY', is_public: false });
+  repositoryMock.findImageVariant.mockResolvedValue({ storage_key: 'posts/user/photo.jpg.images-v1/medium.webp' });
+  resolveStoragePathMock.mockReturnValue('/safe/medium.webp');
+  accessMock.mockResolvedValue();
+  expect(await MediaService.getLocalImageVariant({ assetId: ASSET_ID, size: '640', viewerUserId: USER_ID }))
+    .toMatchObject({ cacheControl: 'private, no-store', filePath: '/safe/medium.webp' });
+});
 
 function createAsset(
   overrides = {},

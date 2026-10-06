@@ -1,6 +1,33 @@
 import PostMapper
   from "../../../src/modules/users/mappers/post.mapper.js";
 
+test('image variants are additive and private variants never expose CDN URLs', () => {
+  const asset = { id: 'image', mimeType: 'image/jpeg', storageProvider: 'local', storageKey: 'posts/image.jpg',
+    imageVariants: [{ name: 'medium', width: 640, height: 480, fileSize: 1000,
+      storageProvider: 'r2', storageKey: 'posts/image.jpg.images-v1/medium.webp' }] };
+  const result = PostMapper.mapAsset({ ...asset, isPublic: false });
+  expect(result.url).toBe('/api/v1/media/assets/image/content');
+  expect(result.imageVariants[0]).toEqual({ size: 640, width: 640, height: 480,
+    fileSize: 1000, mimeType: 'image/webp', url: '/api/v1/media/assets/image/images/640' });
+  const previous = process.env.VIDEO_CDN_PUBLIC_BASE_URL;
+  process.env.VIDEO_CDN_PUBLIC_BASE_URL = 'https://media-uat.artictern.com';
+  try {
+    expect(PostMapper.mapAsset({ ...asset, isPublic: true }).imageVariants[0].url)
+      .toBe('https://media-uat.artictern.com/posts/image.jpg.images-v1/medium.webp');
+  } finally {
+    if (previous === undefined) delete process.env.VIDEO_CDN_PUBLIC_BASE_URL;
+    else process.env.VIDEO_CDN_PUBLIC_BASE_URL = previous;
+  }
+  expect(PostMapper.mapAsset({ ...asset, imageVariants: undefined }).imageVariants).toEqual([]);
+});
+
+test('1080p is advertised only when it was generated; legacy HLS URLs remain unchanged', () => {
+  const asset = { id: 'video', mimeType: 'video/mp4', storageProvider: 'local', hlsManifestStorageKey: 'posts/video.hls/master.m3u8' };
+  expect(PostMapper.mapAsset(asset).renditionUrls['1080p']).toBeUndefined();
+  expect(PostMapper.mapAsset({ ...asset, hlsRenditions: ['360p','540p','720p','1080p'] }).renditionUrls['1080p'])
+    .toBe('/api/v1/media/assets/video/stream/1080p/index.m3u8');
+});
+
 describe(
   "PostMapper",
   () => {

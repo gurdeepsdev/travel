@@ -202,6 +202,7 @@ import {
     buildAssetThumbnailUrl,
     buildAssetStreamUrl,
     buildAssetUrl,
+    buildImageVariants,
   } from "../utils/asset-url.util.js";
   
 import {
@@ -250,6 +251,7 @@ import {
             : null,
   
         mediaType,
+        imageVariants: buildImageVariants(asset),
 
         processingStatus,
   
@@ -335,6 +337,7 @@ import {
                   asset.storageProvider,
                 hlsManifestStorageKey:
                   asset.hlsManifestStorageKey,
+                hlsRenditions: asset.hlsRenditions,
                 isPublic:
                   asset.isPublic === true,
               })

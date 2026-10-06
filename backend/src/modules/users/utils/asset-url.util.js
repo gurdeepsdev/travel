@@ -224,6 +224,7 @@ const HLS_RENDITIONS = [
   "360p",
   "540p",
   "720p",
+  "1080p",
 ];
 
 export const buildAssetRenditionUrl = (
@@ -293,7 +294,7 @@ export const buildAssetRenditionUrls = (
   }
 
   return Object.fromEntries(
-    HLS_RENDITIONS.map(
+    HLS_RENDITIONS.filter((rendition) => rendition !== '1080p' || input.hlsRenditions?.includes('1080p')).map(
       (rendition) => [
         rendition,
         buildAssetRenditionUrl(
@@ -303,4 +304,16 @@ export const buildAssetRenditionUrls = (
       ],
     ),
   );
+};
+
+export const buildImageVariants = (asset) => {
+  if (!asset?.mimeType?.startsWith('image/')) return null;
+  const sizes = { small: 320, medium: 640, large: 1080, custom: 1600 };
+  return (asset.imageVariants ?? []).filter((v) => sizes[v.name]).map((v) => ({
+    size: sizes[v.name], width: Number(v.width), height: Number(v.height), fileSize: Number(v.fileSize),
+    mimeType: 'image/webp',
+    url: asset.isPublic === true && v.storageProvider !== 'local'
+      ? buildAssetUrl({ assetId: asset.id, storageKey: v.storageKey, storageProvider: v.storageProvider, isPublic: true })
+      : `/api/v1/media/assets/${encodeURIComponent(asset.id)}/images/${sizes[v.name]}`,
+  }));
 };

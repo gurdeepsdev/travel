@@ -1,6 +1,14 @@
 import Database from "../../database/database-manager.js";
 
 class MediaRepository {
+  async findImageVariant(assetId, variantName) {
+    const { rows } = await Database.query(`SELECT v.storage_key, v.width, v.height, v.file_size
+      FROM media.asset_variants v JOIN media.assets a ON a.id = v.asset_id
+      WHERE v.asset_id = $1::uuid AND v.variant_name = $2 AND v.format = 'webp' AND v.quality = 82
+        AND starts_with(v.storage_key, a.storage_key || '.images-v1/') LIMIT 1`, [assetId, variantName]);
+    return rows[0] ?? null;
+  }
+
   async findDeliveryContext({
     assetId,
     viewerUserId = null,

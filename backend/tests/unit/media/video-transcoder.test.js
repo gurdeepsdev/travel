@@ -5,6 +5,7 @@ import {
   createMp4StorageKey,
   createThumbnailArguments,
   createThumbnailStorageKey,
+  selectHlsRenditions,
 } from "../../../src/modules/media/video-transcoder.js";
 
 describe(
@@ -140,3 +141,12 @@ describe(
     );
   },
 );
+
+test('adds real 1080p only for sufficiently detailed landscape, portrait or square sources', () => {
+  for (const [width, height] of [[1920,1080], [1080,1920], [1080,1080]]) {
+    expect(selectHlsRenditions({ width, height }).map((r) => r.name)).toEqual(['360p','540p','720p','1080p']);
+  }
+  for (const [width, height] of [[1280,720], [720,1280], [1920,800]]) {
+    expect(selectHlsRenditions({ width, height }).map((r) => r.name)).toEqual(['360p','540p','720p']);
+  }
+});
