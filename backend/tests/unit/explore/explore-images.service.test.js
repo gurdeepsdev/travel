@@ -40,7 +40,8 @@ describe.each([
       { [idField]: rows[0].id, image: { ...image, extra: "ignored" } },
     ] } });
     const after = await request();
-    expect(after).toEqual({ ...before, [kind]: before[kind].map((item, index) => ({ ...item, image: index === 0 ? image : null })) });
+    const merged = before[kind].map((item, index) => ({ ...item, image: index === 0 ? image : null }));
+    expect(after).toEqual({ ...before, [kind]: kind === "places" ? merged.filter((item) => item.image !== null) : merged });
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0][1][kind]).toHaveLength(2);
     expect(post.mock.calls[0][2]).toMatchObject({ timeout: 5000, maxRedirects: 0 });
@@ -62,8 +63,8 @@ describe.each([
     repository.listPlaces.mockResolvedValue(many);
     post.mockResolvedValue({ data: { images: many.slice(0, cap).map((row) => ({ [idField]: row.id, image: null })) } });
     const result = await request();
-    expect(result[kind]).toHaveLength(cap + 1);
-    expect(result[kind][cap].image.id).toBe("old-image");
+    expect(result[kind]).toHaveLength(kind === "places" ? 1 : cap + 1);
+    expect(result[kind].at(-1).image.id).toBe("old-image");
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0][1][kind]).toHaveLength(cap);
   });
@@ -74,6 +75,38 @@ test("sends provider fields together only", async () => {
   await resolveExploreImages("places", [{ ...rows[0], provider: "google", provider_id: "google-id" }, { ...rows[1], provider: "google" }]);
   expect(post.mock.calls[0][1].places[0]).toMatchObject({ provider: "google", providerId: "google-id" });
   expect(post.mock.calls[0][1].places[1]).not.toHaveProperty("provider");
+});
+
+test("city places with no resolved images return an empty list without extra batches", async () => {
+  post.mockResolvedValue({ data: { images: rows.map((row) => ({ externalPlaceId: row.id, image: null })) } });
+  expect(await service.getCityPlaces({ cityId: "city-id", limit: 2 })).toEqual({ cityId: "city-id", places: [] });
+  expect(repository.listPlaces).toHaveBeenCalledTimes(1);
+  expect(post).toHaveBeenCalledTimes(1);
+});
+
+test("city places preserve ordering after filtering merged images", async () => {
+  const three = [...rows, { ...rows[0], id: "item-3" }];
+  repository.listPlaces.mockResolvedValue(three);
+  post.mockResolvedValue({ data: { images: [...three].reverse().map((row) => ({
+    externalPlaceId: row.id, image: row.id === "item-2" ? null : image,
+  })) } });
+  const result = await service.getCityPlaces({ cityId: "city-id" });
+  expect(result.places.map((place) => place.id)).toEqual(["item-1", "item-3"]);
+  expect(post).toHaveBeenCalledTimes(1);
+});
+
+test("integration errors still filter imageless places without failing the endpoint", async () => {
+  repository.listPlaces.mockResolvedValue([{ ...rows[0], image_asset_id: null }]);
+  post.mockRejectedValue(new Error("timeout"));
+  expect(await service.getCityPlaces({ cityId: "city-id" })).toEqual({ cityId: "city-id", places: [] });
+});
+
+test("general places endpoint retains imageless places and makes no AWS call", async () => {
+  repository.listPlaces.mockResolvedValue([{ ...rows[0], image_asset_id: null }]);
+  const result = await service.getPlaces();
+  expect(result.places).toHaveLength(1);
+  expect(result.places[0].image).toBeNull();
+  expect(post).not.toHaveBeenCalled();
 });
 
 test("empty input makes no external request", async () => {

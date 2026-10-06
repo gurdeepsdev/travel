@@ -618,12 +618,12 @@ describe(
     );
 
     test(
-      "returns places belonging to the selected city",
+      "returns places with images belonging to the selected city",
       async () => {
         exploreRepositoryMock
           .listPlaces
           .mockResolvedValue([
-            createPlaceRow(),
+            createPlaceRow({ image_asset_id: "12345678-1234-4234-8234-123456789012" }),
           ]);
 
         const result =
