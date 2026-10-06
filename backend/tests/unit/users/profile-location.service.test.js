@@ -134,11 +134,76 @@ test("post resolver maps provider outage without credentials", async () => {
   await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.LOCATION_LOOKUP_UNAVAILABLE", statusCode: 503 });
   expect(query).not.toHaveBeenCalled();
 });
-test("post resolver rejects businesses and arbitrary internal UUIDs", async () => {
+test("post resolver rejects incomplete place details and arbitrary internal UUIDs", async () => {
   get.mockResolvedValue(response(googleCity, "restaurant"));
   await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
   await expect(resolvePostCityLocation(cityId, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
   expect(query).not.toHaveBeenCalled();
+});
+
+describe("post selected places", () => {
+  beforeEach(() => {
+    get.mockResolvedValue({ data: { ...response(googleCity, "point_of_interest").data,
+      displayName: { text: "Lotus Temple" }, formattedAddress: "Delhi, India" } });
+    query.mockImplementation(async (sql) => ({ rows:
+      sql.includes("FROM poi.countries") ? [country] :
+      sql.includes("FROM poi.regions") ? [{ id: "region", is_active: true }] :
+      sql.includes("FROM poi.cities") ? [city] :
+      sql.includes("FROM poi.categories") ? [{ id: "other", is_active: true }] :
+      sql.includes("INSERT INTO poi.places") ? [{ id: "place" }] : [] }));
+  });
+  test("creates selected place with Other and retains its parent city", async () => {
+    expect(await resolvePostCityLocation(googleCity, { query })).toEqual({ id: cityId, place_id: "place" });
+    expect(query.mock.calls.find(([sql]) => sql.includes("INSERT INTO poi.places"))[1])
+      .toEqual([cityId, "region", countryId, "other", "Lotus Temple", googleCity, "Delhi, India", 28.7, 77.1]);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+  test("creates missing parent without assigning the POI provider ID to the city", async () => {
+    const original = query.getMockImplementation();
+    query.mockImplementation(async (sql, params) => sql.includes("FROM poi.cities") ? { rows: [] } :
+      sql.includes("INSERT INTO poi.cities") ? { rows: [city] } : original(sql, params));
+    await resolvePostCityLocation(googleCity, { query });
+    expect(query.mock.calls.find(([sql]) => sql.includes("INSERT INTO poi.cities"))[1])
+      .toEqual(["region", countryId, "Delhi"]);
+  });
+  test("creates missing Other category", async () => {
+    const original = query.getMockImplementation();
+    query.mockImplementation(async (sql, params) => sql.includes("FROM poi.categories") ? { rows: [] } :
+      sql.includes("INSERT INTO poi.categories") ? { rows: [{ id: "other", is_active: true }] } : original(sql, params));
+    await resolvePostCityLocation(googleCity, { query });
+    expect(query.mock.calls.some(([sql]) => sql.includes("INSERT INTO poi.categories"))).toBe(true);
+  });
+  test.each([true, false])("reuses existing place without changing its category; closed=%s", async (closed) => {
+    const original = query.getMockImplementation();
+    query.mockImplementation(async (sql, params) => sql.includes("FROM poi.places") ?
+      { rows: [{ id: "existing", city_id: cityId, is_closed: closed, is_active: true }] } : original(sql, params));
+    if (closed) await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
+    else expect(await resolvePostCityLocation(googleCity, { query })).toEqual({ id: cityId, place_id: "existing" });
+    expect(query.mock.calls.some(([sql]) => sql.includes("poi.categories") || sql.includes("INSERT INTO poi.places"))).toBe(false);
+  });
+  test("rejects permanently closed Google places before writing", async () => {
+    get.mockResolvedValue({ data: { ...response(googleCity, "point_of_interest").data,
+      displayName: { text: "Lotus Temple" }, businessStatus: "CLOSED_PERMANENTLY" } });
+    await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
+    expect(query).not.toHaveBeenCalled();
+  });
+  test.each(["regions", "cities", "categories"])("does not reactivate inactive %s", async (table) => {
+    const original = query.getMockImplementation();
+    query.mockImplementation(async (sql, params) => sql.includes(`FROM poi.${table}`) ?
+      { rows: [{ id: "inactive", is_active: false }] } : original(sql, params));
+    await expect(resolvePostCityLocation(googleCity, { query })).rejects.toMatchObject({ code: "POST.PLACE_NOT_ALLOWED" });
+    expect(query.mock.calls.some(([sql]) => sql.includes("INSERT INTO poi.places"))).toBe(false);
+  });
+  test("database failure propagates to the caller transaction", async () => {
+    const original = query.getMockImplementation();
+    const failure = new Error("database unavailable");
+    query.mockImplementation(async (sql, params) => {
+      if (sql.includes("INSERT INTO poi.places")) throw failure;
+      return original(sql, params);
+    });
+    await expect(resolvePostCityLocation(googleCity, { query })).rejects.toBe(failure);
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });
 
 test.each(["administrative_area_level_1", "administrative_area_level_2"])("accepts Google %s selections using the matching component", async (type) => {
