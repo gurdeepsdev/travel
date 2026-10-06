@@ -34,12 +34,15 @@ export async function listImagePlaces({ cityId, limit, cursor }) {
     logger.warn({ integration: "explore-images" }, "Published place listing failed.");
     return empty;
   }
-  const targets = data.places.map(({ provider, providerId }) => ({ provider, providerId }));
+  const eligible = data.places.filter((p) => typeof p.title === 'string' && p.title.trim() &&
+    typeof p.description === 'string' && p.description.trim());
+  const targets = eligible.map(({ provider, providerId }) => ({ provider, providerId }));
   const rows = targets.length ? await repository.listPlaces({ cityId, limit: 50, imageTargets: targets }) : [];
-  const images = new Map(data.places.map((p) => [JSON.stringify([p.provider, p.providerId]), p.image]));
+  const content = new Map(eligible.map((p) => [JSON.stringify([p.provider, p.providerId]), p]));
   return { cityId, places: rows.map((row) => {
     const provider = row.provider?.toLowerCase() === "google_places" ? "google" : row.provider?.toLowerCase();
-    const image = images.get(JSON.stringify([provider, row.provider_id]));
-    return image ? { ...mapper.toPlace(row), image: { id: image.id, url: image.url, mimeType: image.mimeType } } : null;
+    const place = content.get(JSON.stringify([provider, row.provider_id]));
+    return place ? { ...mapper.toPlace(row), name: place.title, description: place.description,
+      image: { id: place.image.id, url: place.image.url, mimeType: place.image.mimeType } } : null;
   }).filter(Boolean), pagination: { hasMore: data.pagination.hasMore, nextCursor: data.pagination.nextCursor } };
 }
