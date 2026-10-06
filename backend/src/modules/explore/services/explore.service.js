@@ -4,6 +4,7 @@ import ExploreRepository
 import ExploreMapper
   from "../mappers/explore.mapper.js";
 import { resolveExploreImages } from "./explore-images.service.js";
+import { listImagePlaces } from "./image-places.service.js";
 
 import PostsRepository
   from "../../users/repositories/posts.repository.js";
@@ -75,40 +76,9 @@ class ExploreService {
   async getCityPlaces({
     cityId,
     limit = 20,
+    cursor,
   }) {
-    const placeRows =
-      await ExploreRepository
-        .listPlaces({
-          cityId,
-          limit,
-
-          latitude:
-            null,
-
-          longitude:
-            null,
-        });
-
-    const images = await resolveExploreImages("places", placeRows);
-
-    return {
-      cityId,
-
-      places:
-        placeRows
-          .map(
-            (row) =>
-              ExploreMapper
-                .toPlace(
-                  row,
-                ),
-          )
-          .filter(
-            Boolean,
-          ).map((place) => images?.has(place.id)
-            ? { ...place, image: images.get(place.id) }
-            : place).filter((place) => place.image != null),
-    };
+    return listImagePlaces({ cityId, limit, cursor });
   }
 
   async getPlaces({

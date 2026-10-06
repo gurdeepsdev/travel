@@ -80,6 +80,7 @@ class ExploreController {
           .getCityPlaces({
             cityId,
             limit,
+            cursor: req.validated.query.cursor,
           });
 
       return Response.success(
