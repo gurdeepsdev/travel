@@ -16,7 +16,8 @@ async function details(id, kind) {
   try {
     ({ data } = await axios.get(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`, {
       params: { languageCode: "en" },
-      headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "id,types,addressComponents,location" },
+      headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "id,types,addressComponents,location" +
+        (kind === "post" ? ",displayName,businessStatus,formattedAddress" : "") },
       timeout: 5000, maxRedirects: 0, maxContentLength: 256 * 1024,
     }));
   } catch (error) {
@@ -33,6 +34,19 @@ async function details(id, kind) {
   const cityTypes = ["locality", "postal_town", "administrative_area_level_3", "administrative_area_level_2", "administrative_area_level_1"];
   const city = cityTypes.filter((type) => data?.types?.includes(type))
     .map(component).find((part) => part?.longText);
+  if (kind === "post" && !city) {
+    const parent = cityTypes.map(component).find((part) => part?.longText);
+    if (!data?.id || !data?.types?.some((type) => ["point_of_interest", "establishment"].includes(type)) ||
+        !parent || !data.displayName?.text?.trim() || data.businessStatus === "CLOSED_PERMANENTLY" ||
+        !/^[A-Z]{2}$/.test(country?.shortText || "") || !country?.longText) {
+      fail("PLACE_NOT_FOUND", "Select a valid Google place.");
+    }
+    return { id: data.id, isPlace: true, name: data.displayName.text.trim(),
+      cityName: parent.longText, code: country.shortText, countryName: country.longText,
+      region: component("administrative_area_level_1")?.longText,
+      address: data.formattedAddress ?? null,
+      latitude: data.location?.latitude ?? null, longitude: data.location?.longitude ?? null };
+  }
   const validType = kind === "country" ? data?.types?.includes("country")
     : Boolean(city);
   if (!data?.id || !validType || !/^[A-Z]{2}$/.test(country?.shortText || "") ||
@@ -59,7 +73,8 @@ export async function resolvePostCityLocation(cityId, client) {
     if (!external(cityId) || !/^[A-Za-z0-9_-]{20,255}$/.test(cityId)) {
       fail("CITY_NOT_FOUND", "Select a valid Google city.");
     }
-    const city = await details(cityId, "city");
+    const city = await details(cityId, "post");
+    if (city.isPlace) return await persistPostPlace(city, client);
     const result = await persistLocation({}, {}, city, city, client);
     return { id: result.cityId, name: city.name };
   } catch (error) {
@@ -70,6 +85,47 @@ export async function resolvePostCityLocation(cityId, client) {
       statusCode: error.statusCode === 503 ? 503 : 404,
     });
   }
+}
+
+async function persistPostPlace(place, client) {
+  const one = async (sql, params) => (await client.query(sql, params)).rows[0];
+  const { countryId } = await persistLocation({}, {}, place, null, client);
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`post-place:${place.id}`]);
+  const existing = await one(`SELECT place.id, place.city_id, place.is_closed, city.is_active
+    FROM poi.places place JOIN poi.cities city ON city.id = place.city_id
+    WHERE place.provider = 'GOOGLE_PLACES' AND place.provider_id = $1 FOR UPDATE OF place, city`, [place.id]);
+  if (existing) {
+    if (existing.is_closed || !existing.is_active) fail("PLACE_NOT_FOUND", "Selected place is unavailable.");
+    return { id: existing.city_id, place_id: existing.id };
+  }
+  const regionName = place.region || place.countryName;
+  if (place.name.length > 50 || place.cityName.length > 50 || regionName.length > 50 ||
+      place.id.length > 100 || (place.address?.length ?? 0) > 300) {
+    fail("PLACE_NOT_FOUND", "Location exceeds the supported length.");
+  }
+  let region = await one(`SELECT id, is_active FROM poi.regions
+    WHERE country_id = $1 AND LOWER(name) = LOWER($2) FOR UPDATE`, [countryId, regionName]);
+  if (!region) region = await one(`INSERT INTO poi.regions (country_id, name) VALUES ($1, $2)
+    ON CONFLICT (country_id, name) DO UPDATE SET name = EXCLUDED.name RETURNING id, is_active`, [countryId, regionName]);
+  if (!region.is_active) fail("PLACE_NOT_FOUND", "Selected region is inactive.");
+  let city = await one(`SELECT id, is_active FROM poi.cities
+    WHERE region_id = $1 AND LOWER(name) = LOWER($2) FOR UPDATE`, [region.id, place.cityName]);
+  // Address components have no parent city Place ID; never store the POI ID as a city ID.
+  if (!city) city = await one(`INSERT INTO poi.cities (region_id, country_id, name)
+    VALUES ($1, $2, $3) RETURNING id, is_active`, [region.id, countryId, place.cityName]);
+  if (!city.is_active) fail("PLACE_NOT_FOUND", "Selected city is inactive.");
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["post-category:other"]);
+  let category = await one(`SELECT id, is_active FROM poi.categories WHERE LOWER(name) = 'other'
+    ORDER BY id LIMIT 1 FOR UPDATE`, []);
+  if (!category) category = await one(`INSERT INTO poi.categories (name) VALUES ('Other')
+    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id, is_active`, []);
+  if (!category.is_active) fail("PLACE_NOT_FOUND", "Default place category is inactive.");
+  const record = await one(`INSERT INTO poi.places
+    (city_id, region_id, country_id, category_id, name, provider, provider_id, address, latitude, longitude)
+    VALUES ($1, $2, $3, $4, $5, 'GOOGLE_PLACES', $6, $7, $8, $9)
+    RETURNING id`, [city.id, region.id, countryId, category.id, place.name, place.id,
+    place.address, place.latitude, place.longitude]);
+  return { id: city.id, place_id: record.id };
 }
 
 async function persistLocation(changes, currentProfile, country, city, client) {

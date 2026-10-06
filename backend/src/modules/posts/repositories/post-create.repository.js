@@ -31,6 +31,7 @@ class PostCreateRepository {
           SELECT
             city.id,
             city.name,
+            NULL::uuid AS place_id,
             1 AS match_priority
           FROM poi.cities city
           WHERE city.provider =
@@ -44,6 +45,7 @@ class PostCreateRepository {
           SELECT
             city.id,
             city.name,
+            place.id AS place_id,
             2 AS match_priority
           FROM poi.places place
           INNER JOIN poi.cities city
@@ -55,7 +57,7 @@ class PostCreateRepository {
               $1::varchar
             AND place.is_closed IS FALSE
         )
-        SELECT id, name
+        SELECT id, name, place_id
         FROM matching_cities
         ORDER BY match_priority
         LIMIT 1

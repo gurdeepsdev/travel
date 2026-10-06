@@ -634,10 +634,10 @@ class PostCreateService {
                     effectiveVisibility,
 
                   placeId:
-                    null,
+                    city.place_id ?? null,
 
                   cityId:
-                    city.id,
+                    city.place_id ? null : city.id,
 
                   postType,
                 });

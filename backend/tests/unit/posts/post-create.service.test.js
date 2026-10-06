@@ -813,6 +813,17 @@ describe(
     test("existing eligible cities bypass Google resolution", async () => {
       await PostCreateService.createPost(createRequest());
       expect(resolvePostCityLocationMock).not.toHaveBeenCalled();
+      expect(postCreateRepositoryMock.insertPost).toHaveBeenCalledWith(expect.objectContaining({ placeId: null }));
+    });
+
+    test.each([true, false])("retains the selected place on the post; existing=%s", async (existing) => {
+      const location = { id: CITY_ID, place_id: "8c3454f5-1aad-4f89-a17a-90d4438ba155" };
+      postCreateRepositoryMock.findEligibleCity.mockResolvedValue(existing ? location : null);
+      resolvePostCityLocationMock.mockResolvedValue(location);
+      await PostCreateService.createPost(createRequest());
+      expect(postCreateRepositoryMock.insertPost).toHaveBeenCalledWith(expect.objectContaining({
+        cityId: null, placeId: location.place_id, client: transactionClient,
+      }));
     });
 
     test(
