@@ -324,6 +324,7 @@ const getExploreCityPlacesSchema =
 
     query:
       z.object({
+        cursor: z.string().min(1).max(1024).regex(/^[A-Za-z0-9_-]+$/).optional(),
         limit:
           z.coerce
             .number({

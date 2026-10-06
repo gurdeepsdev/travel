@@ -29,7 +29,6 @@ afterAll(() => {
 
 describe.each([
   ["cities", "externalCityId", () => service.getCities()],
-  ["places", "externalPlaceId", () => service.getCityPlaces({ cityId: "city-id" })],
 ])("%s image integration", (kind, idField, request) => {
   test("merges by ID, replaces existing images, preserves structure and null, one call", async () => {
     delete process.env.ARTICTERN_IMAGE_API_KEY;
@@ -77,29 +76,6 @@ test("sends provider fields together only", async () => {
   expect(post.mock.calls[0][1].places[1]).not.toHaveProperty("provider");
 });
 
-test("city places with no resolved images return an empty list without extra batches", async () => {
-  post.mockResolvedValue({ data: { images: rows.map((row) => ({ externalPlaceId: row.id, image: null })) } });
-  expect(await service.getCityPlaces({ cityId: "city-id", limit: 2 })).toEqual({ cityId: "city-id", places: [] });
-  expect(repository.listPlaces).toHaveBeenCalledTimes(1);
-  expect(post).toHaveBeenCalledTimes(1);
-});
-
-test("city places preserve ordering after filtering merged images", async () => {
-  const three = [...rows, { ...rows[0], id: "item-3" }];
-  repository.listPlaces.mockResolvedValue(three);
-  post.mockResolvedValue({ data: { images: [...three].reverse().map((row) => ({
-    externalPlaceId: row.id, image: row.id === "item-2" ? null : image,
-  })) } });
-  const result = await service.getCityPlaces({ cityId: "city-id" });
-  expect(result.places.map((place) => place.id)).toEqual(["item-1", "item-3"]);
-  expect(post).toHaveBeenCalledTimes(1);
-});
-
-test("integration errors still filter imageless places without failing the endpoint", async () => {
-  repository.listPlaces.mockResolvedValue([{ ...rows[0], image_asset_id: null }]);
-  post.mockRejectedValue(new Error("timeout"));
-  expect(await service.getCityPlaces({ cityId: "city-id" })).toEqual({ cityId: "city-id", places: [] });
-});
 
 test("general places endpoint retains imageless places and makes no AWS call", async () => {
   repository.listPlaces.mockResolvedValue([{ ...rows[0], image_asset_id: null }]);

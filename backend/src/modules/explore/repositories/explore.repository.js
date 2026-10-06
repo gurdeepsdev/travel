@@ -414,6 +414,7 @@ class ExploreRepository {
     longitude = null,
     radiusKm = 50,
     limit = 10,
+    imageTargets = null,
   } = {}) {
     const hasLocation =
       latitude !== null &&
@@ -601,6 +602,12 @@ class ExploreRepository {
             $4::uuid
         )
 
+        ${imageTargets === null ? '' : `AND EXISTS (
+          SELECT 1 FROM jsonb_to_recordset($6::jsonb) AS target(provider text, "providerId" text)
+          WHERE target.provider = CASE WHEN LOWER(place.provider) = 'google_places' THEN 'google' ELSE LOWER(place.provider) END
+            AND target."providerId" = place.provider_id
+        )`}
+
       ORDER BY
         CASE
           WHEN $1::double precision
@@ -638,6 +645,7 @@ class ExploreRepository {
           cityId,
 
           safeLimit,
+          ...(imageTargets === null ? [] : [JSON.stringify(imageTargets)]),
         ],
       );
 

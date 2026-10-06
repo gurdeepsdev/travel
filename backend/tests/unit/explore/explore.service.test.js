@@ -42,6 +42,9 @@ const postsRepositoryMock = {
     jest.fn(),
 };
 
+const listImagePlaces = jest.fn();
+jest.unstable_mockModule("../../../src/modules/explore/services/image-places.service.js", () => ({ listImagePlaces }));
+
 jest.unstable_mockModule(
   "../../../src/modules/explore/repositories/explore.repository.js",
   () => ({
@@ -620,6 +623,7 @@ describe(
     test(
       "returns places with images belonging to the selected city",
       async () => {
+        listImagePlaces.mockResolvedValue({ cityId: CITY_ID, places: [{ id: PLACE_ID, name: "DLF Mall of India" }] });
         exploreRepositoryMock
           .listPlaces
           .mockResolvedValue([
@@ -637,8 +641,7 @@ describe(
             });
 
         expect(
-          exploreRepositoryMock
-            .listPlaces,
+          listImagePlaces,
         ).toHaveBeenCalledWith({
           cityId:
             CITY_ID,
@@ -646,11 +649,7 @@ describe(
           limit:
             20,
 
-          latitude:
-            null,
-
-          longitude:
-            null,
+          cursor: undefined,
         });
 
         expect(result).toMatchObject({
