@@ -107,7 +107,7 @@ class ExploreService {
             Boolean,
           ).map((place) => images?.has(place.id)
             ? { ...place, image: images.get(place.id) }
-            : place),
+            : place).filter((place) => place.image != null),
     };
   }
 
