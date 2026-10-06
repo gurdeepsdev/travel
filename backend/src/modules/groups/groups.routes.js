@@ -74,6 +74,7 @@ router.post(
 router.post(
   "/itineraries/:itineraryId/group",
   AuthMiddleware.authenticate,
+  groupImageUploadMiddleware,
   validate(createLinkedGroupSchema),
   Controller.createLinkedGroup,
 );

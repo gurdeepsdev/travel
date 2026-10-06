@@ -132,6 +132,7 @@ class GroupsController {
         itineraryId: req.validated.params.itineraryId,
         userId: req.user.id,
         input: req.validated.body,
+        groupImageFile: req.file,
       });
 
       return Response.success(

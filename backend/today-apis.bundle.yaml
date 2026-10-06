@@ -2656,6 +2656,17 @@ paths:
       requestBody:
         required: false
         content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                description: { type: string, maxLength: 2000 }
+                groupImage:
+                  type: string
+                  format: binary
+                  description: Optional JPEG, PNG, WebP, HEIC, or HEIF image (maximum 10 MiB). Used only when creating a new group; retries preserve the existing image.
           application/json:
             schema:
               type: object

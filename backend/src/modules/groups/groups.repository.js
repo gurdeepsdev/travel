@@ -702,7 +702,7 @@ class GroupsRepository {
     );
   }
 
-  async createLinkedGroup({ itineraryId, userId, input }) {
+  async createLinkedGroup({ itineraryId, userId, input, storedImage }) {
     return Database.transaction(async (client) => {
       await this.lockItinerary({ client, itineraryId });
 
@@ -719,17 +719,29 @@ class GroupsRepository {
         client,
         itineraryId,
       });
-      let created = false;
 
       if (!group) {
+        let coverAssetId = null;
+        let cleanupObjects = [];
+        if (storedImage) {
+          const resolved = await MediaRepository.resolveUploadedAssets({
+            client, userId, isPublic: true,
+            uploads: [{ ...storedImage, fileIndex: 0 }],
+          });
+          coverAssetId = resolved.assets[0]?.id ?? null;
+          cleanupObjects = [...resolved.unusedStoredObjects, ...resolved.supersededStoredObjects];
+        }
         group = await this.createLinked({
           client,
           itineraryId,
           ownerId: userId,
           name: input.name ?? itinerary.title ?? "Trip group",
           description: input.description ?? null,
+          coverAssetId,
         });
-        created = true;
+        group = { ...group, cover_asset_mime_type: storedImage?.mimeType ?? null };
+        await this.ensureOwnerMember({ client, groupId: group.id, ownerId: userId });
+        return { group, created: true, cleanupObjects };
       }
 
       if (group.owner_id !== userId) {
@@ -742,7 +754,7 @@ class GroupsRepository {
         ownerId: userId,
       });
 
-      return { group, created };
+      return { group, created: false };
     });
   }
 }
