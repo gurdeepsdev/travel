@@ -190,34 +190,56 @@ class GroupsService {
     };
   }
 
-  async createLinkedGroup({ itineraryId, userId, input }) {
-    const result = await Repository.createLinkedGroup({
-      itineraryId,
-      userId,
-      input,
-    });
-
-    if (!result) {
-      throw new AppError({
-        code: ErrorCodes.ITINERARY.NOT_FOUND,
-        message: "Itinerary not found.",
-        statusCode: HttpStatus.NOT_FOUND,
+  async createLinkedGroup({ itineraryId, userId, input, groupImageFile }) {
+    let storedImage = null;
+    let committed = false;
+    try {
+      if (groupImageFile) {
+        const inspected = await inspectProfilePhotoFile(groupImageFile);
+        const stored = await StorageManager.store({
+          temporaryPath: inspected.temporaryPath,
+          category: "group-images", userId, extension: inspected.extension,
+        });
+        storedImage = { ...inspected, ...stored };
+      }
+      const result = await Repository.createLinkedGroup({
+        itineraryId,
+        userId,
+        input,
+        ...(storedImage ? { storedImage } : {}),
       });
-    }
 
-    if (result.conflict) {
-      throw new AppError({
-        code: ErrorCodes.GROUP.ITINERARY_ALREADY_LINKED,
-        message: "This itinerary is already linked to another group.",
-        statusCode: HttpStatus.CONFLICT,
-      });
-    }
+      if (!result) {
+        throw new AppError({
+          code: ErrorCodes.ITINERARY.NOT_FOUND,
+          message: "Itinerary not found.",
+          statusCode: HttpStatus.NOT_FOUND,
+        });
+      }
 
-    const { group } = result;
-    return {
-      created: result.created,
-      group: this.mapGroup(group),
-    };
+      if (result.conflict) {
+        throw new AppError({
+          code: ErrorCodes.GROUP.ITINERARY_ALREADY_LINKED,
+          message: "This itinerary is already linked to another group.",
+          statusCode: HttpStatus.CONFLICT,
+        });
+      }
+
+      const { group } = result;
+      committed = result.created === true;
+      for (const object of result.cleanupObjects ?? []) {
+        try { await StorageManager.remove(object); } catch { /* best-effort post-commit cleanup */ }
+      }
+      return {
+        created: result.created,
+        group: this.mapGroup(group),
+      };
+    } finally {
+      // Existing-group retries must not replace the cover or retain unused uploads.
+      if (!committed && storedImage?.storageKey) {
+        try { await StorageManager.remove(storedImage); } catch { /* preserve original result */ }
+      }
+    }
   }
 
   async listLinkedGroupMembers({ itineraryId, userId }) {

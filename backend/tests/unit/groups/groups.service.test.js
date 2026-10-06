@@ -1,5 +1,10 @@
 import { jest } from "@jest/globals";
 
+const storageMock = { store: jest.fn(), remove: jest.fn() };
+const inspectMock = jest.fn();
+jest.unstable_mockModule("../../../src/providers/storage/storage-manager.js", () => ({ default: storageMock }));
+jest.unstable_mockModule("../../../src/modules/users/utils/profile-photo-file.util.js", () => ({ inspectProfilePhotoFile: inspectMock }));
+
 const repositoryMock = {
   deleteGroup: jest.fn(),
   unlinkItinerary: jest.fn(),
@@ -262,6 +267,29 @@ describe("GroupsService", () => {
         status: "ACTIVE",
       },
     });
+  });
+
+  test.each([true, false])("handles linked group image upload with created=%s", async (created) => {
+    inspectMock.mockResolvedValue({ temporaryPath: "/tmp/image", extension: "jpg", mimeType: "image/jpeg" });
+    storageMock.store.mockResolvedValue({ storageKey: "group-images/test.jpg" });
+    repositoryMock.createLinkedGroup.mockResolvedValue({ created, group: {
+      id: groupId, owner_id: userId, itinerary_id: itineraryId,
+      cover_asset_id: userId, cover_asset_mime_type: "image/jpeg",
+    } });
+    const result = await service.createLinkedGroup({ itineraryId, userId, input: {}, groupImageFile: { path: "/tmp/image" } });
+    expect(repositoryMock.createLinkedGroup).toHaveBeenCalledWith(expect.objectContaining({
+      storedImage: expect.objectContaining({ storageKey: "group-images/test.jpg" }),
+    }));
+    expect(result.group).toMatchObject({ id: groupId });
+    expect(storageMock.remove).toHaveBeenCalledTimes(created ? 0 : 1);
+  });
+
+  test("cleans a linked group image when persistence fails", async () => {
+    inspectMock.mockResolvedValue({ temporaryPath: "/tmp/image", extension: "jpg" });
+    storageMock.store.mockResolvedValue({ storageKey: "group-images/test.jpg" });
+    repositoryMock.createLinkedGroup.mockRejectedValueOnce(new Error("Persistence failed"));
+    await expect(service.createLinkedGroup({ itineraryId, userId, input: {}, groupImageFile: {} })).rejects.toThrow("Persistence failed");
+    expect(storageMock.remove).toHaveBeenCalledWith(expect.objectContaining({ storageKey: "group-images/test.jpg" }));
   });
 
   test("hides a missing or unowned itinerary", async () => {
