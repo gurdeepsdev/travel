@@ -23,6 +23,7 @@ import videoObjectStorage
 const CONTENT_TYPES =
   Object.freeze({
     ".jpg": "image/jpeg",
+    ".webp": "image/webp",
     ".m3u8":
       "application/vnd.apple.mpegurl",
     ".mp4": "video/mp4",

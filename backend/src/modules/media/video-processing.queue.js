@@ -13,6 +13,8 @@ import {
   VIDEO_PROCESSING_QUEUE,
   VIDEO_PROCESSING_STATUS,
   VIDEO_STORAGE_SYNC_JOB,
+  IMAGE_JOB,
+  IMAGE_PROCESSING_QUEUE,
 } from "./video-processing.constants.js";
 
 const connection = {
@@ -62,6 +64,15 @@ const queue =
       },
     },
   );
+
+const imageQueue = new Queue(IMAGE_PROCESSING_QUEUE, {
+  connection,
+  defaultJobOptions: {
+    attempts: 3, backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: { age: 86400, count: 1000 },
+    removeOnFail: { age: 604800, count: 5000 },
+  },
+});
 
 function createVideoProcessingJobs(
   assets,
@@ -114,16 +125,15 @@ function createVideoProcessingJobs(
 async function enqueueVideoAssets(
   assets,
 ) {
-  const jobs =
-    createVideoProcessingJobs(
-      assets,
-    );
+  const jobs = createVideoProcessingJobs(assets);
 
   if (jobs.length > 0) {
     await queue.addBulk(
       jobs,
     );
   }
+  const imageJobs = createImageProcessingJobs(assets);
+  if (imageJobs.length) await imageQueue.addBulk(imageJobs);
 }
 
 async function enqueueVideoStorageSync(
@@ -147,14 +157,23 @@ async function enqueueVideoStorageSync(
       },
     }));
 
-  if (jobs.length > 0) {
-    await queue.addBulk(jobs);
-  }
+  if (jobs.length > 0) await queue.addBulk(jobs);
+  const imageJobs = createImageProcessingJobs(assets, false);
+  if (imageJobs.length) await imageQueue.addBulk(imageJobs);
+}
+
+function createImageProcessingJobs(assets, deduplicate = true) {
+  return (assets ?? []).filter((asset) => asset?.id && String(asset.mime_type ?? '').startsWith('image/') &&
+    asset.processing_status === 'READY').map((asset) => ({
+    name: IMAGE_JOB, data: { assetId: asset.id },
+    ...(deduplicate ? { opts: { jobId: `image-${asset.id}-${createHash('sha256').update(String(asset.storage_key ?? asset.id)).digest('hex').slice(0, 16)}` } } : {}),
+  }));
 }
 
 export {
   connection,
   createVideoProcessingJobs,
+  createImageProcessingJobs,
   enqueueVideoAssets,
   enqueueVideoStorageSync,
   queue,

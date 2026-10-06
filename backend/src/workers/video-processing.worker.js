@@ -17,6 +17,7 @@ import {
 import {
   VIDEO_PROCESSING_QUEUE,
   VIDEO_STORAGE_SYNC_JOB,
+  IMAGE_PROCESSING_QUEUE,
 } from "../modules/media/video-processing.constants.js";
 
 import VideoProcessingRepository
@@ -26,6 +27,8 @@ import VideoProcessingService
   from "../modules/media/video-processing.service.js";
 import VideoStorageSyncService
   from "../modules/media/video-storage-sync.service.js";
+import ImageProcessingService, { findImageCandidates }
+  from "../modules/media/image-processing.service.js";
 
 await connectInfrastructure();
 
@@ -36,6 +39,7 @@ const pendingAssets =
 await enqueueVideoAssets(
   pendingAssets,
 );
+await enqueueVideoStorageSync(await findImageCandidates());
 
 const storageSyncCandidates =
   await VideoProcessingRepository
@@ -151,6 +155,7 @@ async function shutdown(
   );
 
   await worker.close();
+  await imageWorker.close();
   process.exit(0);
 }
 
@@ -175,3 +180,10 @@ process.once(
 logger.info(
   "Video processing worker started.",
 );
+
+const imageWorker = new Worker(IMAGE_PROCESSING_QUEUE,
+  (job) => ImageProcessingService.process(job.data.assetId), { connection, concurrency: 1 });
+imageWorker.on('completed', (job) => logger.info({ assetId: job.data.assetId }, 'Image optimization completed.'));
+imageWorker.on('failed', (job, error) => logger.error({ assetId: job?.data?.assetId,
+  attemptsMade: job?.attemptsMade, error: { name: error.name, message: error.message } }, 'Image optimization failed; original retained.'));
+logger.info('Post image worker started.');

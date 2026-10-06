@@ -37,6 +37,24 @@ function createAssetNotFoundError() {
 }
 
 class MediaService {
+  async getLocalImageVariant({ assetId, size, viewerUserId = null }) {
+    const asset = await MediaRepository.findDeliveryContext({ assetId, viewerUserId });
+    if (!asset || !asset.mime_type?.startsWith('image/') || asset.processing_status !== 'READY') {
+      throw createAssetNotFoundError();
+    }
+    const names = { '320': 'small', '640': 'medium', '1080': 'large', '1600': 'custom' };
+    const variant = names[size] ? await MediaRepository.findImageVariant(assetId, names[size]) : null;
+    if (!variant) throw createAssetNotFoundError();
+    const filePath = resolveStoragePath(variant.storage_key);
+    try {
+      await access(filePath, fileConstants.R_OK);
+    } catch {
+      throw createAssetNotFoundError();
+    }
+    return { filePath, storageKey: variant.storage_key,
+      cacheControl: asset.is_public ? 'public, max-age=3600' : 'private, no-store' };
+  }
+
   async getLocalAssetContent({
     assetId,
     viewerUserId = null,

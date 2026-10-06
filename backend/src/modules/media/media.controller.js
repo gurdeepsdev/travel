@@ -41,6 +41,18 @@ function deliverLocalFile({
 }
 
 class MediaController {
+  async getImageVariant(req, res, next) {
+    try {
+      const result = await MediaService.getLocalImageVariant({
+        ...req.validated.params, viewerUserId: req.user?.id ?? null,
+      });
+      res.set({ 'Cache-Control': result.cacheControl, 'Content-Type': 'image/webp', 'Content-Disposition': 'inline' });
+      return deliverLocalFile({ res, next, ...result });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   /**
    * Delivers a local asset after public/owner
    * access has been confirmed.

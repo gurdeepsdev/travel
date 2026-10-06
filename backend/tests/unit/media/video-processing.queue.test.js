@@ -18,6 +18,8 @@ jest.unstable_mockModule(
 
 const {
   createVideoProcessingJobs,
+  createImageProcessingJobs,
+  enqueueVideoStorageSync,
   enqueueVideoAssets,
 } = await import(
   "../../../src/modules/media/video-processing.queue.js"
@@ -32,7 +34,7 @@ describe(
     });
 
     test(
-      "queues only videos awaiting processing",
+      "keeps video jobs unchanged and queues ready image optimization separately",
       async () => {
         const assets = [
           {
@@ -88,7 +90,16 @@ describe(
         ).toHaveBeenCalledWith(
           jobs,
         );
+        expect(addBulkMock).toHaveBeenCalledWith(createImageProcessingJobs(assets));
       },
     );
   },
 );
+
+test('image visibility sync uses fresh jobs for publish, withdrawal and retries', async () => {
+  addBulkMock.mockClear();
+  const assets = [{ id: 'image', mime_type: 'image/png', processing_status: 'READY' }];
+  await enqueueVideoStorageSync(assets);
+  expect(addBulkMock).toHaveBeenCalledWith([{ name: 'optimize-post-image', data: { assetId: 'image' } }]);
+  expect(createImageProcessingJobs([{ ...assets[0], processing_status: 'FAILED' }])).toEqual([]);
+});

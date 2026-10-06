@@ -11,10 +11,14 @@ import MediaController from "./media.controller.js";
 import {
   getAssetContentSchema,
   getAssetStreamResourceSchema,
+  getImageVariantSchema,
 } from "./media.validation.js";
 
 const router =
   Router();
+
+router.get('/assets/:assetId/images/:size', optionalAuthMiddleware,
+  validate(getImageVariantSchema), MediaController.getImageVariant);
 
 router.get(
   "/assets/:assetId/stream/master.m3u8",

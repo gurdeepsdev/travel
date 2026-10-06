@@ -91,6 +91,7 @@ class VideoProcessingService {
 
           hlsManifestStorageKey:
             result.hlsManifestStorageKey,
+          hlsRenditions: result.hlsRenditions,
 
           storageProvider:
             published?.storageProvider ??
