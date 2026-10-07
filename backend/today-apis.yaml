@@ -29,6 +29,513 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  '/chat/events':
+    get:
+      tags: [Chat]
+      operationId: replayChatEvents
+      summary: Replay missed personal chat events
+      description: Seven-day metadata journal. Cursors are account-specific decimal strings, not event IDs. Omit after to establish a cursor and refetch inbox/history. resyncRequired signals an expired cursor. Current membership, blocks and personal hiding are rechecked.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: after, in: query, schema: {type: string, pattern: '^(0|[1-9][0-9]{0,18})$'}}
+        - {name: limit, in: query, schema: {type: integer, default: 100, minimum: 1, maximum: 100}}
+      responses:
+        '200':
+          description: Existing success envelope containing events, nextCursor, hasMore and resyncRequired
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      events:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            eventId: {type: string}
+                            replayCursor: {type: string}
+                            conversationSequence: {type: string, nullable: true, description: Transactional per-conversation sequence; null for legacy events whose outbox row was already pruned}
+                            conversationId: {type: string, format: uuid}
+                            messageId: {type: string, format: uuid, nullable: true}
+                            type: {type: string}
+                      nextCursor: {type: string}
+                      hasMore: {type: boolean}
+                      resyncRequired: {type: boolean}
+        '401': {description: Authentication required}
+        '409': {description: Cursor ahead of this account}
+  '/chat/conversations/{conversationId}/request-message':
+    post:
+      tags: [Chat]
+      operationId: sendChatRequestMessage
+      summary: Send one initial text for a pending direct message request
+      description: Requester only, text only. Same clientMessageId and payload retry idempotently, including after acceptance or rejection. Another message or changed payload returns 409. Ordinary sending remains disabled until acceptance.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: conversationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [clientMessageId, text]
+              properties:
+                clientMessageId: {type: string, format: uuid}
+                text: {type: string, minLength: 1, maxLength: 512}
+      responses:
+        '200': {description: Existing success envelope containing message and created}
+        '401': {description: Authentication required}
+        '403': {description: Not the requester or unsupported content}
+        '404': {description: Conversation unavailable}
+        '409': {description: Request no longer pending or an initial text already exists}
+  '/chat/unread-count':
+    get:
+      tags: [Chat]
+      operationId: getChatUnreadCounts
+      summary: Get personal unread totals
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': {description: Success using the existing response envelope}
+        '401': {description: Authentication required}
+        '404': {description: Resource unavailable}
+  '/chat/conversations/{conversationId}/settings':
+    patch:
+      tags: [Chat]
+      operationId: updateChatSettings
+      summary: Mute or archive my conversation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: conversationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: []
+              properties: { muted: {type: boolean}, archived: {type: boolean} }
+      responses:
+        '200': {description: Success using the existing response envelope}
+        '401': {description: Authentication required}
+        '404': {description: Resource unavailable}
+  '/chat/conversations/{conversationId}/read':
+    put:
+      tags: [Chat]
+      operationId: markChatRead
+      summary: Mark conversation read through a message
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: conversationId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [messageId]
+              properties: { messageId: {type: string, format: uuid} }
+      responses:
+        '200': {description: Success using the existing response envelope}
+        '401': {description: Authentication required}
+        '404': {description: Resource unavailable}
+  '/chat/conversations/{conversationId}/messages/{messageId}/reports':
+    post:
+      tags: [Chat]
+      operationId: reportChatMessage
+      summary: Report a message
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: conversationId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: messageId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [reasonCode]
+              properties: { reasonCode: {type: string, enum: [SPAM, HARASSMENT, HATE_SPEECH, SEXUAL_CONTENT, VIOLENCE, SCAM, OTHER]}, description: {type: string, maxLength: 2000} }
+      responses:
+        '200': {description: Success using the existing response envelope}
+        '401': {description: Authentication required}
+        '404': {description: Resource unavailable}
+  '/chat/push-devices':
+    put:
+      tags: [Chat]
+      operationId: registerChatPushDevice
+      summary: Register a session-bound FCM device
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [deviceId, platform, token]
+              properties: { deviceId: {type: string, format: uuid}, platform: {type: string, enum: [android, ios]}, token: {type: string, minLength: 20, maxLength: 4096} }
+      responses:
+        '200': {description: Success using the existing response envelope}
+        '401': {description: Authentication required}
+        '404': {description: Resource unavailable}
+  '/chat/push-devices/{deviceId}':
+    delete:
+      tags: [Chat]
+      operationId: removeChatPushDevice
+      summary: Unregister my push device
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: deviceId, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200': {description: Success using the existing response envelope}
+        '401': {description: Authentication required}
+        '404': {description: Resource unavailable}
+  '/chat/conversations/{conversationId}/messages':
+    post:
+      tags: [Chat]
+      summary: Save text, attachments, or an itinerary reference
+      operationId: sendChatMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["clientMessageId"],"properties":{"clientMessageId":{"type":"string","format":"uuid"},"text":{"type":"string","minLength":1,"maxLength":512},"replyToMessageId":{"type":"string","format":"uuid"},"itineraryId":{"type":"string","format":"uuid"},"assetIds":{"type":"array","minItems":1,"maxItems":10,"uniqueItems":true,"items":{"type":"string","format":"uuid"}}}}
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+    get:
+      tags: [Chat]
+      summary: Get newest-first message history with cursor pagination
+      operationId: listChatMessages
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+        - { name: cursor, in: query, schema: { type: string, maxLength: 1000 } }
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/messages/{messageId}':
+    patch:
+      tags: [Chat]
+      summary: Edit my text message
+      operationId: editChatMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["text"],"properties":{"text":{"type":"string","minLength":1,"maxLength":512}}}
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+    delete:
+      tags: [Chat]
+      summary: Hide for me or delete for everyone within 48 hours
+      operationId: deleteChatMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - { name: scope, in: query, schema: { type: string, enum: [me, everyone], default: me } }
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/messages/{messageId}/reactions':
+    put:
+      tags: [Chat]
+      summary: Add an idempotent reaction
+      operationId: reactChatMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["reaction"],"properties":{"reaction":{"type":"string","enum":["👍","❤️","😂","😮","😢","🙏"]}}}
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+    delete:
+      tags: [Chat]
+      summary: Remove my reaction
+      operationId: removeChatReaction
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["reaction"],"properties":{"reaction":{"type":"string","enum":["👍","❤️","😂","😮","😢","🙏"]}}}
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/messages/{messageId}/receipt':
+    put:
+      tags: [Chat]
+      summary: Acknowledge delivered/read state; read never regresses
+      operationId: acknowledgeChatMessage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["DELIVERED","READ"]}}}
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/messages/{messageId}/itinerary':
+    get:
+      tags: [Chat]
+      summary: Get the referenced itinerary through revocable read-only conversation access
+      operationId: getChatItinerary
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/messages/{messageId}/attachments/{assetId}':
+    get:
+      tags: [Chat]
+      summary: Download an attachment through authenticated conversation access
+      operationId: getChatAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/attachments':
+    post:
+      tags: [Chat]
+      summary: Upload one private attachment (50 MiB maximum)
+      operationId: uploadChatAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {"type":"object","additionalProperties":false,"required":["attachment"],"properties":{"attachment":{"type":"string","format":"binary","description":"JPEG, PNG, WebP, MP4, or PDF. MP4 is delivered as the original file, without post HLS transcoding."}}}
+      responses:
+        '200': { description: Successful operation }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '403': { description: Sending or mutation is not permitted }
+        '404': { description: Conversation or resource is inaccessible }
+        '409': { description: Conflicting message ID or deleted message }
+        '413': { description: Attachment exceeds 50 MiB }
+        '415': { description: File signature is not a supported type }
+        '422': { description: CHAT.ATTACHMENT_MALWARE_DETECTED - attachment rejected by malware scanning }
+        '503': { description: CHAT.MALWARE_SCAN_UNAVAILABLE - scanner unavailable; retry later }
+  '/chat/conversations':
+    get:
+      tags: [Chat]
+      summary: Get my accessible conversation inbox
+      operationId: getChatInbox
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, default: 30, minimum: 1, maximum: 100}}
+        - {name: cursor, in: query, schema: {type: string}}
+        - {name: archived, in: query, schema: {type: boolean, default: false}}
+        - {name: requests, in: query, schema: {type: boolean}}
+      responses:
+        '200': {description: Conversation metadata with muted, archived, unreadCount, lastMessage and cursor pagination}
+        '401': {description: Authentication required}
+    post:
+      tags: [Chat]
+      summary: Create or retrieve a direct, group, or community conversation
+      operationId: createChatConversation
+      security: [{ bearerAuth: [] }]
+      description: Accepted connections start ACCEPTED; other direct chats start PENDING. Existing conversations are returned without duplication. Active group/community membership is required. Community canSend is restricted to owner/admin.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  additionalProperties: false
+                  required: [type, userId]
+                  properties:
+                    type: { type: string, enum: [direct] }
+                    userId: { type: string, format: uuid }
+                - type: object
+                  additionalProperties: false
+                  required: [type, groupId]
+                  properties:
+                    type: { type: string, enum: [group] }
+                    groupId: { type: string, format: uuid }
+                - type: object
+                  additionalProperties: false
+                  required: [type, communityId]
+                  properties:
+                    type: { type: string, enum: [community] }
+                    communityId: { type: string, format: uuid }
+      responses:
+        '200': { description: Conversation metadata in data.conversation; includes id, type, groupId, communityId, requestStatus, requestedBy, canSend, createdAt, updatedAt }
+        '400': { description: Invalid target or body }
+        '401': { description: Authentication required }
+        '404': { description: Target unavailable or blocked }
+  '/chat/conversations/{conversationId}':
+    get:
+      tags: [Chat]
+      summary: Get accessible conversation metadata
+      operationId: getChatConversation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Conversation metadata in data.conversation }
+        '400': { description: Invalid conversation ID }
+        '401': { description: Authentication required }
+        '404': { description: Conversation unavailable; access revoked after removal or blocking }
+  '/chat/conversations/{conversationId}/request':
+    patch:
+      tags: [Chat]
+      summary: Accept or reject a direct message request
+      operationId: respondChatRequest
+      security: [{ bearerAuth: [] }]
+      description: Recipient only. Repeating the same decision is idempotent. Opposite decisions after resolution return 409.
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status: { type: string, enum: [ACCEPTED, REJECTED] }
+      responses:
+        '200': { description: Updated conversation metadata in data.conversation }
+        '400': { description: Invalid decision }
+        '401': { description: Authentication required }
+        '404': { description: Request unavailable or caller is not the recipient }
+        '409': { description: Request already decided }
   '/users/me/tagged-posts':
     get:
       tags: [Posts]
