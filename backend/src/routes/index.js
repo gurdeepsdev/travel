@@ -1,4 +1,5 @@
 import { Router } from "express";
+import chatRoutes from "../modules/chat/chat.routes.js";
 
 import healthRoutes from "./health.routes.js";
 import docsRoutes from "./docs.routes.js";
@@ -16,6 +17,7 @@ import groupsRoutes
   from "../modules/groups/groups.routes.js";
 
 const router = Router();
+router.use("/chat", chatRoutes);
 
 router.use("/health", healthRoutes);
 router.use("/docs", docsRoutes);

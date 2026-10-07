@@ -5,6 +5,7 @@ import redis from "../config/redis.js";
 import logger from "../core/logger/logger.js";
 import { AuthContextService } from "../modules/auth/services/index.js";
 import PostAccessService from "../modules/posts/services/post-access.service.js";
+import { registerChatTyping } from '../modules/chat/chat-typing.js';
 
 const POST_ROOM_PREFIX = "post:";
 let io = null;
@@ -50,6 +51,11 @@ function initializeRealtimeServer(httpServer) {
 
   io.on("connection", (socket) => {
     socket.join(`user:${socket.data.userId}`);
+    registerChatTyping(socket, {
+      authenticate: () => AuthContextService.authenticate(extractToken(socket)),
+      redis,
+      emit: emitUserEvent,
+    });
 
     socket.on("post:subscribe", async ({ postId } = {}, acknowledge) => {
       try {

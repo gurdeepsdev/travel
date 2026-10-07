@@ -1,4 +1,9 @@
 import app from "./app.js";
+import {startChatPushWorker,stopChatPushWorker} from './realtime/chat-push.worker.js';
+import {
+  startChatOutboxWorker,
+  stopChatOutboxWorker,
+} from "./realtime/chat-outbox.worker.js";
 import { createServer } from "node:http";
 
 import env from "./config/env.js";
@@ -21,6 +26,8 @@ async function bootstrap() {
   const httpServer = createServer(app);
   initializeRealtimeServer(httpServer);
   startEngagementOutboxWorker();
+  startChatOutboxWorker();
+  startChatPushWorker();
 
   httpServer.listen(PORT, () => {
     logger.info(
@@ -30,6 +37,8 @@ async function bootstrap() {
 
   const shutdown = () => {
     stopEngagementOutboxWorker();
+    stopChatOutboxWorker();
+    stopChatPushWorker();
     httpServer.close();
   };
 
