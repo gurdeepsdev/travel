@@ -206,8 +206,13 @@ export class ChatMessagesService {
         (SELECT jsonb_agg(jsonb_build_object('userId',r.user_id,'deliveredAt',r.delivered_at,'readAt',r.read_at)) FROM chat.message_receipts r WHERE r.message_id=m.id) AS receipts
         ,(SELECT jsonb_agg(jsonb_build_object('id',a.id,'mimeType',a.mime_type,'fileSize',a.file_size,'url','/api/v1/chat/conversations/'||m.conversation_id||'/messages/'||m.id||'/attachments/'||a.id) ORDER BY ma.display_order)
           FROM chat.message_assets ma JOIN media.assets a ON a.id=ma.asset_id AND a.deleted_at IS NULL WHERE ma.message_id=m.id) AS assets
+        ,jsonb_build_object('id',m.sent_by,'username',profile.username,'displayName',profile.display_name,
+          'profilePhoto',CASE WHEN photo.id IS NULL THEN NULL ELSE jsonb_build_object(
+            'id',photo.id,'url','/api/v1/media/assets/'||photo.id||'/content','mimeType',photo.mime_type) END) AS sender
         FROM chat.chat_messages m
-        WHERE conversation_id=$1 AND NOT EXISTS (SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$2)
+        LEFT JOIN users.profiles profile ON profile.user_id=m.sent_by AND profile.deleted_at IS NULL
+        LEFT JOIN media.assets photo ON photo.id=profile.profile_photo_asset_id AND photo.deleted_at IS NULL
+        WHERE m.conversation_id=$1 AND NOT EXISTS (SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$2)
         AND ($3::timestamp IS NULL OR (m.created_at,m.id)<($3::timestamp,$4::uuid))
         ORDER BY m.created_at DESC,m.id DESC LIMIT $5`,
         [
@@ -222,7 +227,7 @@ export class ChatMessagesService {
       const page = rows.slice(0, limit);
       const last = page.at(-1);
       return {
-        messages: page.map(map),
+        messages: page.map((row) => ({ ...map(row), sender: row.sender })),
         pagination: {
           hasMore,
           nextCursor: hasMore

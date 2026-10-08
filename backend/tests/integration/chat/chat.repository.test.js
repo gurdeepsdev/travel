@@ -109,6 +109,37 @@ describeDatabase(
         [group, member, owner],
       );
     });
+    test("history includes sender profile and nullable photo without changing send responses", async () => {
+      const conversation = await repository.create(owner, { type: "group", groupId: group });
+      await client.query("SAVEPOINT sender_profile_test");
+      try {
+        await client.query(
+          "INSERT INTO users.profiles (user_id,username,display_name) VALUES ($1,$2,'Sender test')",
+          [owner, `chat_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`],
+        );
+        const sent = await messages.send(owner, conversation.id, { text: "Sender details", clientMessageId: crypto.randomUUID() });
+        expect(sent.message).not.toHaveProperty("sender");
+        let history = await messages.history(member, conversation.id, { limit: 1 });
+        expect(history.messages[0].sender).toMatchObject({ id: owner, displayName: "Sender test", profilePhoto: null });
+        expect(history.messages[0].sender.username).toMatch(/^chat_/);
+        expect(history.messages[0].senderId).toBe(owner);
+        const { rows: [photo] } = await client.query(
+          `INSERT INTO media.assets (storage_provider,bucket,storage_key,mime_type,extension,file_size,checksum,uploaded_by,is_public,original_filename)
+           VALUES ('local','local','chat/sender.jpg','image/jpeg','jpg',10,$1,$2,true,'sender.jpg') RETURNING id`,
+          [crypto.randomUUID(), owner],
+        );
+        await client.query("UPDATE users.profiles SET profile_photo_asset_id=$1 WHERE user_id=$2", [photo.id, owner]);
+        history = await messages.history(member, conversation.id, { limit: 1 });
+        expect(history.messages[0].sender.profilePhoto).toEqual({ id: photo.id, url: `/api/v1/media/assets/${photo.id}/content`, mimeType: "image/jpeg" });
+        await client.query("UPDATE media.assets SET deleted_at=NOW() WHERE id=$1", [photo.id]);
+        expect((await messages.history(member, conversation.id, { limit: 1 })).messages[0].sender.profilePhoto).toBeNull();
+        await client.query("UPDATE users.profiles SET deleted_at=NOW() WHERE user_id=$1", [owner]);
+        expect((await messages.history(member, conversation.id, { limit: 1 })).messages[0].sender).toEqual({ id: owner, username: null, displayName: null, profilePhoto: null });
+      } finally {
+        await client.query("ROLLBACK TO SAVEPOINT sender_profile_test");
+        await client.query("RELEASE SAVEPOINT sender_profile_test");
+      }
+    });
     test("inbox, monotonic unread state, preferences and duplicate reports", async () => {
       const conversation = await repository.create(owner, {
         type: "group",
