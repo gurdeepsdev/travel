@@ -51,12 +51,27 @@ class GroupsRepository {
     const { rows } = await Database.query(`
       SELECT g.*, cover_asset.mime_type AS cover_asset_mime_type,
         g.created_at::text AS cursor_created_at,
-        CASE WHEN g.owner_id=$1::uuid THEN 'OWNER' ELSE m.role END AS viewer_role
+        CASE WHEN g.owner_id=$1::uuid THEN 'OWNER' ELSE m.role END AS viewer_role,
+        c.id AS conversation_id,
+        (SELECT COUNT(*)::int FROM chat.chat_messages message
+          WHERE message.conversation_id=c.id AND message.sent_by<>$1::uuid
+            AND message.deleted_at IS NULL
+            AND (settings.last_read_at IS NULL OR
+              (message.created_at,message.id)>(settings.last_read_at,settings.last_read_id))
+            AND NOT EXISTS (SELECT 1 FROM chat.hidden_messages hidden
+              WHERE hidden.message_id=message.id AND hidden.user_id=$1::uuid)
+            AND NOT EXISTS (SELECT 1 FROM chat.message_receipts receipt
+              WHERE receipt.message_id=message.id AND receipt.user_id=$1::uuid
+                AND receipt.read_at IS NOT NULL)) AS unread_count
       FROM groups.groups g
       LEFT JOIN media.assets cover_asset ON cover_asset.id=g.cover_asset_id
         AND cover_asset.deleted_at IS NULL
       LEFT JOIN groups.group_members m ON m.group_id=g.id
         AND m.user_id=$1::uuid AND m.status='ACTIVE'
+      LEFT JOIN chat.conversations c ON c.group_id=g.id
+        AND c.conversation_type='group' AND c.deleted_at IS NULL
+      LEFT JOIN chat.conversation_settings settings ON settings.conversation_id=c.id
+        AND settings.user_id=$1::uuid
       WHERE g.status='ACTIVE' AND g.deleted_at IS NULL
         AND (g.owner_id=$1::uuid OR m.id IS NOT NULL)
         AND (g.itinerary_id IS NULL OR EXISTS (

@@ -104,7 +104,7 @@ describe("GroupsService", () => {
     repositoryMock.listMyGroups.mockResolvedValue([row,row]);
     const result=await service.listMyGroups({userId,limit:1});
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0]).toMatchObject({itineraryId:null,viewerRole:'OWNER'});
+    expect(result.groups[0]).toMatchObject({itineraryId:null,viewerRole:'OWNER',conversationId:null,unreadCount:0});
     expect(result.pagination.hasMore).toBe(true);
     await service.listMyGroups({userId,limit:1,cursor:result.pagination.nextCursor});
     expect(repositoryMock.listMyGroups).toHaveBeenLastCalledWith({userId,limit:1,cursor:{createdAt:row.cursor_created_at,id:groupId}});
@@ -113,6 +113,11 @@ describe("GroupsService", () => {
     repositoryMock.listMyGroups.mockResolvedValue([]);
     await expect(service.listMyGroups({userId})).resolves.toEqual({groups:[],pagination:{hasMore:false,nextCursor:null}});
     await expect(service.listMyGroups({userId,cursor:'bad'})).rejects.toMatchObject({statusCode:400});
+  });
+  test('maps personal chat unread counts without changing group fields', async () => {
+    repositoryMock.listMyGroups.mockResolvedValue([{id:groupId,viewer_role:'MEMBER',conversation_id:groupId,unread_count:5}]);
+    const result=await service.listMyGroups({userId});
+    expect(result.groups[0]).toMatchObject({id:groupId,viewerRole:'MEMBER',conversationId:groupId,unreadCount:5});
   });
   test('creates a standalone group with a null itinerary', async () => {
     repositoryMock.createStandaloneGroup.mockResolvedValue({

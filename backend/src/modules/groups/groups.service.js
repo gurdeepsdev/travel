@@ -37,7 +37,8 @@ class GroupsService {
     const hasMore = rows.length > limit;
     const last = items.at(-1);
     return {
-      groups: items.map(row => ({ ...this.mapGroup(row), viewerRole: row.viewer_role })),
+      groups: items.map(row => ({ ...this.mapGroup(row), viewerRole: row.viewer_role,
+        conversationId: row.conversation_id ?? null, unreadCount: row.unread_count ?? 0 })),
       pagination: { hasMore, nextCursor: hasMore
         ? encodeCursor({ createdAt: last.cursor_created_at, id: last.id }) : null },
     };
