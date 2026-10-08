@@ -21,6 +21,8 @@ const { default: messages } =
   await import("../../../src/modules/chat/chat-messages.service.js");
 const { default: inbox } =
   await import("../../../src/modules/chat/chat-inbox.service.js");
+const { default: groupRepository } =
+  await import("../../../src/modules/groups/groups.repository.js");
 const {
   default: events,
   recordUserEvent,
@@ -108,6 +110,31 @@ describeDatabase(
         "INSERT INTO groups.group_members (group_id,user_id,role,status,added_by) VALUES ($1,$2,'MEMBER','ACTIVE',$3)",
         [group, member, owner],
       );
+    });
+    test("group list counts unread text and attachment messages using personal read state", async () => {
+      await client.query("SAVEPOINT group_unread_test");
+      try {
+        const find = async (userId) => (await groupRepository.listMyGroups({userId,limit:20})).find(row => row.id===group);
+        expect(await find(member)).toMatchObject({conversation_id:null,unread_count:0});
+        const conversation=await repository.create(owner,{type:"group",groupId:group});
+        const sent=[];
+        for(let i=0;i<5;i++) sent.push((await messages.send(owner,conversation.id,{text:`Unread ${i}`,clientMessageId:crypto.randomUUID()})).message);
+        await client.query("UPDATE chat.chat_messages SET message_type='DOCUMENT' WHERE id=$1",[sent[0].id]);
+        expect(await find(member)).toMatchObject({conversation_id:conversation.id,unread_count:5});
+        expect((await find(owner)).unread_count).toBe(0);
+        await messages.receipt(member,conversation.id,sent[0].id,"READ");
+        expect((await find(member)).unread_count).toBe(4);
+        await messages.mutate(member,conversation.id,sent[1].id,"hide",{});
+        expect((await find(member)).unread_count).toBe(3);
+        await messages.mutate(owner,conversation.id,sent[2].id,"delete",{});
+        expect((await find(member)).unread_count).toBe(2);
+        const newest=(await messages.history(member,conversation.id,{limit:1})).messages[0];
+        await inbox.read(member,conversation.id,newest.id);
+        expect((await find(member)).unread_count).toBe(0);
+      } finally {
+        await client.query("ROLLBACK TO SAVEPOINT group_unread_test");
+        await client.query("RELEASE SAVEPOINT group_unread_test");
+      }
     });
     test("history includes sender profile and nullable photo without changing send responses", async () => {
       const conversation = await repository.create(owner, { type: "group", groupId: group });

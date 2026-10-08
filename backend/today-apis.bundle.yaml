@@ -878,6 +878,9 @@ paths:
       summary: List my active owned and joined groups
       operationId: listMyGroups
       description: >
+        Each group additionally includes conversationId (UUID or null) and unreadCount (integer).
+        Unread counts include text and attachment messages once each, excluding own, deleted, hidden and read messages.
+        Groups without a conversation return null and zero. Ordering and pagination are unchanged.
         Returns groups owned by the authenticated user or joined through ACTIVE membership,
         including standalone groups with null itineraryId. Excludes archived or deleted
         groups, groups linked to deleted itineraries, and membership based only on pending
