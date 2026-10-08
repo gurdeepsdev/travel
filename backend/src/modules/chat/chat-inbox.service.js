@@ -15,6 +15,14 @@ export class ChatInboxService {
     const { rows } = await Database.query(
       `SELECT c.*,c.updated_at::text AS cursor_time,
       COALESCE(s.is_muted,false) AS is_muted,COALESCE(s.is_archived,false) AS is_archived,
+      CASE c.conversation_type WHEN 'direct' THEN COALESCE(NULLIF(profile.display_name,''),profile.username)
+        WHEN 'group' THEN chat_group.name WHEN 'community' THEN community.name END AS display_name,
+      CASE WHEN image.id IS NULL THEN NULL ELSE jsonb_build_object('id',image.id,
+        'url','/api/v1/media/assets/'||image.id||'/content','mimeType',image.mime_type) END AS display_image,
+      CASE WHEN c.conversation_type='direct' AND peer.user_id IS NOT NULL THEN jsonb_build_object(
+        'id',peer.user_id,'username',profile.username,'displayName',profile.display_name,
+        'profilePhoto',CASE WHEN image.id IS NULL THEN NULL ELSE jsonb_build_object('id',image.id,
+          'url','/api/v1/media/assets/'||image.id||'/content','mimeType',image.mime_type) END) END AS other_user,
       CASE WHEN c.conversation_type<>'community' THEN TRUE ELSE EXISTS(SELECT 1 FROM community.communities cm WHERE cm.id=c.community_id AND cm.owner_id=$1)
        OR EXISTS(SELECT 1 FROM community.community_members m WHERE m.community_id=c.community_id AND m.user_id=$1 AND upper(m.status)='ACTIVE' AND lower(m.role) IN ('owner','admin')) END AS can_send,
       (${unreadSQL}) AS unread_count,
@@ -22,6 +30,16 @@ export class ChatInboxService {
         FROM chat.chat_messages m WHERE m.conversation_id=c.id AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$1)
         ORDER BY m.created_at DESC,m.id DESC LIMIT 1) AS last_message
       FROM chat.accessible_conversations($1::uuid) c LEFT JOIN chat.conversation_settings s ON s.conversation_id=c.id AND s.user_id=$1
+      LEFT JOIN LATERAL (SELECT participant.user_id FROM chat.conversation_participants participant
+        WHERE c.conversation_type='direct' AND participant.conversation_id=c.id
+          AND participant.user_id<>$1::uuid AND participant.left_at IS NULL
+        ORDER BY participant.user_id LIMIT 1) peer ON TRUE
+      LEFT JOIN users.profiles profile ON profile.user_id=peer.user_id AND profile.deleted_at IS NULL
+      LEFT JOIN groups.groups chat_group ON chat_group.id=c.group_id AND c.conversation_type='group'
+      LEFT JOIN community.communities community ON community.id=c.community_id AND c.conversation_type='community'
+      LEFT JOIN media.assets image ON image.id=CASE c.conversation_type
+        WHEN 'direct' THEN profile.profile_photo_asset_id WHEN 'group' THEN chat_group.cover_asset_id
+        WHEN 'community' THEN community.icon_asset_id END AND image.deleted_at IS NULL
       WHERE COALESCE(s.is_archived,false)=$2 AND ($3::boolean IS NULL OR (c.request_status='PENDING')=$3)
       AND ($4::timestamp IS NULL OR (c.updated_at,c.id)<($4::timestamp,$5::uuid))
       ORDER BY c.updated_at DESC,c.id DESC LIMIT $6`,
@@ -40,6 +58,10 @@ export class ChatInboxService {
     return {
       conversations: page.map((row) => ({
         ...mapConversation(row),
+        conversationId: row.id,
+        name: row.display_name ?? null,
+        image: row.display_image ?? null,
+        otherUser: row.other_user ?? null,
         muted: row.is_muted,
         archived: row.is_archived,
         unreadCount: row.unread_count,

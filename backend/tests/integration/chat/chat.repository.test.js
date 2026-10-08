@@ -111,6 +111,38 @@ describeDatabase(
         [group, member, owner],
       );
     });
+    test("inbox adds direct profile, group cover and community icon without changing access", async () => {
+      await client.query("SAVEPOINT inbox_display_test");
+      try {
+        const {rows:[photo]}=await client.query(`INSERT INTO media.assets
+          (storage_provider,bucket,storage_key,mime_type,extension,file_size,checksum,uploaded_by,is_public,original_filename)
+          VALUES ('local','local','chat/inbox.jpg','image/jpeg','jpg',10,$1,$2,true,'inbox.jpg') RETURNING id`,[crypto.randomUUID(),member]);
+        const username=`chat_${crypto.randomUUID().replaceAll('-','').slice(0,16)}`;
+        await client.query("INSERT INTO users.profiles (user_id,username,display_name,profile_photo_asset_id) VALUES ($1,$2,'Chat peer',$3)",[member,username,photo.id]);
+        const direct=await repository.create(owner,{type:"direct",userId:member});
+        const grouped=await repository.create(owner,{type:"group",groupId:group});
+        await client.query("UPDATE groups.groups SET cover_asset_id=$1 WHERE id=$2",[photo.id,group]);
+        const {rows:[community]}=await client.query("INSERT INTO community.communities (owner_id,name,icon_asset_id) VALUES ($1,'Community display',$2) RETURNING id",[owner,photo.id]);
+        const communal=await repository.create(owner,{type:"community",communityId:community.id});
+        const list=async()=> (await inbox.list(owner,{limit:30,archived:false})).conversations;
+        const image={id:photo.id,url:`/api/v1/media/assets/${photo.id}/content`,mimeType:"image/jpeg"};
+        const rows=await list();
+        expect(rows.find(c=>c.id===direct.id)).toMatchObject({conversationId:direct.id,name:"Chat peer",image,otherUser:{id:member,username,displayName:"Chat peer",profilePhoto:image}});
+        expect(rows.find(c=>c.id===grouped.id)).toMatchObject({conversationId:grouped.id,name:"Chat test",image,otherUser:null});
+        expect(rows.find(c=>c.id===communal.id)).toMatchObject({name:"Community display",image,otherUser:null});
+        await client.query("UPDATE users.profiles SET display_name=NULL WHERE user_id=$1",[member]);
+        expect((await list()).find(c=>c.id===direct.id).name).toBe(username);
+        await client.query("UPDATE media.assets SET deleted_at=NOW() WHERE id=$1",[photo.id]);
+        expect((await list()).every(c=>c.image===null)).toBe(true);
+        await client.query("UPDATE users.profiles SET deleted_at=NOW() WHERE user_id=$1",[member]);
+        expect((await list()).find(c=>c.id===direct.id)).toMatchObject({name:null,otherUser:{id:member,username:null,displayName:null,profilePhoto:null}});
+        await client.query("INSERT INTO users.blocked_users(user_id,blocked_user_id) VALUES ($1,$2)",[owner,member]);
+        expect((await list()).some(c=>c.id===direct.id)).toBe(false);
+      } finally {
+        await client.query("ROLLBACK TO SAVEPOINT inbox_display_test");
+        await client.query("RELEASE SAVEPOINT inbox_display_test");
+      }
+    });
     test("group list counts unread text and attachment messages using personal read state", async () => {
       await client.query("SAVEPOINT group_unread_test");
       try {
