@@ -224,6 +224,7 @@ paths:
       tags: [Chat]
       summary: Get newest-first message history with cursor pagination
       operationId: listChatMessages
+      description: Each message preserves senderId and includes sender with id, nullable username, nullable displayName and nullable profilePhoto. A profilePhoto contains id, url and mimeType; missing or deleted profiles/photos yield null values. Other message fields and pagination are unchanged.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
