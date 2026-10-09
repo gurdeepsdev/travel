@@ -224,6 +224,7 @@ paths:
       tags: [Chat]
       summary: Get newest-first message history with cursor pagination
       operationId: listChatMessages
+      x-reply-preview: History messages include nullable replyTo containing id, type, text, deleted and sender (id, username, displayName). Originals are resolved independently of the history page; hidden or missing originals yield null. Deleted originals have deleted=true and text=null. Deleted reply messages have replyTo=null. Existing replyToMessageId is preserved.
       description: Each message preserves senderId and includes sender with id, nullable username, nullable displayName and nullable profilePhoto. A profilePhoto contains id, url and mimeType; missing or deleted profiles/photos yield null values. Other message fields and pagination are unchanged.
       security: [{ bearerAuth: [] }]
       parameters:

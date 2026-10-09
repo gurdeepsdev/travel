@@ -111,6 +111,29 @@ describeDatabase(
         [group, member, owner],
       );
     });
+    test("reply previews resolve originals outside the page and respect hiding and deletion", async () => {
+      await client.query("SAVEPOINT reply_preview_test");
+      try {
+        const conversation=await repository.create(owner,{type:"group",groupId:group});
+        const original=(await messages.send(owner,conversation.id,{text:"Original text",clientMessageId:crypto.randomUUID()})).message;
+        const reply=(await messages.send(member,conversation.id,{text:"Reply text",replyToMessageId:original.id,clientMessageId:crypto.randomUUID()})).message;
+        await client.query("UPDATE chat.chat_messages SET created_at=created_at-INTERVAL '1 second' WHERE id=$1",[original.id]);
+        const preview=async(user=owner)=>(await messages.history(user,conversation.id,{limit:1})).messages[0];
+        expect(await preview()).toMatchObject({id:reply.id,replyToMessageId:original.id,replyTo:{id:original.id,text:"Original text",type:"TEXT",deleted:false,sender:{id:owner}}});
+        await messages.mutate(owner,conversation.id,original.id,"edit",{text:"Updated text"});
+        expect((await preview()).replyTo.text).toBe("Updated text");
+        await messages.mutate(member,conversation.id,original.id,"hide",{});
+        expect((await preview(member)).replyTo).toBeNull();
+        expect((await preview()).replyTo.text).toBe("Updated text");
+        await messages.mutate(owner,conversation.id,original.id,"delete",{});
+        expect((await preview()).replyTo).toMatchObject({id:original.id,deleted:true,text:null});
+        await messages.mutate(member,conversation.id,reply.id,"delete",{});
+        expect((await preview()).replyTo).toBeNull();
+      } finally {
+        await client.query("ROLLBACK TO SAVEPOINT reply_preview_test");
+        await client.query("RELEASE SAVEPOINT reply_preview_test");
+      }
+    });
     test("inbox adds direct profile, group cover and community icon without changing access", async () => {
       await client.query("SAVEPOINT inbox_display_test");
       try {
