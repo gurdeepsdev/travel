@@ -209,9 +209,20 @@ export class ChatMessagesService {
         ,jsonb_build_object('id',m.sent_by,'username',profile.username,'displayName',profile.display_name,
           'profilePhoto',CASE WHEN photo.id IS NULL THEN NULL ELSE jsonb_build_object(
             'id',photo.id,'url','/api/v1/media/assets/'||photo.id||'/content','mimeType',photo.mime_type) END) AS sender
+        ,CASE WHEN m.deleted_at IS NOT NULL OR original.id IS NULL THEN NULL ELSE jsonb_build_object(
+          'id',original.id,'type',original.message_type,'deleted',original.deleted_at IS NOT NULL,
+          'text',CASE WHEN original.deleted_at IS NULL THEN original.message_content ELSE NULL END,
+          'sender',jsonb_build_object('id',original.sent_by,'username',original_profile.username,
+            'displayName',original_profile.display_name)) END AS reply_to
         FROM chat.chat_messages m
         LEFT JOIN users.profiles profile ON profile.user_id=m.sent_by AND profile.deleted_at IS NULL
         LEFT JOIN media.assets photo ON photo.id=profile.profile_photo_asset_id AND photo.deleted_at IS NULL
+        LEFT JOIN chat.chat_messages original ON original.id=m.reply_to_message_id
+          AND original.conversation_id=m.conversation_id
+          AND NOT EXISTS (SELECT 1 FROM chat.hidden_messages hidden_original
+            WHERE hidden_original.message_id=original.id AND hidden_original.user_id=$2)
+        LEFT JOIN users.profiles original_profile ON original_profile.user_id=original.sent_by
+          AND original_profile.deleted_at IS NULL
         WHERE m.conversation_id=$1 AND NOT EXISTS (SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$2)
         AND ($3::timestamp IS NULL OR (m.created_at,m.id)<($3::timestamp,$4::uuid))
         ORDER BY m.created_at DESC,m.id DESC LIMIT $5`,
@@ -227,7 +238,7 @@ export class ChatMessagesService {
       const page = rows.slice(0, limit);
       const last = page.at(-1);
       return {
-        messages: page.map((row) => ({ ...map(row), sender: row.sender })),
+        messages: page.map((row) => ({ ...map(row), sender: row.sender, replyTo: row.reply_to ?? null })),
         pagination: {
           hasMore,
           nextCursor: hasMore
