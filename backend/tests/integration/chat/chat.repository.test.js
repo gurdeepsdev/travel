@@ -23,6 +23,8 @@ const { default: inbox } =
   await import("../../../src/modules/chat/chat-inbox.service.js");
 const { default: groupRepository } =
   await import("../../../src/modules/groups/groups.repository.js");
+const { default: changeRequests } =
+  await import("../../../src/modules/itinerary/itinerary-change-requests.repository.js");
 const {
   default: events,
   recordUserEvent,
@@ -97,6 +99,13 @@ describeDatabase(
       await client.query(
         sequenceMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""),
       );
+      const reactionMigration = readFileSync(
+        new URL("../../../src/database/migrations/080_chat_single_user_reaction.sql", import.meta.url),
+        "utf8",
+      );
+      await client.query(reactionMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+      const adminMigration = readFileSync(new URL("../../../src/database/migrations/081_group_admin_permissions.sql", import.meta.url), "utf8");
+      await client.query(adminMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const { rows } = await client.query(
         "INSERT INTO auth.users (status) VALUES ('ACTIVE'),('ACTIVE') RETURNING id",
       );
@@ -106,10 +115,123 @@ describeDatabase(
         [owner],
       );
       group = result.rows[0].id;
+      await groupRepository.ensureOwnerMember({ client, groupId: group, ownerId: owner });
       await client.query(
         "INSERT INTO groups.group_members (group_id,user_id,role,status,added_by) VALUES ($1,$2,'MEMBER','ACTIVE',$3)",
         [group, member, owner],
       );
+    });
+    test('admin migration converts legacy roles without restoring removed creators', async () => {
+      await client.query('SAVEPOINT admin_migration');
+      try {
+        await client.query('ALTER TABLE groups.group_members DROP CONSTRAINT chk_group_member_role');
+        const legacy = await groupRepository.createStandaloneGroup({ userId: owner, input: { name: 'Legacy admin migration' } });
+        await client.query("UPDATE groups.group_members SET role='OWNER' WHERE group_id=$1", [legacy.group.id]);
+        const migration = readFileSync(new URL('../../../src/database/migrations/081_group_admin_permissions.sql', import.meta.url), 'utf8');
+        const apply = () => client.query(migration.replace(/^BEGIN;/m, '').replace(/^COMMIT;/m, ''));
+        await apply();
+        expect(await groupRepository.findAccessibleGroup({ groupId: legacy.group.id, userId: owner })).toMatchObject({ viewer_role: 'ADMIN', owner_id: owner });
+        await client.query("UPDATE groups.group_members SET status='REMOVED',removed_at=CURRENT_TIMESTAMP WHERE group_id=$1", [legacy.group.id]);
+        await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'MEMBER','ACTIVE',$3)", [legacy.group.id, member, owner]);
+        await apply();
+        expect(await groupRepository.findAccessibleGroup({ groupId: legacy.group.id, userId: owner })).toBeNull();
+        expect(await groupRepository.findAccessibleGroup({ groupId: legacy.group.id, userId: member })).toMatchObject({ viewer_role: 'ADMIN' });
+      } finally {
+        await client.query('ROLLBACK TO SAVEPOINT admin_migration');
+        await client.query('RELEASE SAVEPOINT admin_migration');
+      }
+    });
+    test.each([false, true])("admin-only group permissions and succession: linked=%s", async (linked) => {
+      await client.query('SAVEPOINT admin_groups');
+      try {
+        const { rows: users } = await client.query("INSERT INTO auth.users(status) VALUES('ACTIVE'),('ACTIVE'),('ACTIVE') RETURNING id");
+        const [creator, first, second] = users.map(row => row.id);
+        let itineraryId, tripId;
+        if (linked) {
+          const { rows: [itinerary] } = await client.query("INSERT INTO itinerary.itineraries(created_by,title,visibility,itinerary_json) VALUES($1,'Admin test','private','{}') RETURNING id", [creator]);
+          itineraryId = itinerary.id;
+          const { rows: [trip] } = await client.query('INSERT INTO trip.trips(itinerary_id,user_id) VALUES($1,$2) RETURNING id', [itineraryId, creator]);
+          tripId = trip.id;
+          await client.query('INSERT INTO trip.trip_participants(trip_id,user_id,added_by) VALUES($1,$2,$2) ON CONFLICT(trip_id,user_id) DO NOTHING', [tripId, creator]);
+        }
+        const created = linked
+          ? await groupRepository.createLinkedGroup({ itineraryId, userId: creator, input: {} })
+          : await groupRepository.createStandaloneGroup({ userId: creator, input: { name: 'Admin test' } });
+        const groupId = created.group.id;
+        const selector = linked ? { itineraryId } : { groupId };
+        await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by,joined_at) VALUES($1,$2,'MEMBER','ACTIVE',$4,CURRENT_TIMESTAMP-INTERVAL '1 second'),($1,$3,'MEMBER','ACTIVE',$4,CURRENT_TIMESTAMP)", [groupId, first, second, creator]);
+        expect(await groupRepository.findAccessibleGroup({ groupId, userId: creator })).toMatchObject({ viewer_role: 'ADMIN' });
+        const conversation = await repository.create(creator, { type: 'group', groupId });
+        expect(await groupRepository.updateMemberRole({ ...selector, userId: first, targetUserId: second, role: 'ADMIN' })).toBeNull();
+        expect(await groupRepository.updateMemberRole({ ...selector, userId: creator, targetUserId: creator, role: 'MEMBER' })).toEqual({ error: 'LAST_ADMIN_REQUIRED' });
+        expect(await groupRepository.updateMemberRole({ ...selector, userId: creator, targetUserId: first, role: 'ADMIN' })).toMatchObject({ updated: true, role: 'ADMIN' });
+        const { rows: [invitee] } = await client.query("INSERT INTO auth.users(status) VALUES('ACTIVE') RETURNING id");
+        for (const person of [first, invitee.id]) {
+          await client.query('INSERT INTO users.profiles(user_id,username) VALUES($1,$2)', [person, 'admin_' + person.replaceAll('-', '')]);
+        }
+        const pair = [first, invitee.id].sort();
+        await client.query('INSERT INTO users.connections(user_low_id,user_high_id) VALUES($1,$2)', pair);
+        const invitation = await groupRepository.createInvitation({ ...selector, userId: first, input: { userId: invitee.id } });
+        expect(invitation.created).toBe(true);
+        expect(await groupRepository.respondToInvitation({ invitationId: invitation.invitation.id, userId: invitee.id, status: 'ACCEPTED' })).toMatchObject({ updated: true });
+        await groupRepository.removeMember({ ...selector, userId: first, targetUserId: invitee.id });
+        expect(await groupRepository.updateMemberRole({ ...selector, userId: first, targetUserId: first, role: 'ADMIN' })).toMatchObject({ updated: false });
+        expect(await groupRepository.updateMemberRole({ ...selector, userId: first, targetUserId: creator, role: 'MEMBER' })).toMatchObject({ updated: true });
+        expect(await groupRepository.deleteGroup({ groupId, userId: creator })).toBeNull();
+        expect(await groupRepository.createInvitation({ ...selector, userId: creator, input: { userId: second } })).toBeNull();
+        if (linked) expect(await groupRepository.linkItinerary({ groupId, itineraryId, userId: first })).toBeNull();
+        await groupRepository.removeMember({ ...selector, userId: first, targetUserId: creator });
+        if (linked) {
+          const { rows: [participant] } = await client.query('SELECT status FROM trip.trip_participants WHERE trip_id=$1 AND user_id=$2', [tripId, creator]);
+          expect(participant.status).toBe('ACTIVE');
+        }
+        expect(await groupRepository.findAccessibleGroup({ groupId, userId: creator })).toBeNull();
+        expect(await repository.access(client, conversation.id, creator)).toBeNull();
+        expect((await inbox.list(creator, { limit: 20, archived: false })).conversations.some(c => c.id === conversation.id)).toBe(false);
+        expect((await repository.recipients(client, conversation.id)).some(row => row.user_id === creator)).toBe(false);
+        if (linked) expect(await groupRepository.createLinkedGroup({ itineraryId, userId: creator, input: {} })).toEqual({ conflict: true });
+        await groupRepository.removeMember({ ...selector, userId: first, leave: true });
+        expect(await groupRepository.findAccessibleGroup({ groupId, userId: second })).toMatchObject({ viewer_role: 'ADMIN', owner_id: creator });
+        expect(await groupRepository.updateMemberRole({ ...selector, userId: first, targetUserId: second, role: 'MEMBER' })).toBeNull();
+        if (linked) {
+          expect(await groupRepository.unlinkItinerary({ groupId, userId: second })).toMatchObject({ updated: true, itineraryId });
+          expect(await groupRepository.linkItinerary({ groupId, itineraryId, userId: second })).toBeNull();
+        }
+        // Another group verifies that a non-creator admin can delete, including retries.
+        const deletable = await groupRepository.createStandaloneGroup({ userId: creator, input: { name: 'Admin deletion' } });
+        await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'ADMIN','ACTIVE',$3)", [deletable.group.id, second, creator]);
+        expect(await groupRepository.deleteGroup({ groupId: deletable.group.id, userId: second })).toMatchObject({ updated: true });
+        expect(await groupRepository.deleteGroup({ groupId: deletable.group.id, userId: second })).toMatchObject({ updated: false });
+        await groupRepository.removeMember({ groupId, userId: second, leave: true });
+        expect(await repository.access(client, conversation.id, second)).toBeNull();
+        const { rows: [empty] } = await client.query('SELECT status,itinerary_id FROM groups.groups WHERE id=$1', [groupId]);
+        expect(empty).toEqual({ status: 'ARCHIVED', itinerary_id: null });
+        if (linked) {
+          const { rows: [original] } = await client.query('SELECT created_by FROM itinerary.itineraries WHERE id=$1', [itineraryId]);
+          expect(original.created_by).toBe(creator);
+        }
+      } finally {
+        await client.query('ROLLBACK TO SAVEPOINT admin_groups');
+        await client.query('RELEASE SAVEPOINT admin_groups');
+      }
+    });
+    test('creator metadata does not bypass active membership for itinerary change requests', async () => {
+      await client.query('SAVEPOINT creator_metadata');
+      try {
+        const created = await groupRepository.createStandaloneGroup({ userId: owner, input: { name: 'Creator metadata test' } });
+        const groupId = created.group.id;
+        await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'ADMIN','ACTIVE',$3)", [groupId, member, owner]);
+        const { rows: [itinerary] } = await client.query("INSERT INTO itinerary.itineraries(created_by,title,visibility,itinerary_json) VALUES($1,'Member itinerary','private','{}') RETURNING id", [member]);
+        expect(await groupRepository.linkItinerary({ groupId, itineraryId: itinerary.id, userId: member })).toMatchObject({ updated: true });
+        expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: owner })).toBe(true);
+        await groupRepository.removeMember({ groupId, userId: member, targetUserId: owner });
+        expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: owner })).toBe(false);
+        expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: member })).toBe(true);
+        expect(await changeRequests.create({ itineraryId: itinerary.id, userId: owner, proposedData: {}, message: 'Unauthorized' })).toBeNull();
+      } finally {
+        await client.query('ROLLBACK TO SAVEPOINT creator_metadata');
+        await client.query('RELEASE SAVEPOINT creator_metadata');
+      }
     });
     test("reply previews resolve originals outside the page and respect hiding and deletion", async () => {
       await client.query("SAVEPOINT reply_preview_test");
@@ -410,6 +532,7 @@ describeDatabase(
         "INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'MEMBER','ACTIVE',$3)",
         [newGroup.id, target.id, owner],
       );
+      await groupRepository.ensureOwnerMember({ client, groupId: newGroup.id, ownerId: owner });
       const conversation = await repository.create(owner, {
         type: "group",
         groupId: newGroup.id,
@@ -531,6 +654,7 @@ describeDatabase(
         "INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) SELECT $1,id,'MEMBER','ACTIVE',$3 FROM unnest($2::uuid[]) id",
         [largeGroup.id, users.map((row) => row.id), owner],
       );
+      await groupRepository.ensureOwnerMember({ client, groupId: largeGroup.id, ownerId: owner });
       const conversation = await repository.create(owner, {
         type: "group",
         groupId: largeGroup.id,
@@ -685,8 +809,42 @@ describeDatabase(
       expect((await messages.send(owner, conversation.id, input)).created).toBe(
         false,
       );
+
+      await messages.react(member, conversation.id, sent.message.id, "👍");
+      await messages.react(owner, conversation.id, sent.message.id, "👍");
+      let reactions = (await messages.history(owner, conversation.id, { limit: 30 }))
+        .messages.find((m) => m.id === sent.message.id).reactions;
+      expect(reactions).toHaveLength(2);
+      expect(reactions).toEqual(expect.arrayContaining([
+        { userId: member, reaction: "👍" },
+        { userId: owner, reaction: "👍" },
+      ]));
+      await messages.react(member, conversation.id, sent.message.id, "❤️", true);
+      reactions = (await messages.history(owner, conversation.id, { limit: 30 }))
+        .messages.find((m) => m.id === sent.message.id).reactions;
+      expect(reactions).toHaveLength(2);
+      await messages.react(member, conversation.id, sent.message.id, "👍", true);
+      reactions = (await messages.history(owner, conversation.id, { limit: 30 }))
+        .messages.find((m) => m.id === sent.message.id).reactions;
+      expect(reactions).toEqual([{ userId: owner, reaction: "👍" }]);
+      await messages.react(owner, conversation.id, sent.message.id, "👍", true);
       await messages.react(member, conversation.id, sent.message.id, "❤️");
       await messages.react(member, conversation.id, sent.message.id, "❤️");
+      await client.query("SAVEPOINT legacy_reactions");
+      try {
+        await client.query("DROP INDEX chat.uq_message_reactions_message_user");
+        await client.query(
+          "INSERT INTO chat.message_reactions(message_id,user_id,reaction,created_at) VALUES($1,$2,'👍',clock_timestamp()+INTERVAL '1 second')",
+          [sent.message.id, member],
+        );
+        const migration = readFileSync(new URL("../../../src/database/migrations/080_chat_single_user_reaction.sql", import.meta.url), "utf8");
+        await client.query(migration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+        const { rows } = await client.query("SELECT reaction FROM chat.message_reactions WHERE message_id=$1 AND user_id=$2", [sent.message.id, member]);
+        expect(rows).toEqual([{ reaction: "👍" }]);
+      } finally {
+        await client.query("ROLLBACK TO SAVEPOINT legacy_reactions");
+        await client.query("RELEASE SAVEPOINT legacy_reactions");
+      }
       expect(
         (
           await messages.history(owner, conversation.id, { limit: 30 })

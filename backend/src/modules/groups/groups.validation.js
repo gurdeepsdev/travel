@@ -95,6 +95,14 @@ export const removeStandaloneGroupMemberSchema = removeGroupMemberSchema.extend(
   params: getGroupSchema.shape.params.extend({ userId: z.string().trim().uuid().toLowerCase() }).strict(),
 });
 
+export const updateGroupMemberRoleSchema = removeStandaloneGroupMemberSchema.extend({
+  body: z.object({ role: z.enum(['ADMIN', 'MEMBER']) }).strict(),
+});
+
+export const updateLinkedGroupMemberRoleSchema = removeGroupMemberSchema.extend({
+  body: updateGroupMemberRoleSchema.shape.body,
+});
+
 const listGroupInvitationsSchema = z.object({
   body: z.object({}).strict().optional(),
   params: z.object({}).strict(),

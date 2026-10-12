@@ -12,10 +12,7 @@ const ACCESS_SQL = `
     WHERE linked_group.itinerary_id = itinerary_record.id
       AND linked_group.status = 'ACTIVE'
       AND linked_group.deleted_at IS NULL
-      AND (
-        linked_group.owner_id = $2::uuid
-        OR member.id IS NOT NULL
-      )
+      AND member.id IS NOT NULL
   )
 `;
 
@@ -83,10 +80,7 @@ class ItineraryChangeRequestsRepository {
       WHERE itinerary_record.id = $1::uuid
         AND itinerary_record.deleted_at IS NULL
         AND itinerary_record.created_by <> $2::uuid
-        AND (
-          linked_group.owner_id = $2::uuid
-          OR member.id IS NOT NULL
-        )
+        AND member.id IS NOT NULL
         AND COALESCE(owner_state.status, 'PLANNED') IN (
           'PLANNED', 'UPCOMING', 'LIVE'
         )
@@ -238,10 +232,7 @@ class ItineraryChangeRequestsRepository {
         WHERE linked_group.itinerary_id = $1::uuid
           AND linked_group.status = 'ACTIVE'
           AND linked_group.deleted_at IS NULL
-          AND (
-            linked_group.owner_id = $2::uuid
-            OR member.id IS NOT NULL
-          )
+          AND member.id IS NOT NULL
       `, [itineraryId, request.requested_by]);
 
       if (!membership) {

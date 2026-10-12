@@ -2,6 +2,15 @@ import Response from "../../core/response/index.js";
 import Service from "./groups.service.js";
 
 class GroupsController {
+  async updateMemberRole(req, res, next) {
+    try {
+      const result = await Service.updateMemberRole({ groupId: req.validated.params.groupId,
+        itineraryId: req.validated.params.itineraryId, userId: req.user.id,
+        targetUserId: req.validated.params.userId, role: req.validated.body.role });
+      return Response.success(res, result, 'Group member role updated successfully.');
+    } catch (error) { return next(error); }
+  }
+
   async getItineraryGroup(req, res, next) {
     try {
       const result = await Service.getGroup({ userId: req.user.id,

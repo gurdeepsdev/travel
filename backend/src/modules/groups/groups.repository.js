@@ -2,6 +2,58 @@ import Database from "../../database/database-manager.js";
 import MediaRepository from "../media/media.repository.js";
 
 class GroupsRepository {
+  async isAdmin({ client, groupId, userId, activeOnly = true }) {
+    const { rows } = await client.query(`
+      SELECT id FROM groups.group_members
+      WHERE group_id=$1::uuid AND user_id=$2::uuid AND role='ADMIN'
+        AND ($3::boolean IS FALSE OR status='ACTIVE')
+    `, [groupId, userId, activeOnly]);
+    return rows.length > 0;
+  }
+
+  async resolveManagedGroup({ client, groupId, itineraryId }) {
+    if (groupId) return this.lockGroup({ client, groupId });
+    await this.lockItinerary({ client, itineraryId });
+    const linked = await this.findByItineraryId({ client, itineraryId });
+    return linked ? this.lockGroup({ client, groupId: linked.id }) : null;
+  }
+
+  async ensureActiveAdmin({ client, groupId }) {
+    const { rows } = await client.query(`
+      SELECT id FROM groups.group_members
+      WHERE group_id=$1::uuid AND status='ACTIVE' AND role='ADMIN'
+    `, [groupId]);
+    if (rows.length) return;
+    await client.query(`
+      UPDATE groups.group_members SET role='ADMIN',updated_at=CURRENT_TIMESTAMP
+      WHERE id=(SELECT id FROM groups.group_members
+        WHERE group_id=$1::uuid AND status='ACTIVE'
+        ORDER BY joined_at ASC,id ASC LIMIT 1)
+    `, [groupId]);
+  }
+
+  async updateMemberRole({ groupId, itineraryId, userId, targetUserId, role }) {
+    return Database.transaction(async (client) => {
+      const group = await this.resolveManagedGroup({ client, groupId, itineraryId });
+      if (!group || !(await this.isAdmin({ client, groupId: group.id, userId }))) return null;
+      const { rows: [member] } = await client.query(`
+        SELECT id,role FROM groups.group_members
+        WHERE group_id=$1::uuid AND user_id=$2::uuid AND status='ACTIVE' FOR UPDATE
+      `, [group.id, targetUserId]);
+      if (!member) return { error: 'MEMBER_NOT_FOUND' };
+      if (member.role === 'ADMIN' && role === 'MEMBER') {
+        const { rows: admins } = await client.query(`
+          SELECT id FROM groups.group_members
+          WHERE group_id=$1::uuid AND status='ACTIVE' AND role='ADMIN' AND id<>$2::uuid
+        `, [group.id, member.id]);
+        if (!admins.length) return { error: 'LAST_ADMIN_REQUIRED' };
+      }
+      if (member.role !== role) await client.query(`
+        UPDATE groups.group_members SET role=$2,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid
+      `, [member.id, role]);
+      return { updated: member.role !== role, groupId: group.id, userId: targetUserId, role };
+    });
+  }
   async lockGroup({ client, groupId }) {
     // Linking may happen between the initial read and row lock. Retry without
     // retaining the row lock so the itinerary-before-group lock order is preserved.
@@ -31,7 +83,7 @@ class GroupsRepository {
   async findAccessibleGroup({ groupId, itineraryId, userId }) {
     const { rows } = await Database.query(`
       SELECT g.*, cover_asset.mime_type AS cover_asset_mime_type,
-        CASE WHEN g.owner_id=$2::uuid THEN 'OWNER' ELSE m.role END AS viewer_role
+        m.role AS viewer_role
       FROM groups.groups g
       LEFT JOIN media.assets cover_asset ON cover_asset.id=g.cover_asset_id
         AND cover_asset.deleted_at IS NULL
@@ -39,7 +91,7 @@ class GroupsRepository {
         AND m.user_id=$2::uuid AND m.status='ACTIVE'
       WHERE (g.id=$1::uuid OR ($1::uuid IS NULL AND g.itinerary_id=$3::uuid))
         AND g.status='ACTIVE' AND g.deleted_at IS NULL
-        AND (g.owner_id=$2::uuid OR m.id IS NOT NULL)
+        AND m.id IS NOT NULL
         AND (g.itinerary_id IS NULL OR EXISTS (
           SELECT 1 FROM itinerary.itineraries i WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL
         ))
@@ -51,7 +103,7 @@ class GroupsRepository {
     const { rows } = await Database.query(`
       SELECT g.*, cover_asset.mime_type AS cover_asset_mime_type,
         g.created_at::text AS cursor_created_at,
-        CASE WHEN g.owner_id=$1::uuid THEN 'OWNER' ELSE m.role END AS viewer_role,
+        m.role AS viewer_role,
         c.id AS conversation_id,
         (SELECT COUNT(*)::int FROM chat.chat_messages message
           WHERE message.conversation_id=c.id AND message.sent_by<>$1::uuid
@@ -73,7 +125,7 @@ class GroupsRepository {
       LEFT JOIN chat.conversation_settings settings ON settings.conversation_id=c.id
         AND settings.user_id=$1::uuid
       WHERE g.status='ACTIVE' AND g.deleted_at IS NULL
-        AND (g.owner_id=$1::uuid OR m.id IS NOT NULL)
+        AND m.id IS NOT NULL
         AND (g.itinerary_id IS NULL OR EXISTS (
           SELECT 1 FROM itinerary.itineraries i
           WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL
@@ -120,8 +172,7 @@ class GroupsRepository {
         SELECT itinerary_id
         FROM groups.groups
         WHERE id = $1::uuid
-          AND owner_id = $2::uuid
-      `, [groupId, userId]);
+      `, [groupId]);
 
       if (!snapshot) { return null; }
       if (snapshot.itinerary_id) {
@@ -132,11 +183,12 @@ class GroupsRepository {
         SELECT *
         FROM groups.groups
         WHERE id = $1::uuid
-          AND owner_id = $2::uuid
         FOR UPDATE
-      `, [groupId, userId]);
+      `, [groupId]);
 
       if (!group) { return null; }
+      if (!(await this.isAdmin({ client, groupId: group.id, userId,
+        activeOnly: !group.deleted_at && group.status !== 'ARCHIVED' }))) return null;
       if (group.deleted_at || group.status === 'ARCHIVED') {
         return {
           updated: false,
@@ -212,10 +264,11 @@ class GroupsRepository {
       `, [itineraryId, userId]);
       if (!itinerary) { return null; }
       const { rows: [group] } = await client.query(`
-        SELECT * FROM groups.groups WHERE id=$1::uuid AND owner_id=$2::uuid
+        SELECT * FROM groups.groups WHERE id=$1::uuid
           AND status='ACTIVE' AND deleted_at IS NULL FOR UPDATE
-      `, [groupId, userId]);
+      `, [groupId]);
       if (!group) { return null; }
+      if (!(await this.isAdmin({ client, groupId, userId }))) return null;
       if (group.itinerary_id === itineraryId.toLowerCase()) { return { updated: false, group }; }
       if (group.itinerary_id) { return { conflict: true }; }
       // Include deleted groups: the database unique constraint also retains their links.
@@ -241,7 +294,7 @@ class GroupsRepository {
   async unlinkItinerary({ groupId, userId }) {
     return Database.transaction(async client => {
       const group = await this.lockGroup({ client, groupId });
-      if (!group || group.owner_id !== userId) { return null; }
+      if (!group || !(await this.isAdmin({ client, groupId, userId }))) { return null; }
       const itineraryId = group.itinerary_id;
       if (!itineraryId) { return { updated: false, itineraryId: null, group }; }
       const { rows: [ledger] } = await client.query(`
@@ -326,25 +379,11 @@ class GroupsRepository {
 
   async removeMember({ itineraryId, groupId, userId, targetUserId, leave = false }) {
     return Database.transaction(async (client) => {
-      let group;
-      if (groupId) {
-        group = await this.lockGroup({ client, groupId });
-        if (!group || (!leave && group.owner_id !== userId)) { return null; }
-        itineraryId = group.itinerary_id;
-      } else {
-        await this.lockItinerary({ client, itineraryId });
-        const { rows } = await client.query(`
-          SELECT g.id,g.owner_id FROM groups.groups g
-          JOIN itinerary.itineraries i ON i.id=g.itinerary_id AND i.deleted_at IS NULL
-          WHERE g.itinerary_id=$1::uuid AND g.status='ACTIVE' AND g.deleted_at IS NULL
-            AND ($3::boolean OR g.owner_id=$2::uuid)
-          FOR UPDATE OF g
-        `, [itineraryId, userId, leave]);
-        [group] = rows;
-      }
+      const group = await this.resolveManagedGroup({ client, groupId, itineraryId });
       if (!group) { return null; }
+      if (!leave && !(await this.isAdmin({ client, groupId: group.id, userId }))) return null;
+      itineraryId = group.itinerary_id;
       const target = leave ? userId : targetUserId;
-      if (group.owner_id === target) { return { error: 'OWNER_REMOVAL_FORBIDDEN' }; }
       const { rows: [member] } = await client.query(`
         SELECT id,status,removed_at FROM groups.group_members
         WHERE group_id=$1::uuid AND user_id=$2::uuid FOR UPDATE
@@ -362,13 +401,25 @@ class GroupsRepository {
         UPDATE trip.trip_participants p SET status='REMOVED',removed_at=CURRENT_TIMESTAMP,
           updated_at=CURRENT_TIMESTAMP FROM trip.trips t
         WHERE p.trip_id=t.id AND t.itinerary_id=$1::uuid AND p.user_id=$2::uuid
-          AND p.status='ACTIVE'
+          AND p.user_id<>t.user_id AND p.status='ACTIVE'
       `, [itineraryId, target]);
       await client.query(`
         UPDATE groups.group_invitations SET status='CANCELLED',
           responded_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
-        WHERE group_id=$1::uuid AND invited_user_id=$2::uuid AND status='PENDING'
+        WHERE group_id=$1::uuid AND (invited_user_id=$2::uuid OR invited_by=$2::uuid) AND status='PENDING'
       `, [group.id, target]);
+      await this.ensureActiveAdmin({ client, groupId: group.id });
+      // Empty groups must not remain active with pending invitations and no admin.
+      await client.query(`
+        UPDATE groups.group_invitations SET status='CANCELLED',responded_at=CURRENT_TIMESTAMP,
+          updated_at=CURRENT_TIMESTAMP WHERE group_id=$1::uuid AND status='PENDING'
+          AND NOT EXISTS(SELECT 1 FROM groups.group_members WHERE group_id=$1::uuid AND status='ACTIVE')
+      `, [group.id]);
+      await client.query(`
+        UPDATE groups.groups SET status='ARCHIVED',deleted_at=CURRENT_TIMESTAMP,
+          itinerary_id=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid
+          AND NOT EXISTS(SELECT 1 FROM groups.group_members WHERE group_id=$1::uuid AND status='ACTIVE')
+      `, [group.id]);
       return { updated, groupId: group.id, itineraryId, userId: target,
         memberId: removed.id, status: 'REMOVED', removedAt: removed.removed_at };
     });
@@ -436,12 +487,14 @@ class GroupsRepository {
               WHERE (b.user_id=$1::uuid AND b.blocked_user_id=$2::uuid)
                  OR (b.user_id=$2::uuid AND b.blocked_user_id=$1::uuid))
           FOR SHARE OF c
-        `, [invitation.owner_id, userId]);
+        `, [invitation.invited_by, userId]);
         if (!rows.length) { return { error: 'CONNECTION_REQUIRED' }; }
         await client.query(`
           INSERT INTO groups.group_members(group_id,user_id,role,status,added_by)
           VALUES ($1,$2,'MEMBER','ACTIVE',$3)
-          ON CONFLICT (group_id,user_id) DO UPDATE SET status='ACTIVE', removed_at=NULL,
+          ON CONFLICT (group_id,user_id) DO UPDATE SET
+            role=CASE WHEN groups.group_members.status='ACTIVE' THEN groups.group_members.role ELSE 'MEMBER' END,
+            status='ACTIVE', removed_at=NULL,
             removed_by=NULL, added_by=EXCLUDED.added_by, joined_at=CURRENT_TIMESTAMP,
             updated_at=CURRENT_TIMESTAMP
         `, [invitation.group_id, userId, invitation.invited_by]);
@@ -462,16 +515,8 @@ class GroupsRepository {
 
   async createInvitation({ itineraryId, groupId, userId, input }) {
     return Database.transaction(async (client) => {
-      let group;
-      if (groupId) {
-        group = await this.lockGroup({ client, groupId });
-      } else {
-        await this.lockItinerary({ client, itineraryId });
-        const itinerary = await this.findOwnedItinerary({ client, itineraryId, userId });
-        const linked = itinerary && await this.findByItineraryId({ client, itineraryId });
-        group = linked && await this.lockGroup({ client, groupId: linked.id });
-      }
-      if (!group || group.owner_id !== userId || group.status !== 'ACTIVE') {
+      const group = await this.resolveManagedGroup({ client, groupId, itineraryId });
+      if (!group || !(await this.isAdmin({ client, groupId: group.id, userId }))) {
         return null;
       }
 
@@ -629,8 +674,7 @@ class GroupsRepository {
           AND user_group.status = 'ACTIVE'
           AND user_group.deleted_at IS NULL
           AND (
-            user_group.owner_id = $2::uuid
-            OR EXISTS (
+            EXISTS (
               SELECT 1
               FROM groups.group_members member
               WHERE member.group_id = user_group.id
@@ -701,13 +745,13 @@ class GroupsRepository {
         VALUES (
           $1::uuid,
           $2::uuid,
-          'OWNER',
+          'ADMIN',
           'ACTIVE',
           $2::uuid
         )
         ON CONFLICT (group_id, user_id)
         DO UPDATE SET
-          role = 'OWNER',
+          role = 'ADMIN',
           status = 'ACTIVE',
           removed_at = NULL,
           removed_by = NULL,
@@ -759,15 +803,10 @@ class GroupsRepository {
         return { group, created: true, cleanupObjects };
       }
 
-      if (group.owner_id !== userId) {
+      group = await this.lockGroup({ client, groupId: group.id });
+      if (!group || !(await this.isAdmin({ client, groupId: group.id, userId }))) {
         return { conflict: true };
       }
-
-      await this.ensureOwnerMember({
-        client,
-        groupId: group.id,
-        ownerId: userId,
-      });
 
       return { group, created: false };
     });

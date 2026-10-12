@@ -5,7 +5,6 @@ export class ChatRepository {
     const { rows } = await client.query(
       `WITH candidates AS (
       SELECT user_id FROM chat.conversation_participants WHERE conversation_id=$1 AND left_at IS NULL
-      UNION SELECT g.owner_id FROM chat.conversations c JOIN groups.groups g ON g.id=c.group_id WHERE c.id=$1
       UNION SELECT m.user_id FROM chat.conversations c JOIN groups.group_members m ON m.group_id=c.group_id AND m.status='ACTIVE' WHERE c.id=$1
       UNION SELECT cm.owner_id FROM chat.conversations c JOIN community.communities cm ON cm.id=c.community_id WHERE c.id=$1
       UNION SELECT m.user_id FROM chat.conversations c JOIN community.community_members m ON m.community_id=c.community_id AND upper(m.status)='ACTIVE' WHERE c.id=$1
@@ -37,7 +36,7 @@ export class ChatRepository {
             OR (b.blocked_user_id = $2::uuid AND b.user_id = other.user_id)
           WHERE other.conversation_id = c.id AND other.user_id <> $2::uuid
         )) OR
-        (c.conversation_type = 'group' AND g.deleted_at IS NULL AND g.status = 'ACTIVE' AND (g.owner_id = $2::uuid OR gm.id IS NOT NULL)) OR
+        (c.conversation_type = 'group' AND g.deleted_at IS NULL AND g.status = 'ACTIVE' AND gm.id IS NOT NULL) OR
         (c.conversation_type = 'community' AND cm.deleted_at IS NULL AND (cm.owner_id = $2::uuid OR m.id IS NOT NULL)
           AND NOT EXISTS (SELECT 1 FROM community.community_bans b WHERE b.community_id = cm.id AND b.banned_user_id = $2::uuid))
       )`,
@@ -98,7 +97,7 @@ export class ChatRepository {
         group
           ? `
         SELECT g.id FROM groups.groups g WHERE g.id=$1::uuid AND g.deleted_at IS NULL AND g.status='ACTIVE'
-        AND (g.owner_id=$2::uuid OR EXISTS (SELECT 1 FROM groups.group_members m WHERE m.group_id=g.id AND m.user_id=$2::uuid AND m.status='ACTIVE')) FOR SHARE`
+        AND EXISTS (SELECT 1 FROM groups.group_members m WHERE m.group_id=g.id AND m.user_id=$2::uuid AND m.status='ACTIVE') FOR SHARE`
           : `
         SELECT c.id FROM community.communities c WHERE c.id=$1::uuid AND c.deleted_at IS NULL
         AND (c.owner_id=$2::uuid OR EXISTS (SELECT 1 FROM community.community_members m WHERE m.community_id=c.id AND m.user_id=$2::uuid AND upper(m.status)='ACTIVE'))

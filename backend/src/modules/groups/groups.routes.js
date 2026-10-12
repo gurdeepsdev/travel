@@ -5,6 +5,8 @@ import validate from "../../middleware/validate.middleware.js";
 import Controller from "./groups.controller.js";
 import groupImageUploadMiddleware from "./group-image-upload.middleware.js";
 import {
+  updateGroupMemberRoleSchema,
+  updateLinkedGroupMemberRoleSchema,
   leaveStandaloneGroupSchema,
   removeStandaloneGroupMemberSchema,
   createStandaloneGroupInvitationSchema,
@@ -23,6 +25,11 @@ import {
 } from "./groups.validation.js";
 
 const router = Router();
+
+router.patch('/groups/:groupId/members/:userId/role', AuthMiddleware.authenticate,
+  validate(updateGroupMemberRoleSchema), Controller.updateMemberRole);
+router.patch('/itineraries/:itineraryId/group/members/:userId/role', AuthMiddleware.authenticate,
+  validate(updateLinkedGroupMemberRoleSchema), Controller.updateMemberRole);
 
 router.delete('/groups/:groupId/itinerary', AuthMiddleware.authenticate,
   validate(getGroupSchema), Controller.unlinkItinerary);

@@ -24,6 +24,7 @@ describe("GroupsRepository.unlinkItinerary", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(repository, "lockGroup").mockResolvedValue(group);
+    jest.spyOn(repository, "isAdmin").mockResolvedValue(true);
   });
 
   const run = async (ledger) => {
