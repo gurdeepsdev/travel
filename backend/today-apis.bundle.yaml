@@ -450,7 +450,7 @@ paths:
       tags: [Chat]
       summary: Get my accessible conversation inbox
       operationId: getChatInbox
-      description: Preserves existing fields and adds conversationId (alias of id), name, image and otherUser. Direct chats use the other participant's profile; groups use name and cover; communities use name and icon. image and profilePhoto contain id, url and mimeType or null. otherUser contains id, username, displayName and profilePhoto, and is null for group/community chats. Missing profile display fields are null. Ordering, access and pagination are unchanged.
+      description: Preserves existing fields and adds conversationId (alias of id), name, image and otherUser. Direct chats use the other participant's profile; groups use name and cover; communities use name and icon. image and profilePhoto contain id, url and mimeType or null. otherUser contains id, username, displayName and profilePhoto, and is null for group/community chats. Missing profile display fields are null. Ordering, access and pagination are unchanged. Newly created standalone, itinerary-linked and planTogether groups automatically have conversations and appear before their first message with lastMessage=null and unreadCount=0; this GET remains read-only.
       security: [{ bearerAuth: [] }]
       parameters:
         - {name: limit, in: query, schema: {type: integer, default: 30, minimum: 1, maximum: 100}}
@@ -1024,6 +1024,7 @@ paths:
       operationId: createStandaloneGroup
       description: >
         Creates an ACTIVE group and its ACTIVE ADMIN membership atomically. ownerId records the creator only.
+        A group conversation is created in the same transaction.
         itineraryId is null until linked. Each successful request creates a new group.
         Save an itinerary without planTogether, then use PUT /groups/{groupId}/itinerary.
         Invite connections through POST /groups/{groupId}/invitations before or after linking.
@@ -3107,7 +3108,8 @@ paths:
       operationId: saveItinerary
       description: >
         Saves the generated itinerary. Send planTogether=true to atomically create
-        its linked group and ACTIVE ADMIN membership. Returns data.group alongside
+        its linked group and ACTIVE ADMIN membership. A group conversation is created
+        in the same transaction. Returns data.group alongside
         the complete data.itinerary. Omitted or false keeps the solo save behavior.
         The flag is not stored inside itineraryJson. Invite connections using the
         group invitations endpoint; they receive membership only after acceptance.
@@ -3253,7 +3255,7 @@ paths:
     post:
       tags: [Itinerary Groups]
       summary: Create or retrieve an itinerary group
-      description: Creates the single collaboration group linked to an owned itinerary and adds the itinerary creator as its active ADMIN member. Repeated calls return the existing linked group without creating a duplicate.
+      description: Creates the single collaboration group linked to an owned itinerary and adds the itinerary creator as its active ADMIN member. Repeated calls return the existing linked group without creating a duplicate. A group conversation is created in the same transaction.
       operationId: createItineraryGroup
       security: [{ bearerAuth: [] }]
       parameters:

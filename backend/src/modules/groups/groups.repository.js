@@ -646,6 +646,11 @@ class GroupsRepository {
       `,
       [ownerId, itineraryId, name, description, coverAssetId],
     );
+    await client.query(`
+      INSERT INTO chat.conversations(conversation_type,group_id,request_status)
+      VALUES('group',$1::uuid,'ACCEPTED')
+      ON CONFLICT(group_id) DO NOTHING
+    `, [rows[0].id]);
     return rows[0];
   }
 
