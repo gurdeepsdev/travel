@@ -327,7 +327,7 @@ export class ChatMessagesService {
         );
       else
         await client.query(
-          "INSERT INTO chat.message_reactions (message_id,user_id,reaction) VALUES ($1,$2,$3) ON CONFLICT (message_id,user_id,reaction) DO NOTHING",
+          "INSERT INTO chat.message_reactions (message_id,user_id,reaction) VALUES ($1,$2,$3) ON CONFLICT (message_id,user_id) DO UPDATE SET reaction=EXCLUDED.reaction,created_at=clock_timestamp() WHERE chat.message_reactions.reaction<>EXCLUDED.reaction",
           [messageId, userId, reaction],
         );
       await event(client, conversationId, messageId, "message.reaction");

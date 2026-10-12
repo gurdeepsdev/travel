@@ -6,6 +6,7 @@ jest.unstable_mockModule("../../../src/providers/storage/storage-manager.js", ()
 jest.unstable_mockModule("../../../src/modules/users/utils/profile-photo-file.util.js", () => ({ inspectProfilePhotoFile: inspectMock }));
 
 const repositoryMock = {
+  updateMemberRole: jest.fn(),
   deleteGroup: jest.fn(),
   unlinkItinerary: jest.fn(),
   findAccessibleGroup: jest.fn(),
@@ -35,6 +36,22 @@ const userId = "22222222-2222-4222-8222-222222222222";
 const groupId = "33333333-3333-4333-8333-333333333333";
 
 describe("GroupsService", () => {
+  test.each([
+    [null, 'GROUP.NOT_FOUND', 404],
+    [{ error: 'MEMBER_NOT_FOUND' }, 'GROUP.MEMBER_NOT_FOUND', 404],
+    [{ error: 'LAST_ADMIN_REQUIRED' }, 'GROUP.LAST_ADMIN_REQUIRED', 409],
+  ])('maps admin role update failures', async (result, code, statusCode) => {
+    repositoryMock.updateMemberRole.mockResolvedValue(result);
+    await expect(service.updateMemberRole({ groupId, userId, targetUserId: itineraryId, role: 'ADMIN' }))
+      .rejects.toMatchObject({ code, statusCode });
+  });
+  test('returns admin role update', async () => {
+    const args = { groupId, userId, targetUserId: itineraryId, role: 'ADMIN' };
+    const result = { updated: true, groupId, userId: itineraryId, role: 'ADMIN' };
+    repositoryMock.updateMemberRole.mockResolvedValue(result);
+    await expect(service.updateMemberRole(args)).resolves.toEqual(result);
+    expect(repositoryMock.updateMemberRole).toHaveBeenLastCalledWith(args);
+  });
   test("deletes an owned group", async () => {
     repositoryMock.deleteGroup.mockResolvedValue({
       updated: true,
@@ -78,11 +95,11 @@ describe("GroupsService", () => {
     repositoryMock.findAccessibleGroup.mockResolvedValue({
       id: groupId,
       itinerary_id: null,
-      viewer_role: 'OWNER',
+      viewer_role: 'ADMIN',
       cover_asset_id: itineraryId,
       cover_asset_mime_type: 'image/png',
     });
-    repositoryMock.listActiveMembers.mockResolvedValue([{id:userId,user_id:userId,role:'OWNER',status:'ACTIVE'}]);
+    repositoryMock.listActiveMembers.mockResolvedValue([{id:userId,user_id:userId,role:'ADMIN',status:'ACTIVE'}]);
     const result=await service.getGroup({groupId,userId});
     expect(result).toMatchObject({
       group: {
@@ -94,17 +111,17 @@ describe("GroupsService", () => {
           mimeType: 'image/png',
         },
       },
-      viewerRole: 'OWNER',
+      viewerRole: 'ADMIN',
       totalCount: 1,
     });
     expect(result.members[0].user).toMatchObject({id:userId,profilePhoto:null});
   });
   test('lists groups with a precise pagination cursor and viewer role', async () => {
-    const row={id:groupId,itinerary_id:null,viewer_role:'OWNER',cursor_created_at:'2026-09-10 10:00:00.123456'};
+    const row={id:groupId,itinerary_id:null,viewer_role:'ADMIN',cursor_created_at:'2026-09-10 10:00:00.123456'};
     repositoryMock.listMyGroups.mockResolvedValue([row,row]);
     const result=await service.listMyGroups({userId,limit:1});
     expect(result.groups).toHaveLength(1);
-    expect(result.groups[0]).toMatchObject({itineraryId:null,viewerRole:'OWNER',conversationId:null,unreadCount:0});
+    expect(result.groups[0]).toMatchObject({itineraryId:null,viewerRole:'ADMIN',conversationId:null,unreadCount:0});
     expect(result.pagination.hasMore).toBe(true);
     await service.listMyGroups({userId,limit:1,cursor:result.pagination.nextCursor});
     expect(repositoryMock.listMyGroups).toHaveBeenLastCalledWith({userId,limit:1,cursor:{createdAt:row.cursor_created_at,id:groupId}});
@@ -138,7 +155,6 @@ describe("GroupsService", () => {
   });
   test.each([
     [null, 'GROUP.MEMBER_NOT_FOUND', 404],
-    [{error:'OWNER_REMOVAL_FORBIDDEN'}, 'GROUP.OWNER_REMOVAL_FORBIDDEN', 409],
   ])('maps membership removal failures', async (result, code, statusCode) => {
     repositoryMock.removeMember.mockResolvedValue(result);
     await expect(service.removeMember({itineraryId,userId,leave:true}))
@@ -339,7 +355,7 @@ describe("GroupsService", () => {
       display_name: "Trip owner",
       is_verified: true,
       profile_photo_id: null,
-      role: "OWNER",
+      role: "ADMIN",
       status: "ACTIVE",
       joined_at: "2026-09-10T08:00:00.000Z",
       created_at: "2026-09-10T08:00:00.000Z",
@@ -356,7 +372,7 @@ describe("GroupsService", () => {
     });
     expect(result).toMatchObject({
       totalCount: 1,
-      members: [{ role: "OWNER", user: { id: userId } }],
+      members: [{ role: "ADMIN", user: { id: userId } }],
     });
   });
 

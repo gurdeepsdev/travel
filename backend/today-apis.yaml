@@ -642,6 +642,98 @@ paths:
                           nextCursor: { type: string, nullable: true }
         '400': { description: Invalid parameters or cursor. }
         '404': { description: User profile not found. }
+  '/groups/{groupId}/members/{userId}/role':
+    patch:
+      tags: [Itinerary Groups]
+      operationId: updateGroupMemberRole
+      summary: Promote or demote an active group member
+      description: Any active admin can change active member roles, including the creator. The last admin cannot be demoted until another member is promoted. ownerId records the creator only. Itinerary ownership is unchanged.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role: { type: string, enum: [ADMIN, MEMBER] }
+      responses:
+        '200':
+          description: Role updated or already set.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      groupId: { type: string, format: uuid }
+                      userId: { type: string, format: uuid }
+                      role: { type: string, enum: [ADMIN, MEMBER] }
+        '400': { description: Invalid UUID or role. }
+        '401': { description: Authentication required. }
+        '404': { description: Admin access required or active member not found. }
+        '409': { description: GROUP.LAST_ADMIN_REQUIRED - promote another member first. }
+  '/itineraries/{itineraryId}/group/members/{userId}/role':
+    patch:
+      tags: [Itinerary Groups]
+      operationId: updateItineraryGroupMemberRole
+      summary: Promote or demote an active group member
+      description: Any active admin can change active member roles, including the creator. The last admin cannot be demoted until another member is promoted. ownerId records the creator only. Itinerary ownership is unchanged.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itineraryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role: { type: string, enum: [ADMIN, MEMBER] }
+      responses:
+        '200':
+          description: Role updated or already set.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      updated: { type: boolean }
+                      groupId: { type: string, format: uuid }
+                      userId: { type: string, format: uuid }
+                      role: { type: string, enum: [ADMIN, MEMBER] }
+        '400': { description: Invalid UUID or role. }
+        '401': { description: Authentication required. }
+        '404': { description: Admin access required or active member not found. }
+        '409': { description: GROUP.LAST_ADMIN_REQUIRED - promote another member first. }
   '/groups/{groupId}/leave':
     post:
       tags: [Itinerary Groups]
@@ -649,7 +741,8 @@ paths:
       operationId: leaveGroup
       description: >
         The authenticated member leaves an active group, before or after linking an itinerary.
-        The owner cannot leave. Marks the caller's membership REMOVED and cancels pending
+        Admins and members can leave. If no admin remains, the earliest-joined active member is promoted.
+        Empty groups are archived. Marks the caller's membership REMOVED and cancels pending
         invitations for that member. Linked expense participation is removed atomically.
         Financial history and uploaded documents are preserved. Group-based access is revoked;
         document owners retain access to their own documents. No trip is created.
@@ -681,15 +774,15 @@ paths:
         '400': { description: Invalid request. }
         '401': { description: Authentication required. }
         '404': { description: Accessible group member not found. }
-        '409': { description: The group owner cannot leave. }
   '/groups/{groupId}/members/{userId}':
     delete:
       tags: [Itinerary Groups]
       summary: Remove a group member without requiring an itinerary
       operationId: removeGroupMember
       description: >
-        Only the group owner can remove another member, before or after linking an itinerary.
-        The owner cannot be removed. Marks membership REMOVED and cancels pending invitations.
+        Any active group admin can remove another member, before or after linking an itinerary.
+        Creators and admins can be removed. If no admin remains, the earliest-joined active member is promoted.
+        Marks membership REMOVED and cancels pending invitations.
         If a trip is linked, expense participation is removed atomically. Expenses, splits,
         settlements and uploaded documents are retained. Group-based access is revoked;
         document owners retain access to their own documents. No trip is created.
@@ -725,7 +818,6 @@ paths:
         '400': { description: Invalid request. }
         '401': { description: Authentication required. }
         '404': { description: Accessible group member not found. }
-        '409': { description: The group owner cannot be removed. }
   '/groups/{groupId}/invitations':
     post:
       tags: [Itinerary Groups]
@@ -772,7 +864,7 @@ paths:
         '400': { description: Invalid parameters or self-invitation }
         '401': { description: Authentication required }
         '403': { description: Active unblocked connection required }
-        '404': { description: Owned active group not found }
+        '404': { description: Admin-managed active group not found }
         '409': { description: User is already an active member }
   '/groups/{groupId}':
     get:
@@ -781,7 +873,7 @@ paths:
       operationId: getGroup
       description: >
         Returns group details, nullable linked itineraryId, viewerRole and active members
-        with profile photos. Available to the owner or an ACTIVE member only.
+        with profile photos. Available to ACTIVE members only.
         Standalone groups are supported. Pending invitees, removed members and outsiders
         receive 404, as do archived/deleted groups and groups linked to deleted itineraries.
       security: [{ bearerAuth: [] }]
@@ -806,7 +898,7 @@ paths:
                         properties:
                           group:
                             $ref: '#/components/schemas/StandaloneGroupResponse/properties/data/properties/group'
-                          viewerRole: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                          viewerRole: { type: string, enum: [ADMIN, MEMBER] }
                           totalCount: { type: integer, minimum: 0 }
                           members:
                             type: array
@@ -814,7 +906,7 @@ paths:
                               type: object
                               properties:
                                 id: { type: string, format: uuid }
-                                role: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                                role: { type: string, enum: [ADMIN, MEMBER] }
                                 status: { type: string, enum: [ACTIVE] }
                                 joinedAt: { type: string, format: date-time }
                                 createdAt: { type: string, format: date-time }
@@ -838,14 +930,14 @@ paths:
         '404': { description: Group unavailable or inaccessible }
     delete:
       tags: [Itinerary Groups]
-      summary: Delete an owned group
+      summary: Delete an admin-managed group
       operationId: deleteGroup
       description: >
         Soft-deletes a group owned by the authenticated user. The linked itinerary is
         preserved and unlinked, active memberships are removed, pending invitations are
         cancelled, and non-owner expense participation is revoked without deleting
         expenses, settlements, documents, personal itinerary state, or audit history.
-        Repeating the request as the owner is idempotent.
+        Any active admin can delete the group. Repeating deletion as a prior admin is idempotent.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: groupId
@@ -873,11 +965,11 @@ paths:
                           deletedAt: { type: string, format: date-time }
         '400': { description: Invalid group ID }
         '401': { description: Authentication required }
-        '404': { description: Owned group not found }
+        '404': { description: Admin-managed group not found }
   /users/me/groups:
     get:
       tags: [Itinerary Groups]
-      summary: List my active owned and joined groups
+      summary: List my active groups
       operationId: listMyGroups
       description: >
         Each group additionally includes conversationId (UUID or null) and unreadCount (integer).
@@ -898,7 +990,7 @@ paths:
           schema: { type: string, maxLength: 1000 }
       responses:
         '200':
-          description: Owned and joined groups fetched successfully
+          description: Active groups fetched successfully
           content:
             application/json:
               schema:
@@ -917,7 +1009,7 @@ paths:
                                 - $ref: '#/components/schemas/StandaloneGroupResponse/properties/data/properties/group'
                                 - type: object
                                   properties:
-                                    viewerRole: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                                    viewerRole: { type: string, enum: [ADMIN, MEMBER] }
                           pagination:
                             type: object
                             properties:
@@ -931,7 +1023,7 @@ paths:
       summary: Create a group before planning an itinerary
       operationId: createStandaloneGroup
       description: >
-        Creates an ACTIVE group and its ACTIVE OWNER membership atomically.
+        Creates an ACTIVE group and its ACTIVE ADMIN membership atomically. ownerId records the creator only.
         itineraryId is null until linked. Each successful request creates a new group.
         Save an itinerary without planTogether, then use PUT /groups/{groupId}/itinerary.
         Invite connections through POST /groups/{groupId}/invitations before or after linking.
@@ -973,7 +1065,7 @@ paths:
       summary: Unlink a group's itinerary
       operationId: unlinkGroupItinerary
       description: >
-        Only the group owner can unlink. Returns 409 while active expenses have
+        Any active group admin can unlink. Returns 409 while active expenses have
         an open balance or pending settlement. Fully settled active expenses and
         soft-deleted expenses do not prevent unlinking; financial history is retained.
         Preserves group memberships, itinerary and documents. Removes non-owner
@@ -1019,11 +1111,11 @@ paths:
                           updatedAt: { type: string, format: date-time }
         '400': { description: Invalid request. }
         '401': { description: Authentication required. }
-        '404': { description: Owned active group not found. }
+        '404': { description: Admin-managed active group not found. }
         '409': { description: GROUP.UNLINK_FINANCIAL_HISTORY - active expenses still have an open balance or pending settlement. }
     put:
       tags: [Itinerary Groups]
-      summary: Link an owned itinerary to an owned group
+      summary: Link an owned itinerary to an admin-managed group
       operationId: linkGroupItinerary
       description: >
         Links an unlinked ACTIVE group to an existing itinerary owned by the caller.
@@ -1055,7 +1147,7 @@ paths:
               schema: { $ref: '#/components/schemas/StandaloneGroupResponse' }
         '400': { description: Invalid UUID or body }
         '401': { description: Authentication required }
-        '404': { description: Owned active group or itinerary not found }
+        '404': { description: Admin-managed active group or owned itinerary not found }
         '409': { description: Group or itinerary already has a different link }
   "/itineraries/{itineraryId}/group/members/{userId}":
     delete:
@@ -1063,8 +1155,9 @@ paths:
       summary: Remove an itinerary group member
       operationId: removeItineraryGroupMember
       description: >
-        Only the group owner can remove another member.
-        The owner cannot leave or be removed. Atomically marks group membership
+        Any active group admin can remove another member.
+        Creators and admins can leave or be removed. If no admin remains, the earliest-joined active member is promoted.
+        Empty groups are archived. Atomically marks group membership
         and expense participation REMOVED and cancels pending invitations.
         Preserves expenses, splits, settlements, balances, and uploaded documents.
         Removed members lose group-based access to other users GROUP documents;
@@ -1101,7 +1194,6 @@ paths:
         '400': { description: Invalid request. }
         '401': { description: Authentication required. }
         '404': { description: Accessible group member not found. }
-        '409': { description: The group owner cannot leave or be removed. }
   "/itineraries/{itineraryId}/group/leave":
     post:
       tags: [Itinerary Groups]
@@ -1109,7 +1201,8 @@ paths:
       operationId: leaveItineraryGroup
       description: >
         The authenticated member leaves their own group.
-        The owner cannot leave or be removed. Atomically marks group membership
+        Creators and admins can leave or be removed. If no admin remains, the earliest-joined active member is promoted.
+        Empty groups are archived. Atomically marks group membership
         and expense participation REMOVED and cancels pending invitations.
         Preserves expenses, splits, settlements, balances, and uploaded documents.
         Removed members lose group-based access to other users GROUP documents;
@@ -1142,7 +1235,6 @@ paths:
         '400': { description: Invalid request. }
         '401': { description: Authentication required. }
         '404': { description: Accessible group member not found. }
-        '409': { description: The group owner cannot leave or be removed. }
   "/users/me/group-invitations":
     get:
       tags: [Itinerary Groups]
@@ -1192,7 +1284,7 @@ paths:
       operationId: respondToMyGroupInvitation
       description: >
         Only the recipient can respond. Acceptance rechecks the active unblocked
-        connection to the owner and atomically activates membership and expense
+        connection to the inviting admin and atomically activates membership and expense
         participation in an existing trip. If no trip exists, membership is retained
         and migration 066 synchronizes participants when the trip is created.
         Declining grants no access. Repeating the same decision returns updated=false;
@@ -1325,7 +1417,7 @@ paths:
       operationId: saveItinerary
       description: >
         Saves the generated itinerary. Send planTogether=true to atomically create
-        its linked group and ACTIVE OWNER membership. Returns data.group alongside
+        its linked group and ACTIVE ADMIN membership. Returns data.group alongside
         the complete data.itinerary. Omitted or false keeps the solo save behavior.
         The flag is not stored inside itineraryJson. Invite connections using the
         group invitations endpoint; they receive membership only after acceptance.
@@ -1382,7 +1474,7 @@ paths:
       summary: Invite a connection to an itinerary group
       operationId: createItineraryGroupInvitation
       description: >
-        The itinerary and group owner can invite an active, unblocked accepted
+        Any active group admin can invite an active, unblocked accepted
         connection. Creates a PENDING invitation expiring after seven days.
         Retrying returns the existing unexpired pending invitation without
         extending its expiry. An expired invitation is replaced by a new one.
@@ -1452,7 +1544,7 @@ paths:
       operationId: getItineraryGroup
       description: >
         Resolves the itinerary's active group and returns group details, active members
-        with profile photos, totalCount and viewerRole. Only the owner or an ACTIVE
+        with profile photos, totalCount and viewerRole. Only an ACTIVE
         group member can access it. Returns 404 for unlinked itineraries, unavailable
         groups, deleted itineraries, pending invitees, removed members and outsiders.
         Does not create a group or change the itinerary.
@@ -1474,7 +1566,7 @@ paths:
       summary: Create or retrieve an itinerary group
       description: >
         Creates the single collaboration group linked to an owned itinerary
-        and adds the itinerary creator as its active OWNER member. Repeated
+        and adds the itinerary creator as its active ADMIN member. Repeated
         calls return the existing linked group without creating a duplicate.
       operationId: createItineraryGroup
       security:
@@ -1551,7 +1643,7 @@ paths:
       summary: List active itinerary group members
       description: >
         Returns the active members of an itinerary's linked group. The
-        itinerary owner and active group members can access this list.
+        active group members can access this list.
       operationId: listItineraryGroupMembers
       security:
         - bearerAuth: []
@@ -1597,7 +1689,7 @@ paths:
                                 username: { type: string }
                                 displayName: { type: string, nullable: true }
                                 isVerified: { type: boolean }
-                            role: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+                            role: { type: string, enum: [ADMIN, MEMBER] }
                             status: { type: string, enum: [ACTIVE] }
                             joinedAt: { type: string, format: date-time }
                             createdAt: { type: string, format: date-time }

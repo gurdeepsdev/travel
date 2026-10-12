@@ -8,6 +8,16 @@ import Repository from "./groups.repository.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 
 class GroupsService {
+  async updateMemberRole(args) {
+    const result = await Repository.updateMemberRole(args);
+    if (!result) throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
+      message: 'Active group admin access is required.', statusCode: HttpStatus.NOT_FOUND });
+    if (result.error === 'MEMBER_NOT_FOUND') throw new AppError({ code: ErrorCodes.GROUP.MEMBER_NOT_FOUND,
+      message: 'Active group member not found.', statusCode: HttpStatus.NOT_FOUND });
+    if (result.error) throw new AppError({ code: 'GROUP.LAST_ADMIN_REQUIRED',
+      message: 'Promote another member before demoting the last admin.', statusCode: HttpStatus.CONFLICT });
+    return result;
+  }
   async getGroup({ groupId, itineraryId, userId }) {
     const group = await Repository.findAccessibleGroup({ groupId, itineraryId, userId });
     if (!group) {
@@ -24,7 +34,7 @@ class GroupsService {
     if (!result) {
       throw new AppError({
         code: ErrorCodes.GROUP.NOT_FOUND,
-        message: "Owned group not found.",
+        message: "Admin-managed group not found.",
         statusCode: HttpStatus.NOT_FOUND,
       });
     }
@@ -87,7 +97,7 @@ class GroupsService {
     const result = await Repository.linkItinerary(args);
     if (!result) {
       throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
-        message: "Owned active group or itinerary not found.", statusCode: HttpStatus.NOT_FOUND });
+        message: "Admin-managed active group or owned itinerary not found.", statusCode: HttpStatus.NOT_FOUND });
     }
     if (result.conflict) {
       throw new AppError({ code: ErrorCodes.GROUP.ITINERARY_ALREADY_LINKED,
@@ -102,10 +112,6 @@ class GroupsService {
       throw new AppError({ code: ErrorCodes.GROUP.MEMBER_NOT_FOUND,
         message: "Accessible group member not found.", statusCode: HttpStatus.NOT_FOUND });
     }
-    if (result.error) {
-      throw new AppError({ code: ErrorCodes.GROUP.OWNER_REMOVAL_FORBIDDEN,
-        message: "The group owner cannot leave or be removed.", statusCode: HttpStatus.CONFLICT });
-    }
     return result;
   }
 
@@ -113,7 +119,7 @@ class GroupsService {
     const result = await Repository.unlinkItinerary(args);
     if (!result) {
       throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
-        message: 'Owned active group not found.', statusCode: 404 });
+        message: 'Admin-managed active group not found.', statusCode: 404 });
     }
     if (result.financialHistory) {
       throw new AppError({ code: 'GROUP.UNLINK_FINANCIAL_HISTORY',
@@ -168,7 +174,7 @@ class GroupsService {
     const result = await Repository.createInvitation({ itineraryId, ...(groupId ? { groupId } : {}), userId, input });
     if (!result) {
       throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
-        message: "Owned active group not found.", statusCode: HttpStatus.NOT_FOUND });
+        message: "Admin-managed active group not found.", statusCode: HttpStatus.NOT_FOUND });
     }
     if (result.error) {
       throw new AppError({ code: ErrorCodes.GROUP[result.error],
