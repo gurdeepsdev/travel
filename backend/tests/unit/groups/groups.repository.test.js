@@ -15,6 +15,25 @@ const { default: repository } = await import(
   "../../../src/modules/groups/groups.repository.js"
 );
 
+describe('GroupsRepository.createLinked conversation creation', () => {
+  const ownerId = '1a5ae58e-8931-44ce-8385-61996f7e46e7';
+  const group = { id: '6a969885-7892-4271-9849-e44621e89d13' };
+  test('uses the same transaction client for group and conversation', async () => {
+    const client = { query: jest.fn().mockResolvedValueOnce({ rows: [group] }).mockResolvedValueOnce({ rows: [] }) };
+    await expect(repository.createLinked({ client, itineraryId: null, ownerId, name: 'New group' })).resolves.toBe(group);
+    expect(client.query).toHaveBeenCalledTimes(2);
+    expect(client.query.mock.calls[1][0]).toContain('ON CONFLICT(group_id) DO NOTHING');
+    expect(client.query.mock.calls[1][1]).toEqual([group.id]);
+  });
+  test('conversation failure fails group creation instead of returning success', async () => {
+    const error = new Error('Conversation insert failed');
+    const client = { query: jest.fn().mockResolvedValueOnce({ rows: [group] }).mockRejectedValueOnce(error) };
+    transactionMock.mockImplementation(callback => callback(client));
+    await expect(repository.createStandaloneGroup({ userId: ownerId, input: { name: 'New group' } })).rejects.toBe(error);
+    expect(client.query).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("GroupsRepository.unlinkItinerary", () => {
   const groupId = "6a969885-7892-4271-9849-e44621e89d13";
   const itineraryId = "6590a09a-4667-4ed0-ab8c-a5507c0805bd";

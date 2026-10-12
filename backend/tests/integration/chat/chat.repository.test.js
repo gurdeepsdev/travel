@@ -25,6 +25,8 @@ const { default: groupRepository } =
   await import("../../../src/modules/groups/groups.repository.js");
 const { default: changeRequests } =
   await import("../../../src/modules/itinerary/itinerary-change-requests.repository.js");
+const { default: itineraryRepository } =
+  await import("../../../src/modules/itinerary/itinerary.repository.js");
 const {
   default: events,
   recordUserEvent,
@@ -120,6 +122,62 @@ describeDatabase(
         "INSERT INTO groups.group_members (group_id,user_id,role,status,added_by) VALUES ($1,$2,'MEMBER','ACTIVE',$3)",
         [group, member, owner],
       );
+    });
+    test.each(['standalone', 'linked', 'planTogether'])('new groups appear in the inbox before their first message: %s', async (kind) => {
+      await client.query('SAVEPOINT empty_group_inbox');
+      try {
+        let itineraryId;
+        if (kind === 'linked') {
+          const { rows: [itinerary] } = await client.query("INSERT INTO itinerary.itineraries(created_by,title,visibility,itinerary_json) VALUES($1,'Empty chat','private','{}') RETURNING id", [owner]);
+          itineraryId = itinerary.id;
+        }
+        const created = kind === 'linked'
+          ? await groupRepository.createLinkedGroup({ itineraryId, userId: owner, input: {} })
+          : kind === 'planTogether'
+            ? await itineraryRepository.createPlanTogether({ userId: owner, title: 'Empty chat', durationDays: 1, itineraryJson: { days: [], summary: {} } })
+            : await groupRepository.createStandaloneGroup({ userId: owner, input: { name: 'Empty chat' } });
+        const groupId = created.group.id;
+        const page = await inbox.list(owner, { limit: 100, archived: false });
+        const entry = page.conversations.find(row => row.groupId === groupId);
+        expect(entry).toMatchObject({ type: 'group', unreadCount: 0, lastMessage: null, canSend: true, requestStatus: 'ACCEPTED' });
+        expect(entry.conversationId).toBe(entry.id);
+        expect((await repository.create(owner, { type: 'group', groupId })).id).toBe(entry.id);
+        expect(await repository.access(client, entry.id, member)).toBeNull();
+        await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'MEMBER','ACTIVE',$3)", [groupId, member, owner]);
+        expect((await inbox.list(member, { limit: 100, archived: false })).conversations.find(row => row.id === entry.id))
+          .toMatchObject({ unreadCount: 0, lastMessage: null });
+        await messages.send(member, entry.id, { text: 'First group message', clientMessageId: crypto.randomUUID() });
+        expect((await inbox.list(owner, { limit: 100, archived: false })).conversations.find(row => row.id === entry.id))
+          .toMatchObject({ unreadCount: 1, lastMessage: { text: 'First group message' } });
+        const { rows: [count] } = await client.query('SELECT COUNT(*)::int AS count FROM chat.conversations WHERE group_id=$1', [groupId]);
+        expect(count.count).toBe(1);
+      } finally {
+        await client.query('ROLLBACK TO SAVEPOINT empty_group_inbox');
+        await client.query('RELEASE SAVEPOINT empty_group_inbox');
+      }
+    });
+    test('conversation backfill is repeatable and preserves existing conversations', async () => {
+      await client.query('SAVEPOINT conversation_backfill');
+      try {
+        const { rows: legacy } = await client.query("INSERT INTO groups.groups(owner_id,name,status) VALUES($1,'Legacy active','ACTIVE'),($1,'Archived','ARCHIVED') RETURNING id,status", [owner]);
+        for (const row of legacy) await groupRepository.ensureOwnerMember({ client, groupId: row.id, ownerId: owner });
+        const existing = await groupRepository.createStandaloneGroup({ userId: owner, input: { name: 'Existing conversation' } });
+        const original = await repository.create(owner, { type: 'group', groupId: existing.group.id });
+        const migration = readFileSync(new URL('../../../src/database/migrations/082_backfill_group_conversations.sql', import.meta.url), 'utf8');
+        for (let repeat = 0; repeat < 2; repeat++) await client.query(migration.replace(/^BEGIN;/m, '').replace(/^COMMIT;/m, ''));
+        const active = legacy.find(row => row.status === 'ACTIVE');
+        const archived = legacy.find(row => row.status === 'ARCHIVED');
+        const { rows } = await client.query('SELECT group_id,COUNT(*)::int AS count FROM chat.conversations WHERE group_id=ANY($1::uuid[]) GROUP BY group_id', [[active.id, archived.id, existing.group.id]]);
+        expect(rows).toHaveLength(2);
+        expect(rows.every(row => row.count === 1)).toBe(true);
+        expect((await repository.create(owner, { type: 'group', groupId: existing.group.id })).id).toBe(original.id);
+        expect((await inbox.list(owner, { limit: 100, archived: false })).conversations.find(row => row.groupId === active.id))
+          .toMatchObject({ unreadCount: 0, lastMessage: null });
+        expect(await repository.create(owner, { type: 'group', groupId: archived.id })).toBeNull();
+      } finally {
+        await client.query('ROLLBACK TO SAVEPOINT conversation_backfill');
+        await client.query('RELEASE SAVEPOINT conversation_backfill');
+      }
     });
     test('admin migration converts legacy roles without restoring removed creators', async () => {
       await client.query('SAVEPOINT admin_migration');
