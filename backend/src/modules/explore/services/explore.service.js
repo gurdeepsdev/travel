@@ -96,6 +96,8 @@ class ExploreService {
           limit,
         });
 
+    const images = await resolveExploreImages("places", placeRows);
+
     return {
       locationApplied:
         latitude !== null &&
@@ -112,7 +114,9 @@ class ExploreService {
           )
           .filter(
             Boolean,
-          ),
+          ).map((place) => images?.has(place.id)
+            ? { ...place, image: images.get(place.id) }
+            : place),
     };
   }
 

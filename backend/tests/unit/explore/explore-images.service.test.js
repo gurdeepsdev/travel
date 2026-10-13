@@ -29,6 +29,7 @@ afterAll(() => {
 
 describe.each([
   ["cities", "externalCityId", () => service.getCities()],
+  ["places", "externalPlaceId", () => service.getPlaces()],
 ])("%s image integration", (kind, idField, request) => {
   test("merges by ID, replaces existing images, preserves structure and null, one call", async () => {
     delete process.env.ARTICTERN_IMAGE_API_KEY;
@@ -40,7 +41,7 @@ describe.each([
     ] } });
     const after = await request();
     const merged = before[kind].map((item, index) => ({ ...item, image: index === 0 ? image : null }));
-    expect(after).toEqual({ ...before, [kind]: kind === "places" ? merged.filter((item) => item.image !== null) : merged });
+    expect(after).toEqual({ ...before, [kind]: merged });
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0][1][kind]).toHaveLength(2);
     expect(post.mock.calls[0][2]).toMatchObject({ timeout: 5000, maxRedirects: 0 });
@@ -62,7 +63,7 @@ describe.each([
     repository.listPlaces.mockResolvedValue(many);
     post.mockResolvedValue({ data: { images: many.slice(0, cap).map((row) => ({ [idField]: row.id, image: null })) } });
     const result = await request();
-    expect(result[kind]).toHaveLength(kind === "places" ? 1 : cap + 1);
+    expect(result[kind]).toHaveLength(cap + 1);
     expect(result[kind].at(-1).image.id).toBe("old-image");
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0][1][kind]).toHaveLength(cap);
@@ -77,12 +78,13 @@ test("sends provider fields together only", async () => {
 });
 
 
-test("general places endpoint retains imageless places and makes no AWS call", async () => {
+test("general places endpoint retains places when AWS returns no image", async () => {
   repository.listPlaces.mockResolvedValue([{ ...rows[0], image_asset_id: null }]);
+  post.mockResolvedValue({ data: { images: [{ externalPlaceId: rows[0].id, image: null }] } });
   const result = await service.getPlaces();
   expect(result.places).toHaveLength(1);
   expect(result.places[0].image).toBeNull();
-  expect(post).not.toHaveBeenCalled();
+  expect(post).toHaveBeenCalledTimes(1);
 });
 
 test("empty input makes no external request", async () => {

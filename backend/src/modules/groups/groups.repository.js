@@ -83,6 +83,8 @@ class GroupsRepository {
   async findAccessibleGroup({ groupId, itineraryId, userId }) {
     const { rows } = await Database.query(`
       SELECT g.*, cover_asset.mime_type AS cover_asset_mime_type,
+        (SELECT i.created_by FROM itinerary.itineraries i
+          WHERE i.id=g.itinerary_id AND i.deleted_at IS NULL) AS itinerary_owner_id,
         m.role AS viewer_role
       FROM groups.groups g
       LEFT JOIN media.assets cover_asset ON cover_asset.id=g.cover_asset_id
