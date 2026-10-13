@@ -25,7 +25,7 @@ class GroupsService {
         message: "Group not found.", statusCode: HttpStatus.NOT_FOUND });
     }
     const members = await Repository.listActiveMembers({ groupId: group.id });
-    return { group: this.mapGroup(group), viewerRole: group.viewer_role,
+    return { group: { ...this.mapGroup(group), itineraryOwnerId: group.itinerary_owner_id ?? null }, viewerRole: group.viewer_role,
       members: this.mapMembers(members), totalCount: members.length };
   }
 

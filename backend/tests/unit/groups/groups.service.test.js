@@ -82,9 +82,9 @@ describe("GroupsService", () => {
     expect(repositoryMock.createInvitation).toHaveBeenLastCalledWith({groupId,itineraryId:undefined,userId,input});
   });
   test('resolves group details by itinerary ID', async () => {
-    repositoryMock.findAccessibleGroup.mockResolvedValue({id:groupId,itinerary_id:itineraryId,viewer_role:'MEMBER'});
+    repositoryMock.findAccessibleGroup.mockResolvedValue({id:groupId,itinerary_id:itineraryId,itinerary_owner_id:userId,viewer_role:'MEMBER'});
     repositoryMock.listActiveMembers.mockResolvedValue([]);
-    await expect(service.getGroup({itineraryId,userId})).resolves.toMatchObject({group:{id:groupId,itineraryId},viewerRole:'MEMBER'});
+    await expect(service.getGroup({itineraryId,userId})).resolves.toMatchObject({group:{id:groupId,itineraryId,itineraryOwnerId:userId},viewerRole:'MEMBER'});
     expect(repositoryMock.findAccessibleGroup).toHaveBeenLastCalledWith({groupId:undefined,itineraryId,userId});
   });
   test('hides inaccessible group details', async () => {
@@ -105,6 +105,7 @@ describe("GroupsService", () => {
       group: {
         id: groupId,
         itineraryId: null,
+        itineraryOwnerId: null,
         coverImage: {
           assetId: itineraryId,
           url: `/api/v1/media/assets/${itineraryId}/content`,
