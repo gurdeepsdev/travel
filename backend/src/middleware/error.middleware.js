@@ -27,6 +27,15 @@ export default function errorMiddleware(error, req, res, next) {
     return next(error);
   }
 
+  if (error instanceof SyntaxError && error.type === "entity.parse.failed" && error.status === HttpStatus.BAD_REQUEST) {
+    return Response.error(res, {
+      statusCode: HttpStatus.BAD_REQUEST,
+      code: ErrorCodes.COMMON.VALIDATION_FAILED,
+      message: "Request body must contain valid JSON.",
+      details: null,
+    });
+  }
+
   if (error instanceof AppError) {
     const logPayload = createLogPayload(error);
 
