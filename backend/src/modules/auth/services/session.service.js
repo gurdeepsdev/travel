@@ -1,7 +1,7 @@
 // import crypto from "crypto";
 import IdService from "../../../core/security/id.js";
 import JwtService from "../../../core/security/jwt.js";
-import HashService from "../../../core/security/hash.js";
+import { hashRefreshToken, compareRefreshToken } from "../../../core/security/refresh-token-hash.js";
 
 import SessionsRepository from "../repositories/sessions.repository.js";
 
@@ -50,7 +50,7 @@ class SessionService {
         });
 
         const refreshTokenHash =
-            await HashService.hash(refreshToken);
+            hashRefreshToken(refreshToken);
 
         const expiresAt = new Date(
 
@@ -113,7 +113,7 @@ class SessionService {
         
         }
     
-        const isValid = await HashService.compare(
+        const isValid = await compareRefreshToken(
     
             refreshToken,
     
@@ -147,7 +147,7 @@ class SessionService {
     
         });
     
-        const refreshTokenHash = await HashService.hash(
+        const refreshTokenHash = hashRefreshToken(
     
             newRefreshToken
     

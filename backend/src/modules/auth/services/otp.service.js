@@ -60,6 +60,7 @@ import OtpRepository from "../repositories/otp.repository.js";
 import InvalidOtpError from "../../../core/errors/auth/invalid-otp.error.js";
 import OtpManager from "../../../providers/otp/otp-manager.js";
 import HashService from "../../../core/security/hash.js";
+import security from "../../../config/security.js";
 
 class OtpService {
 
@@ -70,7 +71,7 @@ class OtpService {
             provider
         );
 
-        if (!activeOtp) {
+        if (!activeOtp || activeOtp.attempt_count >= security.otp.maxAttempts) {
             throw new InvalidOtpError();
         }
 
