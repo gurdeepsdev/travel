@@ -13,7 +13,7 @@ export class ChatInboxService {
   async list(userId, { limit, cursor, archived, requests }) {
     const position = decodeCursor(cursor);
     const { rows } = await Database.query(
-      `SELECT c.*,c.updated_at::text AS cursor_time,
+      `SELECT c.*,COALESCE(latest.created_at,c.created_at)::text AS cursor_time,
       COALESCE(s.is_muted,false) AS is_muted,COALESCE(s.is_archived,false) AS is_archived,
       CASE c.conversation_type WHEN 'direct' THEN COALESCE(NULLIF(profile.display_name,''),profile.username)
         WHEN 'group' THEN chat_group.name WHEN 'community' THEN community.name END AS display_name,
@@ -26,10 +26,12 @@ export class ChatInboxService {
       CASE WHEN c.conversation_type<>'community' THEN TRUE ELSE EXISTS(SELECT 1 FROM community.communities cm WHERE cm.id=c.community_id AND cm.owner_id=$1)
        OR EXISTS(SELECT 1 FROM community.community_members m WHERE m.community_id=c.community_id AND m.user_id=$1 AND upper(m.status)='ACTIVE' AND lower(m.role) IN ('owner','admin')) END AS can_send,
       (${unreadSQL}) AS unread_count,
-      (SELECT jsonb_build_object('id',m.id,'senderId',m.sent_by,'type',m.message_type,'text',CASE WHEN m.deleted_at IS NULL THEN m.message_content ELSE NULL END,'deleted',m.deleted_at IS NOT NULL,'createdAt',m.created_at)
-        FROM chat.chat_messages m WHERE m.conversation_id=c.id AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$1)
-        ORDER BY m.created_at DESC,m.id DESC LIMIT 1) AS last_message
+      latest.message AS last_message
       FROM chat.accessible_conversations($1::uuid) c LEFT JOIN chat.conversation_settings s ON s.conversation_id=c.id AND s.user_id=$1
+      LEFT JOIN LATERAL (SELECT m.created_at,
+        jsonb_build_object('id',m.id,'senderId',m.sent_by,'type',m.message_type,'text',CASE WHEN m.deleted_at IS NULL THEN m.message_content ELSE NULL END,'deleted',m.deleted_at IS NOT NULL,'createdAt',m.created_at) AS message
+        FROM chat.chat_messages m WHERE m.conversation_id=c.id AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$1)
+        ORDER BY m.created_at DESC,m.id DESC LIMIT 1) latest ON TRUE
       LEFT JOIN LATERAL (SELECT participant.user_id FROM chat.conversation_participants participant
         WHERE c.conversation_type='direct' AND participant.conversation_id=c.id
           AND participant.user_id<>$1::uuid AND participant.left_at IS NULL
@@ -41,8 +43,8 @@ export class ChatInboxService {
         WHEN 'direct' THEN profile.profile_photo_asset_id WHEN 'group' THEN chat_group.cover_asset_id
         WHEN 'community' THEN community.icon_asset_id END AND image.deleted_at IS NULL
       WHERE COALESCE(s.is_archived,false)=$2 AND ($3::boolean IS NULL OR (c.request_status='PENDING')=$3)
-      AND ($4::timestamp IS NULL OR (c.updated_at,c.id)<($4::timestamp,$5::uuid))
-      ORDER BY c.updated_at DESC,c.id DESC LIMIT $6`,
+      AND ($4::timestamp IS NULL OR (COALESCE(latest.created_at,c.created_at),c.id)<($4::timestamp,$5::uuid))
+      ORDER BY COALESCE(latest.created_at,c.created_at) DESC,c.id DESC LIMIT $6`,
       [
         userId,
         archived,
