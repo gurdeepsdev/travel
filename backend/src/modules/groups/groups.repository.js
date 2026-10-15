@@ -1,5 +1,6 @@
 import Database from "../../database/database-manager.js";
 import MediaRepository from "../media/media.repository.js";
+import { publishGroupNotice } from "./group-chat-notices.service.js";
 
 class GroupsRepository {
   async isAdmin({ client, groupId, userId, activeOnly = true }) {
@@ -24,12 +25,14 @@ class GroupsRepository {
       WHERE group_id=$1::uuid AND status='ACTIVE' AND role='ADMIN'
     `, [groupId]);
     if (rows.length) return;
-    await client.query(`
+    const { rows: [promoted] } = await client.query(`
       UPDATE groups.group_members SET role='ADMIN',updated_at=CURRENT_TIMESTAMP
       WHERE id=(SELECT id FROM groups.group_members
         WHERE group_id=$1::uuid AND status='ACTIVE'
-        ORDER BY joined_at ASC,id ASC LIMIT 1)
+        ORDER BY joined_at ASC,id ASC LIMIT 1) RETURNING user_id
     `, [groupId]);
+    if (promoted) await publishGroupNotice(client, { groupId, actorId: promoted.user_id,
+      memberId: promoted.user_id, type: 'ADMIN_PROMOTED', automatic: true });
   }
 
   async updateMemberRole({ groupId, itineraryId, userId, targetUserId, role }) {
@@ -51,6 +54,8 @@ class GroupsRepository {
       if (member.role !== role) await client.query(`
         UPDATE groups.group_members SET role=$2,updated_at=CURRENT_TIMESTAMP WHERE id=$1::uuid
       `, [member.id, role]);
+      if (member.role !== role) await publishGroupNotice(client, { groupId: group.id, actorId: userId,
+        memberId: targetUserId, type: role === 'ADMIN' ? 'ADMIN_PROMOTED' : 'ADMIN_DEMOTED' });
       return { updated: member.role !== role, groupId: group.id, userId: targetUserId, role };
     });
   }
@@ -410,6 +415,8 @@ class GroupsRepository {
           responded_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
         WHERE group_id=$1::uuid AND (invited_user_id=$2::uuid OR invited_by=$2::uuid) AND status='PENDING'
       `, [group.id, target]);
+      if (updated) await publishGroupNotice(client, { groupId: group.id, actorId: userId,
+        memberId: target, type: leave ? 'MEMBER_LEFT' : 'MEMBER_REMOVED' });
       await this.ensureActiveAdmin({ client, groupId: group.id });
       // Empty groups must not remain active with pending invitations and no admin.
       await client.query(`
@@ -491,6 +498,8 @@ class GroupsRepository {
           FOR SHARE OF c
         `, [invitation.invited_by, userId]);
         if (!rows.length) { return { error: 'CONNECTION_REQUIRED' }; }
+        const { rows: [existingMember] } = await client.query(`SELECT status FROM groups.group_members
+          WHERE group_id=$1 AND user_id=$2`, [invitation.group_id, userId]);
         await client.query(`
           INSERT INTO groups.group_members(group_id,user_id,role,status,added_by)
           VALUES ($1,$2,'MEMBER','ACTIVE',$3)
@@ -506,6 +515,8 @@ class GroupsRepository {
           ON CONFLICT (trip_id,user_id) DO UPDATE SET status='ACTIVE', removed_at=NULL,
             added_by=EXCLUDED.added_by, joined_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
         `, [invitation.itinerary_id, userId, invitation.invited_by]);
+        if (existingMember?.status !== 'ACTIVE') await publishGroupNotice(client, {
+          groupId: invitation.group_id, actorId: userId, memberId: userId, type: 'MEMBER_JOINED' });
       }
       const { rows: [resolved] } = await client.query(`
         UPDATE groups.group_invitations SET status=$2, responded_at=CURRENT_TIMESTAMP,

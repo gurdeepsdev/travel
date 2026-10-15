@@ -19,6 +19,10 @@ const map = (row) => ({
   replyToMessageId: row.reply_to_message_id,
   deleted: Boolean(row.deleted_at),
   itineraryId: row.deleted_at ? null : row.itinerary_id,
+  ...(row.group_event && !row.deleted_at ? { groupEvent: row.group_event } : {}),
+  ...(row.change_request_id && !row.deleted_at ? { changeRequest: {
+    id: row.change_request_id, itineraryId: row.itinerary_id, status: row.change_request_status,
+  } } : {}),
   assets: row.deleted_at ? [] : (row.assets ?? []),
   createdAt: row.created_at,
   editedAt: row.edited_at,
@@ -270,6 +274,8 @@ export class ChatMessagesService {
         );
         return { hidden: true, messageId };
       }
+      if (message.change_request_id || message.group_event)
+        fail("SYSTEM_MESSAGE_IMMUTABLE", "System notices cannot be edited or deleted.", 403);
       if (message.sent_by !== userId)
         fail(
           "MESSAGE_NOT_OWNED",
