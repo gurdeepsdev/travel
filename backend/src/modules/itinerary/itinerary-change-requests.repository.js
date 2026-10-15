@@ -1,4 +1,5 @@
 import Database from "../../database/database-manager.js";
+import { publishRequestNotice } from "./itinerary-request-chat.service.js";
 
 const ACCESS_SQL = `
   itinerary_record.created_by = $2::uuid
@@ -49,7 +50,8 @@ class ItineraryChangeRequestsRepository {
   }
 
   async create({ itineraryId, userId, proposedData, message }) {
-    const { rows } = await Database.query(`
+    return Database.transaction(async (client) => {
+    const { rows } = await client.query(`
       INSERT INTO itinerary.itinerary_change_requests(
         itinerary_id,
         requested_by,
@@ -92,7 +94,9 @@ class ItineraryChangeRequestsRepository {
       message ?? null,
     ]);
 
+    if (rows[0]) await publishRequestNotice(client, rows[0], userId);
     return rows[0] ?? null;
+    });
   }
 
   async list({ itineraryId, userId, status, limit, cursor }) {
@@ -196,6 +200,7 @@ class ItineraryChangeRequestsRepository {
             AND id = $2::uuid
           RETURNING *
         `, [itineraryId, requestId, userId, message ?? null]);
+        await publishRequestNotice(client, rejected, userId);
         return { request: rejected };
       }
 
@@ -294,6 +299,7 @@ class ItineraryChangeRequestsRepository {
           AND status = 'PENDING'
       `, [itineraryId, requestId]);
 
+      await publishRequestNotice(client, accepted, userId);
       return {
         request: accepted,
         itinerary: updatedItinerary,
