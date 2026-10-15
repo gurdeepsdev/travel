@@ -12,6 +12,7 @@ import {
   createStandaloneGroupInvitationSchema,
   getItineraryGroupSchema,
   getGroupSchema,
+  updateGroupSchema,
   listMyGroupsSchema,
   createStandaloneGroupSchema,
   linkGroupItinerarySchema,
@@ -25,6 +26,9 @@ import {
 } from "./groups.validation.js";
 
 const router = Router();
+
+router.patch('/groups/:groupId', AuthMiddleware.authenticate, groupImageUploadMiddleware,
+  validate(updateGroupSchema), Controller.updateGroup);
 
 router.patch('/groups/:groupId/members/:userId/role', AuthMiddleware.authenticate,
   validate(updateGroupMemberRoleSchema), Controller.updateMemberRole);

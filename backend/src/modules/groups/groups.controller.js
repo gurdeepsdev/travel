@@ -2,6 +2,13 @@ import Response from "../../core/response/index.js";
 import Service from "./groups.service.js";
 
 class GroupsController {
+  async updateGroup(req, res, next) {
+    try {
+      const result = await Service.updateGroup({ groupId: req.validated.params.groupId,
+        userId: req.user.id, input: req.validated.body, groupImageFile: req.file });
+      return Response.success(res, result, 'Group updated successfully.');
+    } catch (error) { return next(error); }
+  }
   async updateMemberRole(req, res, next) {
     try {
       const result = await Service.updateMemberRole({ groupId: req.validated.params.groupId,

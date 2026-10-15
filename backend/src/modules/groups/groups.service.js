@@ -8,6 +8,29 @@ import Repository from "./groups.repository.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 
 class GroupsService {
+  async updateGroup({ groupId, userId, input, groupImageFile }) {
+    if (!groupImageFile && !Object.keys(input).length) throw new AppError({
+      code: 'COMMON.VALIDATION_FAILED', message: 'Provide a name, description, or group image.', statusCode: 400 });
+    let storedImage = null, committed = false;
+    try {
+      if (groupImageFile) {
+        const inspected = await inspectProfilePhotoFile(groupImageFile);
+        storedImage = { ...inspected, ...await StorageManager.store({ temporaryPath: inspected.temporaryPath,
+          category: 'group-images', userId, extension: inspected.extension }) };
+      }
+      const result = await Repository.updateGroup({ groupId, userId, input, storedImage });
+      if (!result) throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,
+        message: 'Active group admin access is required.', statusCode: 404 });
+      committed = true;
+      for (const object of result.cleanupObjects) {
+        try { await StorageManager.remove(object); } catch { /* best-effort post-commit cleanup */ }
+      }
+      return { group: this.mapGroup(result.group) };
+    } catch (error) {
+      if (storedImage && !committed) { try { await StorageManager.remove(storedImage); } catch { /* preserve original error */ } }
+      throw error;
+    }
+  }
   async updateMemberRole(args) {
     const result = await Repository.updateMemberRole(args);
     if (!result) throw new AppError({ code: ErrorCodes.GROUP.NOT_FOUND,

@@ -867,6 +867,41 @@ paths:
         '404': { description: Admin-managed active group not found }
         '409': { description: User is already an active member }
   '/groups/{groupId}':
+    patch:
+      tags: [Itinerary Groups]
+      summary: Update group name, description or image (active admins)
+      operationId: updateGroup
+      description: Applies to standalone and itinerary-linked groups. All fields are optional, but provide at least one field or image. Omitted fields retain existing values. Empty or null description clears it. Images use groupImage, maximum 10 MiB. Existing shared media is not deleted. Publishes chat.updated with type conversation.updated.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: groupId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                description: { type: string, maxLength: 2000, nullable: true }
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 150 }
+                description: { type: string, maxLength: 2000 }
+                groupImage: { type: string, format: binary, description: 'JPEG, PNG, WebP, HEIC or HEIF; maximum 10 MiB.' }
+      responses:
+        '200': { description: Updated group in data.group with existing group response fields }
+        '400': { description: Invalid or empty update }
+        '401': { description: Authentication required }
+        '404': { description: Active group admin access required }
+        '413': { description: Image exceeds 10 MiB }
+        '415': { description: Unsupported image file signature }
     get:
       tags: [Itinerary Groups]
       summary: Get an accessible group and its active members

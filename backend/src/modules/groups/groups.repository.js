@@ -3,6 +3,26 @@ import MediaRepository from "../media/media.repository.js";
 import { publishGroupNotice } from "./group-chat-notices.service.js";
 
 class GroupsRepository {
+  async updateGroup({ groupId, userId, input, storedImage }) {
+    return Database.transaction(async client => {
+      const group = await this.lockGroup({ client, groupId });
+      if (!group || !(await this.isAdmin({ client, groupId, userId }))) return null;
+      let imageId = group.cover_asset_id, cleanupObjects = [];
+      if (storedImage) {
+        const resolved = await MediaRepository.resolveUploadedAssets({ client, userId, isPublic: true,
+          uploads: [{ ...storedImage, fileIndex: 0 }] });
+        imageId = resolved.assets[0].id;
+        cleanupObjects = [...resolved.unusedStoredObjects, ...resolved.supersededStoredObjects];
+      }
+      await client.query(`UPDATE groups.groups SET name=$2,description=$3,cover_asset_id=$4,updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
+        [groupId, input.name ?? group.name, Object.hasOwn(input,'description') ? input.description : group.description, imageId]);
+      const { rows: [updated] } = await client.query(`SELECT g.*,a.mime_type AS cover_asset_mime_type FROM groups.groups g
+        LEFT JOIN media.assets a ON a.id=g.cover_asset_id AND a.deleted_at IS NULL WHERE g.id=$1`, [groupId]);
+      await client.query(`INSERT INTO chat.event_outbox(conversation_id,event_type)
+        SELECT id,'conversation.updated' FROM chat.conversations WHERE group_id=$1 AND deleted_at IS NULL`, [groupId]);
+      return { group: updated, cleanupObjects };
+    });
+  }
   async isAdmin({ client, groupId, userId, activeOnly = true }) {
     const { rows } = await client.query(`
       SELECT id FROM groups.group_members
