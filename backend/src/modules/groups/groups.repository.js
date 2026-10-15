@@ -314,6 +314,7 @@ class GroupsRepository {
         ON CONFLICT (trip_id,user_id) DO UPDATE SET status='ACTIVE',removed_at=NULL,
           updated_at=CURRENT_TIMESTAMP
       `, [itineraryId, groupId]);
+      await publishGroupNotice(client, { groupId, actorId: userId, type: 'ITINERARY_LINKED', itineraryId });
       return { updated: true, group: updated };
     });
   }

@@ -335,6 +335,14 @@ describeDatabase(
         await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'ADMIN','ACTIVE',$3)", [groupId, member, owner]);
         const { rows: [itinerary] } = await client.query("INSERT INTO itinerary.itineraries(created_by,title,visibility,itinerary_json) VALUES($1,'Member itinerary','private','{}') RETURNING id", [member]);
         expect(await groupRepository.linkItinerary({ groupId, itineraryId: itinerary.id, userId: member })).toMatchObject({ updated: true });
+        expect(await groupRepository.linkItinerary({ groupId, itineraryId: itinerary.id, userId: member })).toMatchObject({ updated: false });
+        expect(await groupRepository.linkItinerary({ groupId, itineraryId: itinerary.id, userId: owner })).toBeNull();
+        const conversation = await repository.create(owner, { type:'group',groupId });
+        const notices = (await messages.history(owner,conversation.id,{limit:10})).messages;
+        expect(notices).toHaveLength(1);
+        expect(notices[0]).toMatchObject({type:'SYSTEM',groupEvent:{type:'ITINERARY_LINKED',itineraryId:itinerary.id,actorId:member,groupId}});
+        const {rows:linkEvents}=await client.query("SELECT id FROM chat.event_outbox WHERE conversation_id=$1 AND event_type='message.created'",[conversation.id]);
+        expect(linkEvents).toHaveLength(1);
         expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: owner })).toBe(true);
         await groupRepository.removeMember({ groupId, userId: member, targetUserId: owner });
         expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: owner })).toBe(false);
