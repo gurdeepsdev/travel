@@ -11,6 +11,14 @@ export const getGroupSchema = z.object({
   query: z.object({}).strict(),
 });
 
+export const updateGroupSchema = getGroupSchema.extend({
+  body: z.object({
+    name: z.string().trim().min(1).max(150).optional(),
+    description: z.preprocess(value => typeof value === 'string' && !value.trim() ? null : value,
+      z.string().trim().max(2000).nullable().optional()),
+  }).strict(),
+});
+
 export const getItineraryGroupSchema = getGroupSchema.extend({
   params: z.object({ itineraryId: z.string().trim().uuid() }).strict(),
 });

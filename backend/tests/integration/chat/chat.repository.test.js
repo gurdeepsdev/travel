@@ -257,6 +257,11 @@ describeDatabase(
         expect(await groupRepository.updateMemberRole({ ...selector, userId: first, targetUserId: second, role: 'ADMIN' })).toBeNull();
         expect(await groupRepository.updateMemberRole({ ...selector, userId: creator, targetUserId: creator, role: 'MEMBER' })).toEqual({ error: 'LAST_ADMIN_REQUIRED' });
         expect(await groupRepository.updateMemberRole({ ...selector, userId: creator, targetUserId: first, role: 'ADMIN' })).toMatchObject({ updated: true, role: 'ADMIN' });
+        expect(await groupRepository.updateGroup({ groupId,userId:second,input:{name:'Forbidden'} })).toBeNull();
+        const renamed=await groupRepository.updateGroup({groupId,userId:first,input:{name:'Renamed group',description:'Updated description'}});
+        expect(renamed.group).toMatchObject({name:'Renamed group',description:'Updated description',itinerary_id:itineraryId??null});
+        const described=await groupRepository.updateGroup({groupId,userId:first,input:{description:null}});
+        expect(described.group).toMatchObject({name:'Renamed group',description:null});
         const { rows: [invitee] } = await client.query("INSERT INTO auth.users(status) VALUES('ACTIVE') RETURNING id");
         for (const person of [first, invitee.id]) {
           await client.query('INSERT INTO users.profiles(user_id,username) VALUES($1,$2)', [person, 'admin_' + person.replaceAll('-', '')]);
@@ -295,8 +300,8 @@ describeDatabase(
         ].sort());
         expect(notices.find(m => m.groupEvent.automatic).groupEvent).toMatchObject({ type: 'ADMIN_PROMOTED', memberId: second });
         const { rows: noticeEvents } = await client.query('SELECT event_type FROM chat.event_outbox WHERE conversation_id=$1', [conversation.id]);
-        expect(noticeEvents).toHaveLength(7);
-        expect(noticeEvents.every(e => e.event_type === 'message.created')).toBe(true);
+        expect(noticeEvents.filter(e => e.event_type === 'message.created')).toHaveLength(7);
+        expect(noticeEvents.filter(e => e.event_type === 'conversation.updated')).toHaveLength(2);
         const ownNotice = notices.find(m => m.senderId === second);
         await expect(messages.mutate(second, conversation.id, ownNotice.id, 'delete', {})).rejects.toMatchObject({ statusCode: 403 });
         expect(await groupRepository.updateMemberRole({ ...selector, userId: first, targetUserId: second, role: 'MEMBER' })).toBeNull();
