@@ -26,6 +26,16 @@ describe("MemoriesRepository save", () => {
     jest.clearAllMocks();
   });
 
+  test.each(['IMAGE', 'VIDEO', 'BOOMERANG'])('deduplicates %s by user, asset and classification', async memoryType => {
+    databaseQueryMock.mockResolvedValue({rows:[{id:'memory',memory_type:memoryType}]});
+    await expect(MemoriesRepository.save({userId:'user',assetId:'asset',memoryType}))
+      .resolves.toMatchObject({memory_type:memoryType});
+    const [sql,params]=databaseQueryMock.mock.calls[0];
+    expect(sql).toMatch(/ON CONFLICT\s*\(\s*user_id,\s*asset_id,\s*memory_type\s*\)/);
+    expect(sql).not.toMatch(/DO UPDATE SET[\s\S]*created_at\s*=/);
+    expect(params).toEqual(['user','asset',memoryType]);
+  });
+
   test("uses the supplied transaction client", async () => {
     const client = {
       query:

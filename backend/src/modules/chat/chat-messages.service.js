@@ -22,6 +22,7 @@ const map = (row) => ({
   ...(row.group_event && !row.deleted_at ? { groupEvent: row.group_event } : {}),
   ...(row.change_request_id && !row.deleted_at ? { changeRequest: {
     id: row.change_request_id, itineraryId: row.itinerary_id, status: row.change_request_status,
+    ...(row.change_request_changes !== null && row.change_request_changes !== undefined ? { changes: row.change_request_changes } : {}),
   } } : {}),
   assets: row.deleted_at ? [] : (row.assets ?? []),
   createdAt: row.created_at,

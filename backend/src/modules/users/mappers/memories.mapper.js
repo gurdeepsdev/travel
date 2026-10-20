@@ -1,4 +1,5 @@
 import {
+  buildImageVariants,
   buildAssetRenditionUrls,
   buildAssetStartupStreamUrl,
   buildAssetThumbnailUrl,
@@ -110,6 +111,13 @@ class MemoriesMapper {
         width:
           row.original_width ??
           null,
+
+        imageVariants: buildImageVariants({
+          id: row.asset_id,
+          mimeType: row.mime_type,
+          isPublic,
+          imageVariants: row.image_variants ?? [],
+        })?.map(variant => ({ ...variant, url: buildAbsoluteUrl(variant.url) })) ?? null,
 
         height:
           row.original_height ??

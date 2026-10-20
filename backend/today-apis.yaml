@@ -8039,6 +8039,11 @@ components:
             at most 250 MiB. BOOMERANG uses video media.
     MemoryAsset:
       type: object
+      description: >
+        Image assets additionally expose imageVariants (an array; empty while optimization
+        is pending). Entries contain size (320/640/1080/1600), width, height, fileSize,
+        mimeType and url. Private variant URLs require Bearer authentication. Video assets
+        return imageVariants as null. Image dimensions are populated asynchronously.
       required:
         - id
         - originalFilename

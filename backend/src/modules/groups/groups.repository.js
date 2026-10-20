@@ -20,6 +20,10 @@ class GroupsRepository {
         LEFT JOIN media.assets a ON a.id=g.cover_asset_id AND a.deleted_at IS NULL WHERE g.id=$1`, [groupId]);
       await client.query(`INSERT INTO chat.event_outbox(conversation_id,event_type)
         SELECT id,'conversation.updated' FROM chat.conversations WHERE group_id=$1 AND deleted_at IS NULL`, [groupId]);
+      if (updated.name !== group.name) await publishGroupNotice(client, { groupId, actorId: userId,
+        type: 'GROUP_NAME_CHANGED', groupName: updated.name, previousName: group.name });
+      if (imageId !== group.cover_asset_id) await publishGroupNotice(client, { groupId, actorId: userId,
+        type: 'GROUP_IMAGE_CHANGED', imageAssetId: imageId });
       return { group: updated, cleanupObjects };
     });
   }
@@ -401,6 +405,7 @@ class GroupsRepository {
         UPDATE groups.groups SET itinerary_id=NULL,updated_at=CURRENT_TIMESTAMP
         WHERE id=$1::uuid RETURNING *
       `, [groupId]);
+      await publishGroupNotice(client, { groupId, actorId: userId, type: 'ITINERARY_UNLINKED', itineraryId });
       return { updated: true, itineraryId, group: updated };
     });
   }
@@ -685,6 +690,8 @@ class GroupsRepository {
       VALUES('group',$1::uuid,'ACCEPTED')
       ON CONFLICT(group_id) DO NOTHING
     `, [rows[0].id]);
+    await publishGroupNotice(client, { groupId: rows[0].id, actorId: ownerId,
+      type: 'GROUP_CREATED', groupName: name, ...(itineraryId ? { itineraryId } : {}) });
     return rows[0];
   }
 
