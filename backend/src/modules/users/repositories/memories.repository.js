@@ -42,8 +42,8 @@ class MemoriesRepository {
    * - VIDEO and BOOMERANG point to video media.
    *
    * ON CONFLICT keeps repeated requests idempotent.
-   * If the classification changes between VIDEO and
-   * BOOMERANG, the existing row is updated.
+   * VIDEO and BOOMERANG can reference the same asset
+   * without overwriting each other's classification.
    */
   async save({
     userId,
@@ -117,7 +117,8 @@ class MemoriesRepository {
 
         ON CONFLICT (
           user_id,
-          asset_id
+          asset_id,
+          memory_type
         )
         DO UPDATE SET
           memory_type =
@@ -153,6 +154,16 @@ class MemoriesRepository {
         asset.duration_seconds,
         asset.processing_status,
         asset.hls_manifest_storage_key,
+        (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'name', v.variant_name, 'width', v.width, 'height', v.height,
+            'fileSize', v.file_size, 'storageKey', v.storage_key,
+            'storageProvider', v.storage_provider) ORDER BY v.width, v.height), '[]'::jsonb)
+          FROM media.asset_variants v WHERE v.asset_id = asset.id
+            AND v.format = 'webp' AND v.quality = 82
+            AND v.variant_name IN ('small','medium','large','custom')
+            AND starts_with(v.storage_key, asset.storage_key || '.images-v1/')
+        ) AS image_variants,
         (
           SELECT variant.storage_key
           FROM media.asset_variants variant
@@ -259,6 +270,16 @@ class MemoriesRepository {
         asset.duration_seconds,
         asset.processing_status,
         asset.hls_manifest_storage_key,
+        (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'name', v.variant_name, 'width', v.width, 'height', v.height,
+            'fileSize', v.file_size, 'storageKey', v.storage_key,
+            'storageProvider', v.storage_provider) ORDER BY v.width, v.height), '[]'::jsonb)
+          FROM media.asset_variants v WHERE v.asset_id = asset.id
+            AND v.format = 'webp' AND v.quality = 82
+            AND v.variant_name IN ('small','medium','large','custom')
+            AND starts_with(v.storage_key, asset.storage_key || '.images-v1/')
+        ) AS image_variants,
         (
           SELECT variant.storage_key
           FROM media.asset_variants variant

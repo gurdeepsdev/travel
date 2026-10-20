@@ -80,6 +80,8 @@ Migration `079_chat_conversation_event_sequence.sql` follows 078. Apply before r
 - Gaps can also result from personal hiding or membership changes, not only network loss. Refetch authoritative state rather than waiting indefinitely for every intervening number. New members establish a baseline by fetching current conversation state. Socket delivery can still arrive out of order; sequencing detects order, it does not promise ordered network delivery.
 - Read markers and request decisions also generate numbered events. Typing remains transient and unnumbered. Message ordering continues to use existing history timestamps/IDs.
 
+Additional group notices: `GROUP_CREATED` (standalone, itinerary-linked and planTogether creation), `GROUP_NAME_CHANGED`, `GROUP_IMAGE_CHANGED`, and `ITINERARY_UNLINKED`. Name events include `groupName`/`previousName`, image events include `imageAssetId`, and unlink events include the previous `itineraryId`. These use the existing `SYSTEM` message and `chat.updated`/`message.created` flow in the same transaction as the action. Same-name/image updates and repeated unlinking generate no duplicate notices. Newly created groups now have a creation notice as their initial lastMessage, rather than null; the creator's notice is not unread for that creator. Existing groups are not backfilled.
+
 Linking an itinerary through `PUT /groups/{groupId}/itinerary` creates one `SYSTEM` notice with text like "Manav linked an itinerary to the group." Its `groupEvent` has `type:ITINERARY_LINKED`, `groupId`, `actorId`, and `itineraryId`, alongside existing event fields. It publishes the existing `chat.updated`/`message.created` event in the link transaction. Repeating the same link, rejected authorization, or a conflicting link creates no notice. Link permissions remain active group admin plus ownership of the selected itinerary.
 
 ## Chat attachment malware scanning
@@ -112,3 +114,7 @@ Validation includes 1,001 local PostgreSQL recipients, nine journal statements a
 Do not treat `canSend` as frontend-only authorization: subsequent message handlers must revalidate it transactionally. Do not create persistent socket conversation subscriptions without membership-revocation handling.
 
 No UAT deployment has occurred. Unit tests do not prove device delivery. Database integration tests apply migration/fixtures inside one transaction and roll everything back.
+
+# Itinerary review notice details
+
+After migration `087_itinerary_notice_poi_changes.sql`, new itinerary requests snapshot their original POIs. Accepted/rejected SYSTEM messages include `changeRequest.changes`: entries with `type` (`REPLACED`, `ADDED`, `REMOVED`), `day`, `before` and `after` (`{id,name}` or null). The message text summarizes up to three changes; structured details retain all changes. Legacy requests without a reliable baseline retain generic notices. Decisions still apply to the whole request; this does not add per-POI approval.

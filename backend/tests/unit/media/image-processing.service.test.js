@@ -34,18 +34,28 @@ test('small originals are never upscaled and transparency is preserved', async (
   }
 });
 
-function setup({ isPublic = true, existing = [], failUpload = false, failCommit = false } = {}) {
+function setup({ isPublic = true, isMemory = false, existing = [], failUpload = false, failCommit = false } = {}) {
   const generated = ['small','medium','large','custom'].map((name) => ({ name, storageKey: `source.jpg.images-v1/${name}.webp`, width: 100, height: 100, fileSize: 100 }));
   const query = jest.fn().mockImplementation(async (sql) => {
-    if (sql.startsWith('SELECT id')) return { rows: [{ id: 'id', storage_key: 'source.jpg', is_public: isPublic }] };
+    if (sql.startsWith('SELECT id')) return { rows: [{ id: 'id', storage_key: 'source.jpg', is_public: isPublic, is_memory: isMemory }] };
     if (sql.startsWith('SELECT variant')) return { rows: existing };
     return { rowCount: 1 };
   });
   const db = { transaction: async (fn) => { const result = await fn({ query }); if (failCommit) throw new Error('commit'); return result; } };
   const objectStorage = { enabled: true, name: 'r2', uploadFile: jest.fn().mockImplementation(async () => { if (failUpload) throw new Error('upload'); }), removeMany: jest.fn().mockResolvedValue() };
   const generate = jest.fn().mockResolvedValue(generated);
-  return { process: createImageProcessor({ db, objectStorage, generate }), objectStorage, query, generate, generated };
+  const inspect = jest.fn().mockResolvedValue({width:2400,height:1600,orientation:6});
+  return { process: createImageProcessor({ db, objectStorage, generate, inspect }), objectStorage, query, generate, generated };
 }
+
+test('memory images persist oriented dimensions and private variants never upload to R2', async () => {
+  const s=setup({isPublic:false,isMemory:true});
+  await s.process('id');
+  const update=s.query.mock.calls.find(([sql])=>sql.startsWith('UPDATE media.assets'));
+  expect(update[1]).toEqual(['id',1600,2400]);
+  expect(s.objectStorage.uploadFile).not.toHaveBeenCalled();
+  expect(s.query.mock.calls.filter(([sql])=>sql.startsWith('INSERT'))).toHaveLength(4);
+});
 
 test('public variants upload before persistence; original asset remains unchanged', async () => {
   const s = setup();

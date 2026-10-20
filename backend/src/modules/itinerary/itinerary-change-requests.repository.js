@@ -58,7 +58,8 @@ class ItineraryChangeRequestsRepository {
         request_type,
         proposed_data,
         message,
-        base_itinerary_updated_at
+        base_itinerary_updated_at,
+        base_days
       )
       SELECT
         itinerary_record.id,
@@ -66,7 +67,8 @@ class ItineraryChangeRequestsRepository {
         'UPDATE_ITINERARY',
         $3::jsonb,
         $4,
-        itinerary_record.updated_at
+        itinerary_record.updated_at,
+        itinerary_record.itinerary_json->'days'
       FROM itinerary.itineraries itinerary_record
       JOIN groups.groups linked_group
         ON linked_group.itinerary_id = itinerary_record.id

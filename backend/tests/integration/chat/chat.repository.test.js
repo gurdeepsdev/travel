@@ -112,6 +112,8 @@ describeDatabase(
       await client.query(requestNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const groupNoticeMigration = readFileSync(new URL("../../../src/database/migrations/084_group_chat_notices.sql", import.meta.url), "utf8");
       await client.query(groupNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+      const poiNoticeMigration = readFileSync(new URL("../../../src/database/migrations/087_itinerary_notice_poi_changes.sql", import.meta.url), "utf8");
+      await client.query(poiNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const { rows } = await client.query(
         "INSERT INTO auth.users (status) VALUES ('ACTIVE'),('ACTIVE') RETURNING id",
       );
@@ -134,21 +136,23 @@ describeDatabase(
         const linked = await groupRepository.createLinkedGroup({ itineraryId: itinerary.id, userId: owner, input: {} });
         await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'ADMIN','ACTIVE',$3)", [linked.group.id, member, owner]);
         const conversation = await repository.create(owner, { type: 'group', groupId: linked.group.id });
-        const proposedData = { days: [{ day: 1, items: [] }], totalPlaces: 0 };
+        const proposedData = { days: [{ day: 1, items: [{item_type:'POI',place_id:'test-poi',name:'Lotus Temple'}] }], totalPlaces: 1 };
         const request = await changeRequests.create({ itineraryId: itinerary.id, userId: member, proposedData });
         expect(request.status).toBe('PENDING');
+        expect(request.base_days).toEqual([]);
         let history = await messages.history(owner, conversation.id, { limit: 10 });
-        expect(history.messages[0]).toMatchObject({ type: 'SYSTEM', changeRequest: { id: request.id, itineraryId: itinerary.id, status: 'PENDING' } });
+        expect(history.messages.find(m=>m.changeRequest?.id===request.id)).toMatchObject({ type: 'SYSTEM', changeRequest: { id: request.id, itineraryId: itinerary.id, status: 'PENDING' } });
         expect(await changeRequests.review({ itineraryId: itinerary.id, requestId: request.id, userId: member, decision })).toBeNull();
         expect((await changeRequests.review({ itineraryId: itinerary.id, requestId: request.id, userId: owner, decision })).request.status).toBe(decision);
         expect(await changeRequests.review({ itineraryId: itinerary.id, requestId: request.id, userId: owner, decision })).toMatchObject({ unavailable: true });
         history = await messages.history(member, conversation.id, { limit: 10 });
-        expect(history.messages).toHaveLength(2);
-        expect(history.messages.map(m => m.changeRequest.status).sort()).toEqual(['PENDING', decision].sort());
-        const notice = history.messages.find(m => m.changeRequest.status === decision);
+        expect(history.messages).toHaveLength(3);
+        expect(history.messages.filter(m=>m.changeRequest).map(m => m.changeRequest.status).sort()).toEqual(['PENDING', decision].sort());
+        const notice = history.messages.find(m => m.changeRequest?.status === decision);
+        expect(notice.changeRequest.changes).toEqual([{type:'ADDED',day:1,before:null,after:{id:'test-poi',name:'Lotus Temple'}}]);
         await expect(messages.mutate(owner, conversation.id, notice.id, 'delete', {})).rejects.toMatchObject({ statusCode: 403 });
         const { rows: events } = await client.query('SELECT event_type FROM chat.event_outbox WHERE conversation_id=$1', [conversation.id]);
-        expect(events).toHaveLength(2);
+        expect(events).toHaveLength(3);
         expect(events.every(e => e.event_type === 'message.created')).toBe(true);
         const { rows: [stored] } = await client.query('SELECT itinerary_json FROM itinerary.itineraries WHERE id=$1', [itinerary.id]);
         expect(stored.itinerary_json.days).toEqual(decision === 'ACCEPTED' ? proposedData.days : []);
@@ -173,13 +177,16 @@ describeDatabase(
         const groupId = created.group.id;
         const page = await inbox.list(owner, { limit: 100, archived: false });
         const entry = page.conversations.find(row => row.groupId === groupId);
-        expect(entry).toMatchObject({ type: 'group', unreadCount: 0, lastMessage: null, canSend: true, requestStatus: 'ACCEPTED' });
+        expect(entry).toMatchObject({ type: 'group', unreadCount: 0, lastMessage: {type:'SYSTEM'}, canSend: true, requestStatus: 'ACCEPTED' });
+        const creationNotices=(await messages.history(owner,entry.id,{limit:10})).messages;
+        expect(creationNotices).toHaveLength(1);
+        expect(creationNotices[0].groupEvent.type).toBe('GROUP_CREATED');
         expect(entry.conversationId).toBe(entry.id);
         expect((await repository.create(owner, { type: 'group', groupId })).id).toBe(entry.id);
         expect(await repository.access(client, entry.id, member)).toBeNull();
         await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'MEMBER','ACTIVE',$3)", [groupId, member, owner]);
         expect((await inbox.list(member, { limit: 100, archived: false })).conversations.find(row => row.id === entry.id))
-          .toMatchObject({ unreadCount: 0, lastMessage: null });
+          .toMatchObject({ unreadCount: 1, lastMessage: {type:'SYSTEM'} });
         await messages.send(member, entry.id, { text: 'First group message', clientMessageId: crypto.randomUUID() });
         expect((await inbox.list(owner, { limit: 100, archived: false })).conversations.find(row => row.id === entry.id))
           .toMatchObject({ unreadCount: 1, lastMessage: { text: 'First group message' } });
@@ -292,15 +299,16 @@ describeDatabase(
         await groupRepository.removeMember({ ...selector, userId: first, leave: true });
         expect(await groupRepository.findAccessibleGroup({ groupId, userId: second })).toMatchObject({ viewer_role: 'ADMIN', owner_id: creator });
         const notices = (await messages.history(second, conversation.id, { limit: 30 })).messages;
-        expect(notices).toHaveLength(7);
+        expect(notices).toHaveLength(9);
         expect(notices.every(m => m.type === 'SYSTEM')).toBe(true);
         expect(notices.map(m => m.groupEvent.type).sort()).toEqual([
           'ADMIN_PROMOTED', 'MEMBER_JOINED', 'MEMBER_REMOVED', 'ADMIN_DEMOTED',
           'MEMBER_REMOVED', 'MEMBER_LEFT', 'ADMIN_PROMOTED',
+          'GROUP_CREATED', 'GROUP_NAME_CHANGED',
         ].sort());
         expect(notices.find(m => m.groupEvent.automatic).groupEvent).toMatchObject({ type: 'ADMIN_PROMOTED', memberId: second });
         const { rows: noticeEvents } = await client.query('SELECT event_type FROM chat.event_outbox WHERE conversation_id=$1', [conversation.id]);
-        expect(noticeEvents.filter(e => e.event_type === 'message.created')).toHaveLength(7);
+        expect(noticeEvents.filter(e => e.event_type === 'message.created')).toHaveLength(9);
         expect(noticeEvents.filter(e => e.event_type === 'conversation.updated')).toHaveLength(2);
         const ownNotice = notices.find(m => m.senderId === second);
         await expect(messages.mutate(second, conversation.id, ownNotice.id, 'delete', {})).rejects.toMatchObject({ statusCode: 403 });
@@ -339,10 +347,10 @@ describeDatabase(
         expect(await groupRepository.linkItinerary({ groupId, itineraryId: itinerary.id, userId: owner })).toBeNull();
         const conversation = await repository.create(owner, { type:'group',groupId });
         const notices = (await messages.history(owner,conversation.id,{limit:10})).messages;
-        expect(notices).toHaveLength(1);
-        expect(notices[0]).toMatchObject({type:'SYSTEM',groupEvent:{type:'ITINERARY_LINKED',itineraryId:itinerary.id,actorId:member,groupId}});
+        expect(notices).toHaveLength(2);
+        expect(notices.find(m=>m.groupEvent.type==='ITINERARY_LINKED')).toMatchObject({type:'SYSTEM',groupEvent:{type:'ITINERARY_LINKED',itineraryId:itinerary.id,actorId:member,groupId}});
         const {rows:linkEvents}=await client.query("SELECT id FROM chat.event_outbox WHERE conversation_id=$1 AND event_type='message.created'",[conversation.id]);
-        expect(linkEvents).toHaveLength(1);
+        expect(linkEvents).toHaveLength(2);
         expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: owner })).toBe(true);
         await groupRepository.removeMember({ groupId, userId: member, targetUserId: owner });
         expect(await changeRequests.canAccess({ itineraryId: itinerary.id, userId: owner })).toBe(false);

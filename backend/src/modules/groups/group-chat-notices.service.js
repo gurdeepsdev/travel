@@ -1,4 +1,4 @@
-export async function publishGroupNotice(client, { groupId, actorId, memberId = actorId, type, automatic = false, itineraryId }) {
+export async function publishGroupNotice(client, { groupId, actorId, memberId = actorId, type, automatic = false, itineraryId, groupName, previousName, imageAssetId }) {
   const { rows: [conversation] } = await client.query(`
     INSERT INTO chat.conversations(conversation_type,group_id,request_status)
     VALUES('group',$1,'ACCEPTED')
@@ -9,12 +9,18 @@ export async function publishGroupNotice(client, { groupId, actorId, memberId = 
   const name = id => (profiles.find(p => p.user_id === id)?.name ?? 'A member').slice(0, 150);
   const actor = name(actorId), member = name(memberId);
   const text = type === 'ITINERARY_LINKED' ? `${actor} linked an itinerary to the group.`
+    : type === 'ITINERARY_UNLINKED' ? `${actor} unlinked the itinerary from the group.`
+    : type === 'GROUP_CREATED' ? `${actor} created the group.`
+    : type === 'GROUP_NAME_CHANGED' ? `${actor} changed the group name to “${groupName}”.`
+    : type === 'GROUP_IMAGE_CHANGED' ? `${actor} changed the group photo.`
     : type === 'ADMIN_PROMOTED' ? (automatic ? `${member} became an admin.` : `${actor} made ${member} an admin.`)
     : type === 'ADMIN_DEMOTED' ? `${actor} removed admin access from ${member}.`
     : type === 'MEMBER_REMOVED' ? `${actor} removed ${member} from the group.`
     : type === 'MEMBER_JOINED' ? `${member} joined the group.`
     : `${member} left the group.`;
-  const groupEvent = { type, groupId, actorId, memberId, automatic, ...(itineraryId ? { itineraryId } : {}) };
+  const groupEvent = { type, groupId, actorId, memberId, automatic, ...(itineraryId ? { itineraryId } : {}),
+    ...(groupName !== undefined ? { groupName } : {}), ...(previousName !== undefined ? { previousName } : {}),
+    ...(imageAssetId ? { imageAssetId } : {}) };
   const { rows: [notice] } = await client.query(`INSERT INTO chat.chat_messages
     (conversation_id,sent_by,message_type,message_content,group_event)
     VALUES($1,$2,'SYSTEM',$3,$4::jsonb) RETURNING id`, [conversation.id, actorId, text, JSON.stringify(groupEvent)]);

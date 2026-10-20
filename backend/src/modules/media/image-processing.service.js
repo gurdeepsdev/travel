@@ -33,16 +33,27 @@ export async function generateImageVariants(storageKey) {
   }
 }
 
-export function createImageProcessor({ db = Database, objectStorage = storage, generate = generateImageVariants } = {}) {
+export function createImageProcessor({ db = Database, objectStorage = storage, generate = generateImageVariants,
+  inspect = key => sharp(resolveStoragePath(key), { limitInputPixels: 40_000_000 }).metadata() } = {}) {
   return async function process(assetId) {
     const uploaded = [];
     let generated = [];
     try {
       return await db.transaction(async (client) => {
-        const { rows: [asset] } = await client.query(`SELECT id, storage_key, is_public FROM media.assets
+        const { rows: [asset] } = await client.query(`SELECT id, storage_key, is_public,
+          EXISTS (SELECT 1 FROM users.memories m WHERE m.asset_id = media.assets.id) AS is_memory
+          FROM media.assets
           WHERE id = $1::uuid AND deleted_at IS NULL AND mime_type LIKE 'image/%'
             AND storage_provider = 'local' AND processing_status = 'READY' FOR UPDATE`, [assetId]);
         if (!asset) return { skipped: true };
+        if (asset.is_memory) {
+          const metadata = await inspect(asset.storage_key);
+          // Width/height describe the displayed, orientation-corrected image.
+          const swapped = [5,6,7,8].includes(metadata.orientation);
+          await client.query(`UPDATE media.assets SET original_width=$2, original_height=$3
+            WHERE id=$1::uuid`, [assetId, swapped ? metadata.height : metadata.width,
+            swapped ? metadata.width : metadata.height]);
+        }
         const { rows: existing } = await client.query(`SELECT variant_name AS name, storage_key AS "storageKey",
           width, height, file_size AS "fileSize", storage_provider AS "storageProvider"
           FROM media.asset_variants WHERE asset_id = $1::uuid AND format = 'webp' AND quality = 82
@@ -87,9 +98,12 @@ export async function findImageCandidates(limit = 1000) {
   const { rows } = await Database.query(`SELECT a.id, a.mime_type, a.processing_status
     FROM media.assets a WHERE a.deleted_at IS NULL AND a.mime_type LIKE 'image/%'
       AND a.storage_provider = 'local' AND a.processing_status = 'READY'
-      AND EXISTS (SELECT 1 FROM explore.post_assets pa JOIN explore.posts p ON p.id = pa.post_id
+      AND (EXISTS (SELECT 1 FROM explore.post_assets pa JOIN explore.posts p ON p.id = pa.post_id
         WHERE pa.asset_id = a.id AND p.deleted_at IS NULL)
-      AND (4 <> (SELECT COUNT(*) FROM media.asset_variants v WHERE v.asset_id = a.id
+        OR EXISTS (SELECT 1 FROM users.memories m WHERE m.asset_id = a.id))
+      AND ((EXISTS (SELECT 1 FROM users.memories m WHERE m.asset_id = a.id)
+            AND (a.original_width IS NULL OR a.original_height IS NULL))
+        OR 4 <> (SELECT COUNT(*) FROM media.asset_variants v WHERE v.asset_id = a.id
         AND v.format = 'webp' AND v.quality = 82 AND v.variant_name IN ('small','medium','large','custom')
         AND starts_with(v.storage_key, a.storage_key || '.images-v1/'))
         OR EXISTS (SELECT 1 FROM media.asset_variants v WHERE v.asset_id = a.id AND v.format = 'webp'

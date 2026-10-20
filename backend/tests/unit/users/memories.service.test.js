@@ -622,6 +622,8 @@ describe("MemoriesService", () => {
             renditionUrls:
               null,
 
+            imageVariants: [],
+
             mimeType:
                 "image/jpeg",
 
