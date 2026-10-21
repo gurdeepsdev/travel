@@ -227,22 +227,50 @@ const itinerary = async () =>
       await review(second, "ACCEPTED");
       expect((await itinerary()).days[0].items[0].place_id).toBe("new-1-0");
     });
-    test("concurrent conflicting approvals serialize; loser remains pending without changing the itinerary", async () => {
+    test("concurrent conflicting approvals serialize; loser is stale without changing the itinerary", async () => {
       const first = await create([replacement(1, 0)]),
         second = await create([replacement(1, 0)]);
       const results = await Promise.allSettled([
         review(first, "ACCEPTED"),
         review(second, "ACCEPTED"),
       ]);
-      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-      expect(
-        results.find((r) => r.status === "rejected").reason.statusCode,
-      ).toBe(409);
+      expect(results.every((r) => r.status === "fulfilled")).toBe(true);
+      expect(results.filter((r) => r.value.unavailable)).toHaveLength(1);
       const { rows } = await pool.query(
         "SELECT status FROM itinerary.itinerary_change_requests WHERE id=ANY($1::uuid[])",
         [[first.id, second.id]],
       );
-      expect(rows.map((r) => r.status).sort()).toEqual(["ACCEPTED", "PENDING"]);
+      expect(rows.map((r) => r.status).sort()).toEqual(["ACCEPTED", "STALE"]);
+    });
+    test("only competing entries become stale; unrelated entries remain reviewable", async () => {
+      const first = await create([replacement(1, 0)]);
+      const second = await create([replacement(1, 0), replacement(2, 0)]);
+      await review(first, "ACCEPTED");
+      const { rows: [stored] } = await pool.query(
+        'SELECT * FROM itinerary.itinerary_change_requests WHERE id=$1', [second.id]);
+      expect(stored.status).toBe("PENDING");
+      expect(stored.place_changes.map((c) => c.status)).toEqual(["STALE", "PENDING"]);
+      expect(stored.reviewed_by).toBeNull();
+      const {rows: notices} = await pool.query(
+        "SELECT message_content FROM chat.chat_messages WHERE change_request_id=$1 AND change_request_status='STALE'", [second.id]);
+      expect(notices).toHaveLength(1);
+      expect(notices[0].message_content).toContain("outdated");
+      expect((await review(second, "ACCEPTED")).request.status).toBe("ACCEPTED");
+      expect((await itinerary()).days[1].items[0].place_id).toBe("new-2-0");
+    });
+    test("rejection does not stale competitors; identical place on another day is unaffected", async () => {
+      const days = baseDays();
+      days[1].items[0].place_id = "old-1-0";
+      await pool.query('UPDATE itinerary.itineraries SET itinerary_json=$2 WHERE id=$1',
+        [itineraryId, {days, summary: {num_days:9,total_places:66}}]);
+      const first = await create([replacement(1, 0)]);
+      const competing = await create([replacement(1, 0)]);
+      const otherDay = await create([{...replacement(2, 0), originalPlaceId:"old-1-0"}]);
+      await review(first, "REJECTED");
+      expect((await pool.query('SELECT status FROM itinerary.itinerary_change_requests WHERE id=$1', [competing.id])).rows[0].status).toBe("PENDING");
+      await review(competing, "ACCEPTED");
+      expect((await pool.query('SELECT status FROM itinerary.itinerary_change_requests WHERE id=$1', [otherDay.id])).rows[0].status).toBe("PENDING");
+      await review(otherDay, "ACCEPTED");
     });
     test("ambiguous partial payload is rejected atomically; no request or notice is saved", async () => {
       await expect(
@@ -289,6 +317,7 @@ const itinerary = async () =>
 
   test('notice failure rolls back itinerary and per-change decisions together',async()=>{
     const request=await create([replacement(1,0)]);
+    const competitor=await create([replacement(1,0)]);
     await pool.query(`CREATE FUNCTION chat.fail_test_outbox() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test outbox failure'; END $$;
       CREATE TRIGGER fail_test_outbox BEFORE INSERT ON chat.event_outbox FOR EACH ROW EXECUTE FUNCTION chat.fail_test_outbox();`);
     try{
@@ -296,6 +325,9 @@ const itinerary = async () =>
       expect((await itinerary()).days).toEqual(baseDays());
       const {rows:[stored]}=await pool.query('SELECT status,place_changes FROM itinerary.itinerary_change_requests WHERE id=$1',[request.id]);
       expect(stored.status).toBe('PENDING');expect(stored.place_changes[0].status).toBe('PENDING');
+      const {rows:[competing]}=await pool.query('SELECT status,place_changes FROM itinerary.itinerary_change_requests WHERE id=$1',[competitor.id]);
+      expect(competing.status).toBe('PENDING');expect(competing.place_changes[0].status).toBe('PENDING');
+      expect((await pool.query("SELECT id FROM chat.chat_messages WHERE change_request_id=$1 AND change_request_status='STALE'",[competitor.id])).rows).toHaveLength(0);
     }finally{await pool.query('DROP TRIGGER fail_test_outbox ON chat.event_outbox; DROP FUNCTION chat.fail_test_outbox();');}
   });
     test("non-owner cannot review and removed requester cannot have changes accepted", async () => {

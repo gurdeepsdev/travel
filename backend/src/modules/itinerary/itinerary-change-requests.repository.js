@@ -46,6 +46,45 @@ const SELECT_FIELDS = `
   reviewer.display_name AS reviewer_display_name
 `;
 
+const requestStatus = (changes) =>
+  ["PENDING", "ACCEPTED", "REJECTED", "STALE"].find((status) =>
+    changes.some((change) => change.status === status),
+  );
+
+async function staleCompetingChanges(client, itineraryId, requestId, selected, actorId) {
+  const targets = new Set(selected.map((change) =>
+    JSON.stringify([change.day, placeId(change.before)])));
+  const { rows } = await client.query(`
+    SELECT * FROM itinerary.itinerary_change_requests
+    WHERE itinerary_id=$1::uuid AND id<>$2::uuid AND status='PENDING'
+    ORDER BY id FOR UPDATE`, [itineraryId, requestId]);
+  for (const request of rows) {
+    let changes = request.place_changes;
+    if (!changes) {
+      try {
+        changes = normalizePlaceChanges(request.base_days, request.proposed_data);
+      } catch (error) {
+        if (error.code === "ITINERARY.CHANGE_REQUEST_CONFLICT") continue;
+        throw error;
+      }
+    }
+    const conflicting = changes.filter((change) => change.status === "PENDING" &&
+      targets.has(JSON.stringify([change.day, placeId(change.before)])));
+    if (!conflicting.length) continue;
+    const ids = new Set(conflicting.map((change) => change.id));
+    const updated = changes.map((change) => ids.has(change.id)
+      ? { ...change, status: "STALE", reviewMessage: "Outdated — this place was already changed." }
+      : change);
+    await client.query(`
+      UPDATE itinerary.itinerary_change_requests
+      SET place_changes=$2::jsonb,status=$3,updated_at=CURRENT_TIMESTAMP
+      WHERE id=$1::uuid`, [request.id, JSON.stringify(updated), requestStatus(updated)]);
+    await publishRequestNotice(client, {
+      ...request, status: "STALE", review_id: randomUUID(), notice_changes: [],
+    }, actorId);
+  }
+}
+
 class ItineraryChangeRequestsRepository {
   async canAccess({ itineraryId, userId }) {
     const { rows } = await Database.query(
@@ -63,6 +102,9 @@ class ItineraryChangeRequestsRepository {
 
   async create({ itineraryId, userId, proposedData, message }) {
     return Database.transaction(async (client) => {
+      // Serialize proposal snapshots with approvals and their competing-change cleanup.
+      await client.query(`SELECT id FROM itinerary.itineraries
+        WHERE id=$1::uuid AND deleted_at IS NULL FOR UPDATE`, [itineraryId]);
       const { rows } = await client.query(
         `
       INSERT INTO itinerary.itinerary_change_requests(
@@ -349,13 +391,7 @@ class ItineraryChangeRequestsRepository {
             }
           : change,
       );
-      const status = reviewedChanges.some(
-        (change) => change.status === "PENDING",
-      )
-        ? "PENDING"
-        : reviewedChanges.some((change) => change.status === "ACCEPTED")
-          ? "ACCEPTED"
-          : "REJECTED";
+      const status = requestStatus(reviewedChanges);
 
       const {
         rows: [accepted],
@@ -382,6 +418,9 @@ class ItineraryChangeRequestsRepository {
         ],
       );
 
+      if (decision === "ACCEPTED") {
+        await staleCompetingChanges(client, itineraryId, requestId, selected, userId);
+      }
       await publishRequestNotice(
         client,
         {

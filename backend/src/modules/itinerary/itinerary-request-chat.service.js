@@ -35,7 +35,9 @@ export async function publishRequestNotice(client, request, actorId) {
   const text =
     request.status === "PENDING"
       ? `${actor} requested itinerary changes.`
-      : requestNoticeText(actor, request.status, changes);
+      : request.status === "STALE"
+        ? "An itinerary change proposal is outdated because its original place was already changed. Unrelated changes remain available."
+        : requestNoticeText(actor, request.status, changes);
   for (const conversation of groups) {
     const {
       rows: [notice],

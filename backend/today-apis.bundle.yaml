@@ -3602,10 +3602,12 @@ paths:
         Only the itinerary owner can review. Optional changeIds selects individual pending
         changes; omission decides all remaining changes. Acceptance locks the itinerary,
         verifies each original POI and applies only selected replacements. Untouched
-        places and unrelated pending requests are preserved. Conflicts return 409 without
+        places and unrelated pending requests are preserved. Competing pending changes
+        for the same original POI and day automatically become STALE; unrelated entries
+        remain pending. Conflicts return 409 without
         discarding pending changes. Request status stays PENDING while any changes are
         undecided; after completion it is ACCEPTED if any change was accepted, otherwise
-        REJECTED. Rejection does not alter the itinerary.
+        REJECTED if any entry was rejected, otherwise STALE. Rejection does not alter the itinerary.
       operationId: reviewItineraryChangeRequest
       security: [{ bearerAuth: [] }]
       parameters:
@@ -7724,7 +7726,7 @@ components:
               originalPlaceId: { type: string }
               originalName: { type: string, nullable: true }
               replacement: { type: object, additionalProperties: true }
-              status: { type: string, enum: [PENDING, ACCEPTED, REJECTED] }
+              status: { type: string, enum: [PENDING, ACCEPTED, REJECTED, STALE] }
               reviewedBy: { type: string, format: uuid, nullable: true }
               reviewedAt: { type: string, format: date-time, nullable: true }
               reviewMessage: { type: string, nullable: true }
