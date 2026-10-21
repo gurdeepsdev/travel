@@ -3,6 +3,7 @@ import ErrorCodes from "../../shared/constants/error-codes.js";
 import HttpStatus from "../../shared/constants/http-status.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 import Repository from "./itinerary-change-requests.repository.js";
+import { placeId } from "./itinerary-place-patch.js";
 
 class ItineraryChangeRequestsService {
   notFound() {
@@ -19,20 +20,36 @@ class ItineraryChangeRequestsService {
       itineraryId: row.itinerary_id,
       requestType: "PLACE_CHANGES",
       proposedChanges: row.proposed_data,
+      changes: (row.place_changes ?? []).map((change) => ({
+        id: change.id,
+        day: change.day,
+        originalPlaceId: placeId(change.before),
+        originalName: change.before.name ?? null,
+        replacement: change.after,
+        status: change.status,
+        reviewedBy: change.reviewedBy ?? null,
+        reviewedAt: change.reviewedAt ?? null,
+        reviewMessage: change.reviewMessage ?? null,
+      })),
       message: row.message,
       status: row.status,
-      requester: row.requester_username === undefined ? {
-        id: row.requested_by,
-      } : {
-        id: row.requested_by,
-        username: row.requester_username,
-        displayName: row.requester_display_name,
-      },
-      reviewer: row.reviewed_by ? {
-        id: row.reviewed_by,
-        username: row.reviewer_username ?? null,
-        displayName: row.reviewer_display_name ?? null,
-      } : null,
+      requester:
+        row.requester_username === undefined
+          ? {
+              id: row.requested_by,
+            }
+          : {
+              id: row.requested_by,
+              username: row.requester_username,
+              displayName: row.requester_display_name,
+            },
+      reviewer: row.reviewed_by
+        ? {
+            id: row.reviewed_by,
+            username: row.reviewer_username ?? null,
+            displayName: row.reviewer_display_name ?? null,
+          }
+        : null,
       reviewMessage: row.review_message ?? null,
       baseItineraryUpdatedAt: row.base_itinerary_updated_at,
       reviewedAt: row.reviewed_at,
@@ -42,20 +59,24 @@ class ItineraryChangeRequestsService {
   }
 
   async create({ itineraryId, userId, input }) {
-    const proposedData = {
-      days: input.days,
-      totalPlaces: input.days.reduce(
-        (total, day) => total + day.items.length,
-        0,
-      ),
-    };
+    const proposedData = input.changes
+      ? { changes: input.changes }
+      : {
+          days: input.days,
+          totalPlaces: input.days.reduce(
+            (total, day) => total + day.items.length,
+            0,
+          ),
+        };
     const request = await Repository.create({
       itineraryId,
       userId,
       proposedData,
       message: input.message,
     });
-    if (!request) { throw this.notFound(); }
+    if (!request) {
+      throw this.notFound();
+    }
     return { changeRequest: this.map(request) };
   }
 
@@ -67,23 +88,34 @@ class ItineraryChangeRequestsService {
       limit,
       cursor: decodeCursor(cursor),
     });
-    if (!result) { throw this.notFound(); }
+    if (!result) {
+      throw this.notFound();
+    }
     const last = result.rows.at(-1);
     return {
       changeRequests: result.rows.map((row) => this.map(row)),
       pagination: {
         hasMore: result.hasMore,
-        nextCursor: result.hasMore && last ? encodeCursor({
-          createdAt: last.created_at,
-          id: last.id,
-        }) : null,
+        nextCursor:
+          result.hasMore && last
+            ? encodeCursor({
+                createdAt: last.created_at,
+                id: last.id,
+              })
+            : null,
       },
     };
   }
 
   async get({ itineraryId, requestId, userId }) {
-    const request = await Repository.findById({ itineraryId, requestId, userId });
-    if (!request) { throw this.notFound(); }
+    const request = await Repository.findById({
+      itineraryId,
+      requestId,
+      userId,
+    });
+    if (!request) {
+      throw this.notFound();
+    }
     return { changeRequest: this.map(request) };
   }
 
@@ -93,9 +125,12 @@ class ItineraryChangeRequestsService {
       requestId,
       userId,
       decision: input.decision,
+      changeIds: input.changeIds,
       message: input.message,
     });
-    if (!result || result.unavailable) { throw this.notFound(); }
+    if (!result || result.unavailable) {
+      throw this.notFound();
+    }
     if (result.stale) {
       throw new AppError({
         code: ErrorCodes.ITINERARY.CHANGE_REQUEST_STALE,
@@ -106,16 +141,20 @@ class ItineraryChangeRequestsService {
     }
     return {
       changeRequest: this.map(result.request),
-      itinerary: result.itinerary ? {
-        id: result.itinerary.id,
-        updatedAt: result.itinerary.updated_at,
-      } : null,
+      itinerary: result.itinerary
+        ? {
+            id: result.itinerary.id,
+            updatedAt: result.itinerary.updated_at,
+          }
+        : null,
     };
   }
 
   async cancel({ itineraryId, requestId, userId }) {
     const request = await Repository.cancel({ itineraryId, requestId, userId });
-    if (!request) { throw this.notFound(); }
+    if (!request) {
+      throw this.notFound();
+    }
     return { changeRequest: this.map(request) };
   }
 }

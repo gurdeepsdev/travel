@@ -354,9 +354,17 @@ const createItineraryChangeRequestSchema = z
             "utf8",
           ) <= MAX_ITINERARY_JSON_BYTES,
           "Proposed itinerary days cannot exceed 900 KB.",
-        ),
+        ).optional(),
+      changes: z.array(z.object({
+        day: z.number().int().min(1).max(365),
+        originalPlaceId: z.string().trim().min(1).max(255),
+        replacement: itineraryItemSchema.extend({place_id:z.string().trim().min(1).max(255)}),
+      }).strict()).min(1).max(100).optional(),
       message: optionalText(1000),
-    }).strict(),
+    }).strict().refine(body => Boolean(body.days) !== Boolean(body.changes),
+      'Send either full-day snapshots or explicit changes, not both.')
+      .refine(body => Buffer.byteLength(JSON.stringify(body),'utf8') <= MAX_ITINERARY_JSON_BYTES,
+        'Proposed changes cannot exceed 900 KB.'),
     params: itineraryIdParamsSchema,
     query: z.object({}).strict(),
   });
@@ -390,6 +398,8 @@ const reviewItineraryChangeRequestSchema = z
   .object({
     body: z.object({
       decision: z.enum(["ACCEPTED", "REJECTED"]),
+      changeIds: z.array(z.string().uuid()).min(1).max(100)
+        .refine(ids => new Set(ids).size === ids.length, 'Change IDs must be unique.').optional(),
       message: optionalText(1000),
     }).strict(),
     params: changeRequestParamsSchema,

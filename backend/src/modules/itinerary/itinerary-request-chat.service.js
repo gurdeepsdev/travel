@@ -24,13 +24,14 @@ export async function publishRequestNotice(client, request, actorId) {
   );
   const actor = (profile?.name ?? "A member").slice(0, 150);
   const changes =
-    request.status === "PENDING"
+    request.notice_changes ??
+    (request.status === "PENDING"
       ? null
       : await describeItineraryChanges(
           client,
           request.base_days,
           request.proposed_data?.days,
-        );
+        ));
   const text =
     request.status === "PENDING"
       ? `${actor} requested itinerary changes.`
@@ -40,10 +41,9 @@ export async function publishRequestNotice(client, request, actorId) {
       rows: [notice],
     } = await client.query(
       `INSERT INTO chat.chat_messages
-      (conversation_id,sent_by,message_type,message_content,itinerary_id,change_request_id,change_request_status,change_request_changes)
-      VALUES($1,$2,'SYSTEM',$3,$4,$5,$6,$7::jsonb)
-      ON CONFLICT(conversation_id,change_request_id,change_request_status)
-        WHERE change_request_id IS NOT NULL DO NOTHING RETURNING id`,
+      (conversation_id,sent_by,message_type,message_content,itinerary_id,change_request_id,change_request_status,change_request_changes,change_request_review_id)
+      VALUES($1,$2,'SYSTEM',$3,$4,$5,$6,$7::jsonb,$8::uuid)
+      ON CONFLICT DO NOTHING RETURNING id`,
       [
         conversation.id,
         actorId,
@@ -52,6 +52,7 @@ export async function publishRequestNotice(client, request, actorId) {
         request.id,
         request.status,
         changes === null ? null : JSON.stringify(changes),
+        request.review_id ?? null,
       ],
     );
     if (!notice) continue;
