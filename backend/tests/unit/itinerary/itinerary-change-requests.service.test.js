@@ -71,6 +71,16 @@ describe("ItineraryChangeRequestsService", () => {
     });
   });
 
+  test('forwards targeted proposals and per-change review IDs',async()=>{
+    repository.create.mockResolvedValue(row);
+    const changes=[{day:1,originalPlaceId:'a',replacement:{item_type:'poi',place_id:'b'}}];
+    await service.create({itineraryId,userId:memberId,input:{changes}});
+    expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({proposedData:{changes}}));
+    repository.review.mockResolvedValue({request:row});
+    await service.review({itineraryId,requestId,userId:memberId,input:{decision:'ACCEPTED',changeIds:[requestId]}});
+    expect(repository.review).toHaveBeenCalledWith(expect.objectContaining({changeIds:[requestId]}));
+  });
+
   test("returns conflict when approval becomes stale", async () => {
     repository.review.mockResolvedValue({
       request: { ...row, status: "STALE" },

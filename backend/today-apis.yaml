@@ -1886,8 +1886,10 @@ paths:
       summary: Suggest place changes to a group itinerary
       description: >
         Creates a versioned place-change request from an active linked-group
-        member who is not the itinerary owner. Only days and their place items
-        may be proposed. The owner's status must be PLANNED, UPCOMING, or LIVE.
+        member who is not the itinerary owner. Prefer explicit changes with day,
+        originalPlaceId and replacement. Legacy complete day snapshots are supported;
+        omitted days are preserved, but ambiguous partial item lists are rejected.
+        The owner's status must be PLANNED, UPCOMING, or LIVE.
       operationId: createItineraryChangeRequest
       security: [{ bearerAuth: [] }]
       parameters:
@@ -1966,10 +1968,13 @@ paths:
       tags: [Itineraries]
       summary: Accept or reject an itinerary place-change request
       description: >
-        Only the itinerary owner can review a pending request. Acceptance locks
-        and version-checks the itinerary, revalidates membership and lifecycle,
-        then replaces only days and calculated place counts. Competing pending
-        requests become STALE. Rejection does not alter the itinerary.
+        Only the itinerary owner can review. Optional changeIds selects individual pending
+        changes; omission decides all remaining changes. Acceptance locks the itinerary,
+        verifies each original POI and applies only selected replacements. Untouched
+        places and unrelated pending requests are preserved. Conflicts return 409 without
+        discarding pending changes. Request status stays PENDING while any changes are
+        undecided; after completion it is ACCEPTED if any change was accepted, otherwise
+        REJECTED. Rejection does not alter the itinerary.
       operationId: reviewItineraryChangeRequest
       security: [{ bearerAuth: [] }]
       parameters:
@@ -6170,8 +6175,29 @@ components:
     CreateItineraryChangeRequest:
       type: object
       additionalProperties: false
-      required: [days]
+      oneOf:
+        - required: [days]
+        - required: [changes]
       properties:
+        changes:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [day, originalPlaceId, replacement]
+            properties:
+              day: { type: integer, minimum: 1, maximum: 365 }
+              originalPlaceId: { type: string, minLength: 1, maxLength: 255 }
+              replacement:
+                type: object
+                required: [item_type, place_id]
+                properties:
+                  item_type: { type: string, minLength: 1, maxLength: 50 }
+                  place_id: { type: string, minLength: 1, maxLength: 255 }
+                  name: { type: string }
+                additionalProperties: true
         days:
           type: array
           minItems: 1
@@ -6197,6 +6223,12 @@ components:
       additionalProperties: false
       required: [decision]
       properties:
+        changeIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
         decision:
           type: string
           enum: [ACCEPTED, REJECTED]
@@ -6219,10 +6251,25 @@ components:
         requestType: { type: string, enum: [PLACE_CHANGES] }
         proposedChanges:
           type: object
-          required: [days, totalPlaces]
           properties:
+            changes: { type: array, items: { type: object } }
             days: { type: array, items: { type: object } }
             totalPlaces: { type: integer, minimum: 0 }
+        changes:
+          type: array
+          description: Stable per-change IDs and decisions. Empty for legacy requests not normalized at creation.
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              day: { type: integer }
+              originalPlaceId: { type: string }
+              originalName: { type: string, nullable: true }
+              replacement: { type: object, additionalProperties: true }
+              status: { type: string, enum: [PENDING, ACCEPTED, REJECTED] }
+              reviewedBy: { type: string, format: uuid, nullable: true }
+              reviewedAt: { type: string, format: date-time, nullable: true }
+              reviewMessage: { type: string, nullable: true }
         message: { type: string, nullable: true }
         status:
           type: string

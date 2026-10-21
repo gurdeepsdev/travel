@@ -114,6 +114,8 @@ describeDatabase(
       await client.query(groupNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const poiNoticeMigration = readFileSync(new URL("../../../src/database/migrations/087_itinerary_notice_poi_changes.sql", import.meta.url), "utf8");
       await client.query(poiNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+      const placeReviewMigration = readFileSync(new URL("../../../src/database/migrations/089_targeted_itinerary_place_reviews.sql", import.meta.url), "utf8");
+      await client.query(placeReviewMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const { rows } = await client.query(
         "INSERT INTO auth.users (status) VALUES ('ACTIVE'),('ACTIVE') RETURNING id",
       );
@@ -132,14 +134,15 @@ describeDatabase(
     test.each(['ACCEPTED', 'REJECTED'])('itinerary request notices and events follow owner review: %s', async decision => {
       await client.query('SAVEPOINT request_notices');
       try {
-        const { rows: [itinerary] } = await client.query("INSERT INTO itinerary.itineraries(created_by,title,visibility,itinerary_json) VALUES($1,'Request notice','private',$2) RETURNING id", [owner, { days: [], summary: {} }]);
+        const originalDays=[{day:1,items:[{item_type:'POI',place_id:'old-poi',name:'India Gate'}]}];
+        const { rows: [itinerary] } = await client.query("INSERT INTO itinerary.itineraries(created_by,title,visibility,itinerary_json) VALUES($1,'Request notice','private',$2) RETURNING id", [owner, { days: originalDays, summary: {} }]);
         const linked = await groupRepository.createLinkedGroup({ itineraryId: itinerary.id, userId: owner, input: {} });
         await client.query("INSERT INTO groups.group_members(group_id,user_id,role,status,added_by) VALUES($1,$2,'ADMIN','ACTIVE',$3)", [linked.group.id, member, owner]);
         const conversation = await repository.create(owner, { type: 'group', groupId: linked.group.id });
         const proposedData = { days: [{ day: 1, items: [{item_type:'POI',place_id:'test-poi',name:'Lotus Temple'}] }], totalPlaces: 1 };
         const request = await changeRequests.create({ itineraryId: itinerary.id, userId: member, proposedData });
         expect(request.status).toBe('PENDING');
-        expect(request.base_days).toEqual([]);
+        expect(request.base_days).toEqual(originalDays);
         let history = await messages.history(owner, conversation.id, { limit: 10 });
         expect(history.messages.find(m=>m.changeRequest?.id===request.id)).toMatchObject({ type: 'SYSTEM', changeRequest: { id: request.id, itineraryId: itinerary.id, status: 'PENDING' } });
         expect(await changeRequests.review({ itineraryId: itinerary.id, requestId: request.id, userId: member, decision })).toBeNull();
@@ -149,13 +152,13 @@ describeDatabase(
         expect(history.messages).toHaveLength(3);
         expect(history.messages.filter(m=>m.changeRequest).map(m => m.changeRequest.status).sort()).toEqual(['PENDING', decision].sort());
         const notice = history.messages.find(m => m.changeRequest?.status === decision);
-        expect(notice.changeRequest.changes).toEqual([{type:'ADDED',day:1,before:null,after:{id:'test-poi',name:'Lotus Temple'}}]);
+        expect(notice.changeRequest.changes).toMatchObject([{type:'REPLACED',day:1,before:{id:'old-poi',name:'India Gate'},after:{id:'test-poi',name:'Lotus Temple'}}]);
         await expect(messages.mutate(owner, conversation.id, notice.id, 'delete', {})).rejects.toMatchObject({ statusCode: 403 });
         const { rows: events } = await client.query('SELECT event_type FROM chat.event_outbox WHERE conversation_id=$1', [conversation.id]);
         expect(events).toHaveLength(3);
         expect(events.every(e => e.event_type === 'message.created')).toBe(true);
         const { rows: [stored] } = await client.query('SELECT itinerary_json FROM itinerary.itineraries WHERE id=$1', [itinerary.id]);
-        expect(stored.itinerary_json.days).toEqual(decision === 'ACCEPTED' ? proposedData.days : []);
+        expect(stored.itinerary_json.days).toEqual(decision === 'ACCEPTED' ? proposedData.days : originalDays);
       } finally {
         await client.query('ROLLBACK TO SAVEPOINT request_notices');
         await client.query('RELEASE SAVEPOINT request_notices');

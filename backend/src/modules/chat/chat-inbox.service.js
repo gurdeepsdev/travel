@@ -29,7 +29,7 @@ export class ChatInboxService {
       latest.message AS last_message
       FROM chat.accessible_conversations($1::uuid) c LEFT JOIN chat.conversation_settings s ON s.conversation_id=c.id AND s.user_id=$1
       LEFT JOIN LATERAL (SELECT m.created_at,
-        jsonb_build_object('id',m.id,'senderId',m.sent_by,'type',m.message_type,'text',CASE WHEN m.deleted_at IS NULL THEN m.message_content ELSE NULL END,'deleted',m.deleted_at IS NOT NULL,'createdAt',m.created_at) AS message
+        jsonb_build_object('id',m.id,'senderId',m.sent_by,'type',m.message_type,'text',CASE WHEN m.deleted_at IS NULL THEN m.message_content ELSE NULL END,'deleted',m.deleted_at IS NOT NULL,'createdAt',to_char(m.created_at,'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')) AS message
         FROM chat.chat_messages m WHERE m.conversation_id=c.id AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=m.id AND h.user_id=$1)
         ORDER BY m.created_at DESC,m.id DESC LIMIT 1) latest ON TRUE
       LEFT JOIN LATERAL (SELECT participant.user_id FROM chat.conversation_participants participant
