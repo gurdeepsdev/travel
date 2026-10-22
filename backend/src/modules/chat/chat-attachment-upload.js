@@ -12,6 +12,7 @@ import AppError from "../../core/errors/app-error.js";
 import Response from "../../core/response/index.js";
 import { authorize } from "./chat-messages.service.js";
 import { scanChatAttachment } from "./chat-malware.service.js";
+import { enqueueChatMedia } from "./chat-media.queue.js";
 
 const receive = multer({
   storage: multer.diskStorage({
@@ -25,6 +26,12 @@ const allowed = new Set([
   "image/png",
   "image/webp",
   "video/mp4",
+  "video/quicktime",
+  "video/webm",
+  "video/x-matroska",
+  "video/matroska",
+  "video/vnd.avi",
+  "video/x-m4v",
   "application/pdf",
 ]);
 const cleanup = async (path) => {
@@ -59,7 +66,7 @@ export async function uploadChatAttachment(req, res, next) {
     if (!detected || !allowed.has(detected.mime))
       throw new AppError({
         code: "CHAT.ATTACHMENT_TYPE_INVALID",
-        message: "Attachment must be JPEG, PNG, WebP, MP4, or PDF.",
+        message: "Attachment must be JPEG, PNG, WebP, MP4, MOV, WebM, MKV, AVI, M4V, or PDF.",
         statusCode: 415,
       });
     await scanChatAttachment(req.file.path);
@@ -88,6 +95,7 @@ export async function uploadChatAttachment(req, res, next) {
         client,
         userId: req.user.id,
         isPublic: false,
+        dedupScope: "chat_private",
         uploads: [
           {
             ...stored,
@@ -108,7 +116,7 @@ export async function uploadChatAttachment(req, res, next) {
           message: "Attachment is not available for private delivery.",
           statusCode: 409,
         });
-      // Chat serves the original MP4 privately; it does not enqueue the post HLS pipeline.
+      // Originals stay available while separate private previews are generated.
       if (
         asset.storage_key === stored.storageKey &&
         asset.processing_status === "PROCESSING"
@@ -125,6 +133,10 @@ export async function uploadChatAttachment(req, res, next) {
           message: "Attachment is still processing.",
           statusCode: 409,
         });
+      if (detected.mime.startsWith("image/") || detected.mime.startsWith("video/")) {
+        await client.query(`INSERT INTO chat.asset_optimizations(asset_id) VALUES($1::uuid)
+          ON CONFLICT(asset_id) DO NOTHING`, [asset.id]);
+      }
       return resolved;
     });
     committed = true;
@@ -138,6 +150,10 @@ export async function uploadChatAttachment(req, res, next) {
         /* cleanup can be retried */
       }
     const asset = result.assets[0];
+    if (detected.mime.startsWith("image/") || detected.mime.startsWith("video/")) {
+      try { await enqueueChatMedia(asset.id); }
+      catch { req.logger?.warn({ assetId: asset.id }, "Chat media enqueue deferred to recovery."); }
+    }
     return Response.success(
       res,
       {

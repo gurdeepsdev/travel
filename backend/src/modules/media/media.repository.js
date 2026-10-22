@@ -202,7 +202,12 @@ class MediaRepository {
     userId,
     isPublic,
     uploads,
+    dedupScope = "general",
   }) {
+    if (!["general", "chat_private"].includes(dedupScope) ||
+        (dedupScope === "chat_private" && isPublic !== false)) {
+      throw new Error("Invalid asset deduplication scope.");
+    }
     const normalizedUploads =
       Array.isArray(uploads)
         ? uploads
@@ -263,6 +268,7 @@ class MediaRepository {
                 $1
               AND asset.checksum =
                 $2
+              AND asset.dedup_scope = $3
 
             LIMIT 1
 
@@ -271,6 +277,7 @@ class MediaRepository {
           [
             userId,
             upload.checksum,
+            dedupScope,
           ],
         );
 
@@ -448,7 +455,8 @@ class MediaRepository {
               duration_seconds,
               processing_status,
               uploaded_by,
-              is_public
+              is_public,
+              dedup_scope
             )
             VALUES (
               $1,
@@ -464,7 +472,8 @@ class MediaRepository {
               NULL,
               $11,
               $9,
-              $10
+              $10,
+              $12
             )
             RETURNING
               id,
@@ -498,6 +507,7 @@ class MediaRepository {
               .startsWith("video/")
                 ? "PROCESSING"
                 : "READY",
+            dedupScope,
           ],
         );
 
@@ -559,6 +569,7 @@ class MediaRepository {
             ANY($1::uuid[])
           AND asset.uploaded_by =
             $2
+          AND asset.dedup_scope = 'general'
           AND asset.deleted_at
             IS NULL
           AND (
