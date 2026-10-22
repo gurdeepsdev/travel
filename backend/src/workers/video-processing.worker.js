@@ -29,8 +29,15 @@ import VideoStorageSyncService
   from "../modules/media/video-storage-sync.service.js";
 import ImageProcessingService, { findImageCandidates }
   from "../modules/media/image-processing.service.js";
+import ChatMediaProcessor, { markChatMediaFailed } from "../modules/chat/chat-media.processor.js";
+import { CHAT_MEDIA_JOB, recoverChatMedia } from "../modules/chat/chat-media.queue.js";
 
 await connectInfrastructure();
+await recoverChatMedia();
+const chatRecovery = setInterval(() => {
+  recoverChatMedia().catch(error => logger.error({ error: { name: error.name } }, "Chat media recovery failed."));
+}, 60000);
+chatRecovery.unref();
 
 const pendingAssets =
   await VideoProcessingRepository
@@ -53,6 +60,7 @@ const worker =
   new Worker(
     VIDEO_PROCESSING_QUEUE,
     async (job) => {
+      if (job.name === CHAT_MEDIA_JOB) return ChatMediaProcessor.process(job.data.assetId);
       if (
         job.name ===
           VIDEO_STORAGE_SYNC_JOB
@@ -128,7 +136,7 @@ worker.on(
     if (
       job &&
       job.name !==
-        VIDEO_STORAGE_SYNC_JOB &&
+        VIDEO_STORAGE_SYNC_JOB && job.name !== CHAT_MEDIA_JOB &&
       job.attemptsMade >=
         (job.opts.attempts ?? 1)
     ) {
@@ -140,6 +148,9 @@ worker.on(
           errorMessage:
             error.message,
         });
+    }
+    if (job?.name === CHAT_MEDIA_JOB && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      await markChatMediaFailed(job.data.assetId);
     }
   },
 );
@@ -155,6 +166,7 @@ async function shutdown(
   );
 
   await worker.close();
+  clearInterval(chatRecovery);
   await imageWorker.close();
   process.exit(0);
 }

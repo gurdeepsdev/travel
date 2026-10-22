@@ -116,6 +116,8 @@ describeDatabase(
       await client.query(poiNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const placeReviewMigration = readFileSync(new URL("../../../src/database/migrations/089_targeted_itinerary_place_reviews.sql", import.meta.url), "utf8");
       await client.query(placeReviewMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+      const privateMediaMigration = readFileSync(new URL("../../../src/database/migrations/090_isolate_private_chat_assets.sql", import.meta.url), "utf8");
+      await client.query(privateMediaMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const { rows } = await client.query(
         "INSERT INTO auth.users (status) VALUES ('ACTIVE'),('ACTIVE') RETURNING id",
       );

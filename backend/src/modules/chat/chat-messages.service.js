@@ -2,6 +2,7 @@ import Database from "../../database/database-manager.js";
 import { createHash } from "node:crypto";
 import { resolveStoragePath } from "../../providers/storage/local.provider.js";
 import Repository from "./chat.repository.js";
+import { decorateChatMedia } from "./chat-media.service.js";
 import AppError from "../../core/errors/app-error.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 import { scanChatAttachment } from "./chat-malware.service.js";
@@ -44,7 +45,8 @@ async function withAttachments(client, message) {
     WHERE ma.message_id=$1::uuid ORDER BY ma.display_order`,
     [message.id, message.conversation_id],
   );
-  return map({ ...message, assets: rows });
+  return (await decorateChatMedia(client, message.conversation_id,
+    [map({ ...message, assets: rows })]))[0];
 }
 
 export async function authorize(client, conversationId, userId, write = false) {
@@ -243,7 +245,8 @@ export class ChatMessagesService {
       const page = rows.slice(0, limit);
       const last = page.at(-1);
       return {
-        messages: page.map((row) => ({ ...map(row), sender: row.sender, replyTo: row.reply_to ?? null })),
+        messages: await decorateChatMedia(client, conversationId,
+          page.map((row) => ({ ...map(row), sender: row.sender, replyTo: row.reply_to ?? null }))),
         pagination: {
           hasMore,
           nextCursor: hasMore

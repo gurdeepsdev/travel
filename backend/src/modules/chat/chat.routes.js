@@ -25,6 +25,7 @@ import {
   attachmentResourceSchema,
 } from "./chat.validation.js";
 import { uploadChatAttachment } from "./chat-attachment-upload.js";
+import { registerChatMediaRoutes } from "./chat-media.routes.js";
 import {
   sendMessageSchema,
   messageHistorySchema,
@@ -39,6 +40,7 @@ import {
 
 const router = Router();
 router.use(Auth.authenticate);
+registerChatMediaRoutes(router);
 const handle = (action, message) => async (req, res, next) => {
   try {
     return Response.success(res, await action(req), message);

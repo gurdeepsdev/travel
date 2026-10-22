@@ -202,6 +202,7 @@ paths:
       tags: [Chat]
       summary: Save text, attachments, or an itinerary reference
       operationId: sendChatMessage
+      description: Omit text for attachment-only messages. Each optimized attachment may additionally include optimization (status PENDING/READY/FAILED, width, height, imageVariants, thumbnailUrl, streamUrl, playbackUrl). The existing url always downloads the original. Treat pending/failed previews as optional and fall back to the original. See ChatAttachmentOptimization.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
@@ -224,6 +225,7 @@ paths:
       tags: [Chat]
       summary: Get newest-first message history with cursor pagination
       operationId: listChatMessages
+      x-chat-media: Each assets entry may contain optimization matching ChatAttachmentOptimization. Refresh after chat.updated. Preview URLs and every HLS child request require Bearer authentication. Legacy attachments may omit optimization.
       x-reply-preview: History messages include nullable replyTo containing id, type, text, deleted and sender (id, username, displayName). Originals are resolved independently of the history page; hidden or missing originals yield null. Deleted originals have deleted=true and text=null. Deleted reply messages have replyTo=null. Existing replyToMessageId is preserved.
       description: Each message preserves senderId and includes sender with id, nullable username, nullable displayName and nullable profilePhoto. A profilePhoto contains id, url and mimeType; missing or deleted profiles/photos yield null values. Other message fields and pagination are unchanged.
       security: [{ bearerAuth: [] }]
@@ -418,11 +420,87 @@ paths:
         '403': { description: Sending or mutation is not permitted }
         '404': { description: Conversation or resource is inaccessible }
         '409': { description: Conflicting message ID or deleted message }
+  '/chat/conversations/{conversationId}/messages/{messageId}/attachments/{assetId}/preview/images/{size}':
+    get:
+      tags: [Chat]
+      summary: Optimized private image
+      operationId: getChatImagePreview
+      description: Requires conversation access and a visible, non-deleted message attachment. Send Bearer authentication on every request, including HLS child playlists and segments. Original attachment remains available while optimization is pending or failed. Private no-store delivery; no public CDN URL.
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"conversationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"messageId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"assetId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"size","in":"path","required":true,"schema":{"type":"integer","enum":[320,640,1080,1600]}}]
+      responses:
+        '200': { description: Private optimized resource }
+        '206': { description: Partial content for a byte-range request }
+        '400': { description: Invalid identifier or resource name }
+        '401': { description: Authentication required }
+        '403': { description: Conversation access denied }
+        '404': { description: Preview not ready, missing, hidden, deleted or inaccessible }
+  '/chat/conversations/{conversationId}/messages/{messageId}/attachments/{assetId}/preview/thumbnail':
+    get:
+      tags: [Chat]
+      summary: Private video thumbnail
+      operationId: getChatVideoThumbnail
+      description: Requires conversation access and a visible, non-deleted message attachment. Send Bearer authentication on every request, including HLS child playlists and segments. Original attachment remains available while optimization is pending or failed. Private no-store delivery; no public CDN URL.
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"conversationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"messageId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"assetId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Private optimized resource }
+        '206': { description: Partial content for a byte-range request }
+        '400': { description: Invalid identifier or resource name }
+        '401': { description: Authentication required }
+        '403': { description: Conversation access denied }
+        '404': { description: Preview not ready, missing, hidden, deleted or inaccessible }
+  '/chat/conversations/{conversationId}/messages/{messageId}/attachments/{assetId}/preview/video.mp4':
+    get:
+      tags: [Chat]
+      summary: Optimized private MP4
+      operationId: getChatOptimizedVideo
+      description: Requires conversation access and a visible, non-deleted message attachment. Send Bearer authentication on every request, including HLS child playlists and segments. Original attachment remains available while optimization is pending or failed. Private no-store delivery; no public CDN URL.
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"conversationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"messageId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"assetId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Private optimized resource }
+        '206': { description: Partial content for a byte-range request }
+        '400': { description: Invalid identifier or resource name }
+        '401': { description: Authentication required }
+        '403': { description: Conversation access denied }
+        '404': { description: Preview not ready, missing, hidden, deleted or inaccessible }
+  '/chat/conversations/{conversationId}/messages/{messageId}/attachments/{assetId}/preview/stream/master.m3u8':
+    get:
+      tags: [Chat]
+      summary: Private adaptive HLS master playlist
+      operationId: getChatStreamMaster
+      description: Requires conversation access and a visible, non-deleted message attachment. Send Bearer authentication on every request, including HLS child playlists and segments. Original attachment remains available while optimization is pending or failed. Private no-store delivery; no public CDN URL.
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"conversationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"messageId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"assetId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Private optimized resource }
+        '206': { description: Partial content for a byte-range request }
+        '400': { description: Invalid identifier or resource name }
+        '401': { description: Authentication required }
+        '403': { description: Conversation access denied }
+        '404': { description: Preview not ready, missing, hidden, deleted or inaccessible }
+  '/chat/conversations/{conversationId}/messages/{messageId}/attachments/{assetId}/preview/stream/{rendition}/{fileName}':
+    get:
+      tags: [Chat]
+      summary: Private HLS rendition playlist or segment
+      operationId: getChatStreamResource
+      description: Requires conversation access and a visible, non-deleted message attachment. Send Bearer authentication on every request, including HLS child playlists and segments. Original attachment remains available while optimization is pending or failed. Private no-store delivery; no public CDN URL.
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"conversationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"messageId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"assetId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"rendition","in":"path","required":true,"schema":{"type":"string","enum":["360p","540p","720p","1080p"]}},{"name":"fileName","in":"path","required":true,"schema":{"type":"string","pattern":"^(index\\.m3u8|segment_\\d+\\.ts)$"}}]
+      responses:
+        '200': { description: Private optimized resource }
+        '206': { description: Partial content for a byte-range request }
+        '400': { description: Invalid identifier or resource name }
+        '401': { description: Authentication required }
+        '403': { description: Conversation access denied }
+        '404': { description: Preview not ready, missing, hidden, deleted or inaccessible }
   '/chat/conversations/{conversationId}/attachments':
     post:
       tags: [Chat]
       summary: Upload one private attachment (50 MiB maximum)
       operationId: uploadChatAttachment
+      description: Upload returns the original private asset immediately. New chat assets deduplicate separately from public post assets. Images and supported video containers are optimized asynchronously to private previews; PDFs remain original-only. Sending the returned assetId uses the existing messages endpoint. Watch chat.updated and refresh message history for preview readiness.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
@@ -433,7 +511,7 @@ paths:
         required: true
         content:
           multipart/form-data:
-            schema: {"type":"object","additionalProperties":false,"required":["attachment"],"properties":{"attachment":{"type":"string","format":"binary","description":"JPEG, PNG, WebP, MP4, or PDF. MP4 is delivered as the original file, without post HLS transcoding."}}}
+            schema: {"type":"object","additionalProperties":false,"required":["attachment"],"properties":{"attachment":{"type":"string","format":"binary","description":"JPEG, PNG, WebP, MP4, MOV, WebM, MKV, AVI, M4V, or PDF. Actual file signatures are validated. Maximum 50 MiB; one file per request. Video originals are preserved; H.264/AAC MP4 and HLS previews are generated asynchronously. Unsupported/corrupt codecs may fail optimization; original remains downloadable."}}}
       responses:
         '200': { description: Successful operation }
         '400': { description: Invalid request }
@@ -7145,6 +7223,29 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: '2026-08-17T05:33:44.704Z'
   schemas:
+    ChatAttachmentOptimization:
+      type: object
+      description: Optional assets[].optimization in chat message responses. Original assets[].url is unchanged. Preview URLs require conversation-authorized Bearer requests; do not expose publicly or append tokens to URLs.
+      required: [status, width, height, imageVariants, thumbnailUrl, streamUrl, playbackUrl]
+      properties:
+        status: { type: string, enum: [PENDING, READY, FAILED] }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+        imageVariants:
+          type: array
+          items:
+            type: object
+            required: [size, width, height, fileSize, mimeType, url]
+            properties:
+              size: { type: integer, enum: [320, 640, 1080, 1600] }
+              width: { type: integer }
+              height: { type: integer }
+              fileSize: { type: integer }
+              mimeType: { type: string, enum: [image/webp] }
+              url: { type: string }
+        thumbnailUrl: { type: string, nullable: true }
+        streamUrl: { type: string, nullable: true }
+        playbackUrl: { type: string, nullable: true }
     SavedLocationCard:
       type: object
       required: [id, itemType, title, viewerState]
