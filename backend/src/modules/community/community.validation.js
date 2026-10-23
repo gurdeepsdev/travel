@@ -1,0 +1,16 @@
+import { z } from 'zod';
+const id = z.string().uuid();
+const empty = z.object({}).strict();
+const page = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20), cursor: z.string().max(1000).optional() }).strict();
+export const resource = z.object({ params: z.object({ communityId: id }).strict(), query: empty, body: empty.optional() });
+export const listing = z.object({ params: empty, query: page.extend({ search: z.string().trim().min(1).max(100).optional() }), body: empty.optional() });
+const fields = z.object({ name: z.string().trim().min(1).max(100), description: z.string().trim().min(1).max(250).nullable().optional(), iconAssetId: id, joinType: z.enum(['OPEN', 'APPROVAL']) }).strict();
+export const creation = z.object({ params: empty, query: empty, body: fields.extend({ joinType: fields.shape.joinType.default('OPEN') }) });
+export const editing = resource.extend({ body: fields.partial().refine(value => Object.keys(value).length > 0, 'Provide a community field to update.') });
+export const members = resource.extend({ query: page });
+export const member = resource.extend({ params: z.object({ communityId: id, userId: id }).strict() });
+export const role = member.extend({ body: z.object({ role: z.enum(['ADMIN', 'MEMBER']) }).strict() });
+export const ban = member.extend({ body: z.object({ reason: z.string().trim().min(1).max(250).optional() }).strict().optional() });
+export const requests = resource.extend({ query: page.extend({ status: z.enum(['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED']).default('PENDING') }) });
+export const request = resource.extend({ params: z.object({ communityId: id, requestId: id }).strict() });
+export const review = request.extend({ body: z.object({ status: z.enum(['ACCEPTED', 'REJECTED']) }).strict() });
