@@ -123,6 +123,281 @@ paths:
         '200': {description: Success using the existing response envelope}
         '401': {description: Authentication required}
         '404': {description: Resource unavailable}
+  '/communities/images':
+    post:
+      tags: [Communities]
+      summary: Upload a community image (10 MiB maximum)
+      operationId: uploadCommunityImage
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {"type":"object","required":["image"],"properties":{"image":{"type":"string","format":"binary"}}}
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities':
+    post:
+      tags: [Communities]
+      summary: Create a community and its chat
+      operationId: createCommunity
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["name","iconAssetId"],"properties":{"name":{"type":"string","minLength":1,"maxLength":100},"description":{"type":"string","nullable":true,"maxLength":250},"iconAssetId":{"type":"string","format":"uuid"},"joinType":{"type":"string","enum":["OPEN","APPROVAL"],"default":"OPEN"}}}
+      responses:
+        '201': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+    get:
+      tags: [Communities]
+      summary: Discover communities
+      operationId: listCommunities
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/users/me/communities':
+    get:
+      tags: [Communities]
+      summary: List my active communities
+      operationId: listMyCommunities
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}':
+    get:
+      tags: [Communities]
+      summary: Get community details
+      operationId: getCommunity
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+    patch:
+      tags: [Communities]
+      summary: Update a community (active admins)
+      operationId: updateCommunity
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"minProperties":1,"properties":{"name":{"type":"string","minLength":1,"maxLength":100},"description":{"type":"string","nullable":true,"maxLength":250},"iconAssetId":{"type":"string","format":"uuid"},"joinType":{"type":"string","enum":["OPEN","APPROVAL"],"default":"OPEN"}}}
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+    delete:
+      tags: [Communities]
+      summary: Delete a community (any active admin)
+      operationId: deleteCommunity
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/join':
+    post:
+      tags: [Communities]
+      summary: Join an OPEN community or request APPROVAL
+      operationId: joinCommunity
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/leave':
+    post:
+      tags: [Communities]
+      summary: Leave and automatically promote a remaining member if needed
+      operationId: leaveCommunity
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/members':
+    get:
+      tags: [Communities]
+      summary: List active members with profile images
+      operationId: listCommunityMembers
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/members/{userId}/role':
+    patch:
+      tags: [Communities]
+      summary: Promote or demote an active member (admins)
+      operationId: setCommunityMemberRole
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"userId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["role"],"properties":{"role":{"type":"string","enum":["ADMIN","MEMBER"]}}}
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/members/{userId}':
+    delete:
+      tags: [Communities]
+      summary: Remove a member (admins)
+      operationId: removeCommunityMember
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"userId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/bans':
+    get:
+      tags: [Communities]
+      summary: List banned users (admins)
+      operationId: listCommunityBans
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/bans/{userId}':
+    put:
+      tags: [Communities]
+      summary: Ban a user and revoke membership (admins)
+      operationId: banCommunityMember
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"userId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"properties":{"reason":{"type":"string","maxLength":250}}}
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+    delete:
+      tags: [Communities]
+      summary: Unban a user without restoring membership (admins)
+      operationId: unbanCommunityMember
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"userId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/join-requests':
+    get:
+      tags: [Communities]
+      summary: List join requests (admins)
+      operationId: listCommunityJoinRequests
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"status","in":"query","schema":{"type":"string","enum":["PENDING","ACCEPTED","REJECTED","CANCELLED"],"default":"PENDING"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/join-requests/{requestId}':
+    patch:
+      tags: [Communities]
+      summary: Accept or reject a pending join request (admins)
+      operationId: reviewCommunityJoinRequest
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"requestId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["ACCEPTED","REJECTED"]}}}
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
+    delete:
+      tags: [Communities]
+      summary: Cancel my pending join request
+      operationId: cancelCommunityJoinRequest
+      security: [{ bearerAuth: [] }]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"requestId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses:
+        '200': { description: Successful operation in the standard success envelope }
+        '400': { description: Invalid request }
+        '401': { description: Authentication required }
+        '404': { description: Community or active admin access unavailable }
+        '409': { description: Last admin protection or resolved request conflict }
+        '422': { description: Image is not an owned public ready image }
   '/chat/conversations/{conversationId}/read':
     put:
       tags: [Chat]

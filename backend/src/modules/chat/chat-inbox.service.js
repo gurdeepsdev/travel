@@ -23,8 +23,7 @@ export class ChatInboxService {
         'id',peer.user_id,'username',profile.username,'displayName',profile.display_name,
         'profilePhoto',CASE WHEN image.id IS NULL THEN NULL ELSE jsonb_build_object('id',image.id,
           'url','/api/v1/media/assets/'||image.id||'/content','mimeType',image.mime_type) END) END AS other_user,
-      CASE WHEN c.conversation_type<>'community' THEN TRUE ELSE EXISTS(SELECT 1 FROM community.communities cm WHERE cm.id=c.community_id AND cm.owner_id=$1)
-       OR EXISTS(SELECT 1 FROM community.community_members m WHERE m.community_id=c.community_id AND m.user_id=$1 AND upper(m.status)='ACTIVE' AND lower(m.role) IN ('owner','admin')) END AS can_send,
+      CASE WHEN c.conversation_type<>'community' THEN TRUE ELSE EXISTS(SELECT 1 FROM community.community_members m WHERE m.community_id=c.community_id AND m.user_id=$1 AND upper(m.status)='ACTIVE' AND lower(m.role)='admin') END AS can_send,
       (${unreadSQL}) AS unread_count,
       latest.message AS last_message
       FROM chat.accessible_conversations($1::uuid) c LEFT JOIN chat.conversation_settings s ON s.conversation_id=c.id AND s.user_id=$1

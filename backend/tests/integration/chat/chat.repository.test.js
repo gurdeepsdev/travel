@@ -112,6 +112,8 @@ describeDatabase(
       await client.query(requestNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const groupNoticeMigration = readFileSync(new URL("../../../src/database/migrations/084_group_chat_notices.sql", import.meta.url), "utf8");
       await client.query(groupNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+      const communityMigration = readFileSync(new URL("../../../src/database/migrations/086_community_management.sql", import.meta.url), "utf8");
+      await client.query(communityMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const poiNoticeMigration = readFileSync(new URL("../../../src/database/migrations/087_itinerary_notice_poi_changes.sql", import.meta.url), "utf8");
       await client.query(poiNoticeMigration.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
       const placeReviewMigration = readFileSync(new URL("../../../src/database/migrations/089_targeted_itinerary_place_reviews.sql", import.meta.url), "utf8");
@@ -401,6 +403,7 @@ describeDatabase(
         const grouped=await repository.create(owner,{type:"group",groupId:group});
         await client.query("UPDATE groups.groups SET cover_asset_id=$1 WHERE id=$2",[photo.id,group]);
         const {rows:[community]}=await client.query("INSERT INTO community.communities (owner_id,name,icon_asset_id) VALUES ($1,'Community display',$2) RETURNING id",[owner,photo.id]);
+        await client.query("INSERT INTO community.community_members(community_id,user_id,role,status) VALUES($1,$2,'ADMIN','ACTIVE')", [community.id,owner]);
         const communal=await repository.create(owner,{type:"community",communityId:community.id});
         const list=async()=> (await inbox.list(owner,{limit:30,archived:false})).conversations;
         const image={id:photo.id,url:`/api/v1/media/assets/${photo.id}/content`,mimeType:"image/jpeg"};
@@ -1262,7 +1265,7 @@ describeDatabase(
           .request_status,
       ).toBe("ACCEPTED");
     });
-    test("community members read but only admins or owner can send; bans revoke access", async () => {
+    test("community members read but only active admins can send; bans revoke access", async () => {
       const {
         rows: [asset],
       } = await client.query("SELECT id FROM media.assets LIMIT 1");
@@ -1282,6 +1285,7 @@ describeDatabase(
         type: "community",
         communityId: community.id,
       });
+      await client.query("INSERT INTO community.community_members(community_id,user_id,role,status) VALUES($1,$2,'ADMIN','ACTIVE')", [community.id,owner]);
       expect(conversation.can_send).toBe(false);
       expect(
         new Set(

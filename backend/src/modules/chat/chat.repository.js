@@ -21,7 +21,7 @@ export class ChatRepository {
       `
       SELECT c.*,
         CASE WHEN c.conversation_type <> 'community' THEN TRUE
-          ELSE cm.owner_id = $2::uuid OR lower(m.role) IN ('owner', 'admin') END AS can_send
+          ELSE lower(m.role) = 'admin' END AS can_send
       FROM chat.conversations c
       LEFT JOIN groups.groups g ON g.id = c.group_id
       LEFT JOIN groups.group_members gm ON gm.group_id = g.id AND gm.user_id = $2::uuid AND gm.status = 'ACTIVE'
@@ -37,7 +37,7 @@ export class ChatRepository {
           WHERE other.conversation_id = c.id AND other.user_id <> $2::uuid
         )) OR
         (c.conversation_type = 'group' AND g.deleted_at IS NULL AND g.status = 'ACTIVE' AND gm.id IS NOT NULL) OR
-        (c.conversation_type = 'community' AND cm.deleted_at IS NULL AND (cm.owner_id = $2::uuid OR m.id IS NOT NULL)
+        (c.conversation_type = 'community' AND cm.deleted_at IS NULL AND m.id IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM community.community_bans b WHERE b.community_id = cm.id AND b.banned_user_id = $2::uuid))
       )`,
       [conversationId, userId],
@@ -100,7 +100,7 @@ export class ChatRepository {
         AND EXISTS (SELECT 1 FROM groups.group_members m WHERE m.group_id=g.id AND m.user_id=$2::uuid AND m.status='ACTIVE') FOR SHARE`
           : `
         SELECT c.id FROM community.communities c WHERE c.id=$1::uuid AND c.deleted_at IS NULL
-        AND (c.owner_id=$2::uuid OR EXISTS (SELECT 1 FROM community.community_members m WHERE m.community_id=c.id AND m.user_id=$2::uuid AND upper(m.status)='ACTIVE'))
+        AND EXISTS (SELECT 1 FROM community.community_members m WHERE m.community_id=c.id AND m.user_id=$2::uuid AND upper(m.status)='ACTIVE')
         AND NOT EXISTS (SELECT 1 FROM community.community_bans b WHERE b.community_id=c.id AND b.banned_user_id=$2::uuid) FOR SHARE`,
         [targetId, userId],
       );
