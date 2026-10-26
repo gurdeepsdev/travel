@@ -6,6 +6,7 @@ export const resource = z.object({ params: z.object({ communityId: id }).strict(
 export const listing = z.object({ params: empty, query: page.extend({ search: z.string().trim().min(1).max(100).optional() }), body: empty.optional() });
 const fields = z.object({ name: z.string().trim().min(1).max(100), description: z.string().trim().min(1).max(250).nullable().optional(), iconAssetId: id, joinType: z.enum(['OPEN', 'APPROVAL']) }).strict();
 export const creation = z.object({ params: empty, query: empty, body: fields.extend({ joinType: fields.shape.joinType.default('OPEN') }) });
+export const multipartCreation = creation.extend({ body: creation.shape.body.omit({ iconAssetId: true }) });
 export const editing = resource.extend({ body: fields.partial().refine(value => Object.keys(value).length > 0, 'Provide a community field to update.') });
 export const members = resource.extend({ query: page });
 export const member = resource.extend({ params: z.object({ communityId: id, userId: id }).strict() });

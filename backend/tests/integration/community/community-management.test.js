@@ -65,6 +65,23 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     expect((await communities.list(owner,{limit:10},true)).communities).toHaveLength(1);
     expect((await communities.list(member,{limit:10},true)).communities).toHaveLength(0);
   });
+  test("multipart image and community creation share one rollback boundary",async()=>{
+    const assetId=randomUUID();
+    await expect(db.transaction(async client=>{
+      await client.query("INSERT INTO media.assets(id,uploaded_by,is_public,processing_status,mime_type) VALUES($1,$2,true,'READY','image/png')",[assetId,owner]);
+      await communities.createInTransaction(owner,{name:"Rollback",iconAssetId:assetId,joinType:"OPEN"},client);
+      throw Error("rollback after creation");
+    })).rejects.toThrow("rollback after creation");
+    for(const table of ["community.communities","community.community_members","chat.conversations"]){
+      expect((await pool.query(`SELECT COUNT(*)::int AS count FROM ${table}`)).rows[0].count).toBe(0);
+    }
+    expect((await pool.query("SELECT id FROM media.assets WHERE id=$1",[assetId])).rows).toHaveLength(0);
+    const id=await db.transaction(async client=>{
+      await client.query("INSERT INTO media.assets(id,uploaded_by,is_public,processing_status,mime_type) VALUES($1,$2,true,'READY','image/png')",[assetId,owner]);
+      return communities.createInTransaction(owner,{name:"Committed",iconAssetId:assetId,joinType:"OPEN"},client);
+    });
+    expect((await communities.get(owner,id)).community).toMatchObject({name:"Committed",viewerRole:"ADMIN",image:{id:assetId}});
+  });
   test("foreign, private, deleted or non-image icons are rejected without creating rows",async()=>{
     await expect(communities.create(member,{name:"bad",iconAssetId:iconId,joinType:"OPEN"})).rejects.toMatchObject({statusCode:422});
     for(const sql of ["is_public=false","deleted_at=now()","mime_type='video/mp4'"]){

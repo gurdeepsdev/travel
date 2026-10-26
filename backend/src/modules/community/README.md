@@ -11,3 +11,8 @@ All routes require Bearer authentication. Upload an image with `POST /api/v1/com
 Admins PUT `.../bans/{userId}` with optional `{reason}` to ban and revoke membership, GET `.../bans` to list, and DELETE `.../bans/{userId}` to unban. Unbanning does not restore membership; normal join rules apply. Admins cannot ban themselves. Banned users cannot discover, join or read the community/chat.
 
 Community updates use the existing `chat.updated` event with type `conversation.updated`; refetch community/members/requests when relevant. Existing access checks suppress notifications after membership is revoked. These are metadata refresh notifications, not chat messages. Migration `086_community_management.sql` backfills missing legacy creator memberships and normalizes roles, retaining already-removed members as removed. Apply before deploying this code. Chat direct/group authorization is preserved.
+# Multipart creation
+
+`POST /api/v1/communities` also accepts authenticated `multipart/form-data`: required `name` and `image` (one supported image up to 10 MiB), optional `description` and `joinType` (`OPEN` default or `APPROVAL`). Do not send `iconAssetId` with multipart. Let the HTTP client generate the multipart boundary.
+
+Existing JSON creation with `iconAssetId` and the separate `/communities/images` upload remain supported. Multipart persists the image asset, community, admin membership and conversation in one database transaction; the response envelope is unchanged.

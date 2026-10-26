@@ -150,10 +150,22 @@ paths:
       requestBody:
         required: true
         content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, image]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                description: { type: string, minLength: 1, maxLength: 250 }
+                joinType: { type: string, enum: [OPEN, APPROVAL], default: OPEN }
+                image: { type: string, format: binary, description: One image up to 10 MiB. Do not send iconAssetId with multipart. }
           application/json:
             schema: {"type":"object","additionalProperties":false,"required":["name","iconAssetId"],"properties":{"name":{"type":"string","minLength":1,"maxLength":100},"description":{"type":"string","nullable":true,"maxLength":250},"iconAssetId":{"type":"string","format":"uuid"},"joinType":{"type":"string","enum":["OPEN","APPROVAL"],"default":"OPEN"}}}
       responses:
         '201': { description: Successful operation in the standard success envelope }
+        '413': { description: Image exceeds 10 MiB }
+        '415': { description: Unsupported or invalid image file }
         '400': { description: Invalid request }
         '401': { description: Authentication required }
         '404': { description: Community or active admin access unavailable }
