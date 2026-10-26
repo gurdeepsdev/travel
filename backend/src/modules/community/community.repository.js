@@ -79,15 +79,16 @@ class CommunityRepository {
     });
   }
   async create(userId, input) {
-    const id = await Database.transaction(async client => {
+    const id = await Database.transaction(client => this.createInTransaction(userId, input, client));
+    return this.get(userId, id);
+  }
+  async createInTransaction(userId, input, client) {
       await icon(client, input.iconAssetId, userId);
       const row = await one(client, `INSERT INTO community.communities(owner_id,name,description,icon_asset_id,join_type,member_count)
         VALUES($1,$2,$3,$4,$5,1) RETURNING id`, [userId, input.name, input.description ?? null, input.iconAssetId, input.joinType]);
       await client.query("INSERT INTO community.community_members(community_id,user_id,role,status) VALUES($1,$2,'ADMIN','ACTIVE')", [row.id, userId]);
       await client.query("INSERT INTO chat.conversations(conversation_type,community_id,request_status) VALUES('community',$1,'ACCEPTED')", [row.id]);
       return row.id;
-    });
-    return this.get(userId, id);
   }
   async update(userId, id, input) {
     await Database.transaction(async client => {
