@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 const create=jest.fn(),get=jest.fn();
 const methods={create,get,list:jest.fn(),update:jest.fn(),remove:jest.fn(),join:jest.fn(),
-  memberAction:jest.fn(),members:jest.fn(),requests:jest.fn(),review:jest.fn()};
+  memberAction:jest.fn(),members:jest.fn(),requests:jest.fn(),review:jest.fn(),invite:jest.fn(),listInvitations:jest.fn(),respondInvitation:jest.fn()};
 jest.unstable_mockModule('../../../src/middleware/auth.middleware.js',()=>({default:{authenticate:(req,res,next)=>{
   if(!req.headers.authorization)return res.status(401).json({success:false});
   req.user={id:'11111111-1111-4111-8111-111111111111'};next();
@@ -29,6 +29,11 @@ test('invalid IDs never reach the repository',async()=>{
 });
 const id='11111111-1111-4111-8111-111111111111',user='22222222-2222-4222-8222-222222222222';
 const routes=[
+  ['post',`/communities/${id}/invitations`,{userId:user},'invite'],
+  ['get',`/communities/${id}/invitations`,undefined,'listInvitations'],
+  ['get','/users/me/community-invitations',undefined,'listInvitations'],
+  ['patch',`/communities/${id}/invitations/${user}`,{status:'ACCEPTED'},'respondInvitation'],
+  ['delete',`/communities/${id}/invitations/${user}`,undefined,'respondInvitation'],
   ['post','/communities/images',undefined,null],
   ['post','/communities',{name:'Delhi',iconAssetId:id},'create'],
   ['get','/communities',undefined,'list'],
