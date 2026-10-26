@@ -146,6 +146,7 @@ paths:
       tags: [Communities]
       summary: Create a community and its chat
       operationId: createCommunity
+      description: Returns data.community including shareUrl (PUBLIC_WEB_URL/c/{communityId}, default https://artictern.com/c/{communityId}). Sharing does not bypass authentication, bans or joining rules. Frontend/web must handle the share URL.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -174,6 +175,7 @@ paths:
     get:
       tags: [Communities]
       summary: Discover communities
+      description: Suggests non-deleted communities where the caller is not an active member or admin. Joined communities appear in GET /users/me/communities. Pending approval requests remain discoverable until accepted. Banned communities are excluded; search and cursor pagination apply after membership filtering. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}).
       operationId: listCommunities
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]
@@ -184,10 +186,56 @@ paths:
         '404': { description: Community or active admin access unavailable }
         '409': { description: Last admin protection or resolved request conflict }
         '422': { description: Image is not an owned public ready image }
+  '/communities/{communityId}/invitations':
+    post:
+      tags: ["Communities"]
+      summary: "Invite a user (active admins only)"
+      description: "Returns an existing pending invitation or creates one. Recipient is not joined until explicit acceptance. Banned, blocked, inactive and existing members cannot be invited. Does not send email or push notifications."
+      operationId: "inviteCommunityUser"
+      security: [{"bearerAuth":[]}]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody: {"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["userId"],"properties":{"userId":{"type":"string","format":"uuid"}}}}}}
+      responses: {"200":{"description":"Successful operation","content":{"application/json":{"schema":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"object","properties":{"invitation":{"$ref":"#/components/schemas/CommunityInvitation"},"updated":{"type":"boolean"}}},"requestId":{"type":"string","nullable":true},"timestamp":{"type":"string","format":"date-time"}}}}}},"400":{"description":"Invalid request"},"401":{"description":"Authentication required"},"404":{"description":"Community, recipient or invitation unavailable; only recipient can decide and only active admins can invite/list/cancel"},"409":{"description":"Recipient already joined/banned, invitation resolved or inviting admin no longer authorized"},"422":{"description":"Self-invitation is not allowed"}}
+    get:
+      tags: ["Communities"]
+      summary: "List community invitations (active admins only)"
+      description: "Lists invitations sent by any admin of this community. Defaults to PENDING."
+      operationId: "listCommunityInvitations"
+      security: [{"bearerAuth":[]}]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"status","in":"query","schema":{"type":"string","enum":["PENDING","ACCEPTED","DECLINED","CANCELLED"],"default":"PENDING"}}]
+      responses: {"200":{"description":"Successful operation","content":{"application/json":{"schema":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"object","properties":{"invitations":{"type":"array","items":{"$ref":"#/components/schemas/CommunityInvitation"}},"pagination":{"type":"object","properties":{"hasMore":{"type":"boolean"},"nextCursor":{"type":"string","nullable":true}}}}},"requestId":{"type":"string","nullable":true},"timestamp":{"type":"string","format":"date-time"}}}}}},"400":{"description":"Invalid request"},"401":{"description":"Authentication required"},"404":{"description":"Community, recipient or invitation unavailable; only recipient can decide and only active admins can invite/list/cancel"},"409":{"description":"Recipient already joined/banned, invitation resolved or inviting admin no longer authorized"},"422":{"description":"Self-invitation is not allowed"}}
+  '/users/me/community-invitations':
+    get:
+      tags: ["Communities"]
+      summary: "List invitations addressed to me"
+      description: "Recipient inbox; defaults to PENDING. Each invitation includes community details/shareUrl and inviter identity. Fetch this list to display invitations; invitation creation does not emit a recipient chat event before membership."
+      operationId: "listMyCommunityInvitations"
+      security: [{"bearerAuth":[]}]
+      parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"status","in":"query","schema":{"type":"string","enum":["PENDING","ACCEPTED","DECLINED","CANCELLED"],"default":"PENDING"}}]
+      responses: {"200":{"description":"Successful operation","content":{"application/json":{"schema":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"object","properties":{"invitations":{"type":"array","items":{"$ref":"#/components/schemas/CommunityInvitation"}},"pagination":{"type":"object","properties":{"hasMore":{"type":"boolean"},"nextCursor":{"type":"string","nullable":true}}}}},"requestId":{"type":"string","nullable":true},"timestamp":{"type":"string","format":"date-time"}}}}}},"400":{"description":"Invalid request"},"401":{"description":"Authentication required"},"404":{"description":"Community, recipient or invitation unavailable; only recipient can decide and only active admins can invite/list/cancel"},"409":{"description":"Recipient already joined/banned, invitation resolved or inviting admin no longer authorized"},"422":{"description":"Self-invitation is not allowed"}}
+  '/communities/{communityId}/invitations/{invitationId}':
+    patch:
+      tags: ["Communities"]
+      summary: "Accept or decline my invitation"
+      description: "Only the invited recipient may decide. ACCEPTED immediately joins as MEMBER for OPEN or APPROVAL, cancels any pending JOIN request and updates member count/chat access transactionally. Repeating the same decision is idempotent; conflicting decisions return 409. Link opening alone never joins. Fetch community details after acceptance for conversationId."
+      operationId: "respondCommunityInvitation"
+      security: [{"bearerAuth":[]}]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"invitationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      requestBody: {"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["status"],"properties":{"status":{"type":"string","enum":["ACCEPTED","DECLINED"]}}}}}}
+      responses: {"200":{"description":"Successful operation","content":{"application/json":{"schema":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"object","properties":{"invitation":{"$ref":"#/components/schemas/CommunityInvitation"},"updated":{"type":"boolean"}}},"requestId":{"type":"string","nullable":true},"timestamp":{"type":"string","format":"date-time"}}}}}},"400":{"description":"Invalid request"},"401":{"description":"Authentication required"},"404":{"description":"Community, recipient or invitation unavailable; only recipient can decide and only active admins can invite/list/cancel"},"409":{"description":"Recipient already joined/banned, invitation resolved or inviting admin no longer authorized"},"422":{"description":"Self-invitation is not allowed"}}
+    delete:
+      tags: ["Communities"]
+      summary: "Cancel a pending invitation (active admins only)"
+      description: "Any active admin may cancel. Repeating cancellation is idempotent. Declined, accepted or otherwise resolved invitations cannot be cancelled."
+      operationId: "cancelCommunityInvitation"
+      security: [{"bearerAuth":[]}]
+      parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}},{"name":"invitationId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
+      responses: {"200":{"description":"Successful operation","content":{"application/json":{"schema":{"type":"object","properties":{"success":{"type":"boolean"},"message":{"type":"string"},"data":{"type":"object","properties":{"invitation":{"$ref":"#/components/schemas/CommunityInvitation"},"updated":{"type":"boolean"}}},"requestId":{"type":"string","nullable":true},"timestamp":{"type":"string","format":"date-time"}}}}}},"400":{"description":"Invalid request"},"401":{"description":"Authentication required"},"404":{"description":"Community, recipient or invitation unavailable; only recipient can decide and only active admins can invite/list/cancel"},"409":{"description":"Recipient already joined/banned, invitation resolved or inviting admin no longer authorized"},"422":{"description":"Self-invitation is not allowed"}}
   '/users/me/communities':
     get:
       tags: [Communities]
       summary: List my active communities
+      description: Returns active memberships. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}).
       operationId: listMyCommunities
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]
@@ -202,6 +250,7 @@ paths:
     get:
       tags: [Communities]
       summary: Get community details
+      description: Returns data.community including shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}). Authentication, bans and joining rules remain unchanged; this is not an invitation token.
       operationId: getCommunity
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
@@ -215,6 +264,7 @@ paths:
     patch:
       tags: [Communities]
       summary: Update a community (active admins)
+      description: Returns the updated data.community including its stable shareUrl. The URL does not change when the name or image changes.
       operationId: updateCommunity
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
@@ -7510,6 +7560,7 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: '2026-08-17T05:33:44.704Z'
   schemas:
+    CommunityInvitation: {"type":"object","required":["id","communityId","invitedBy","userId","status","createdAt","updatedAt"],"properties":{"id":{"type":"string","format":"uuid"},"communityId":{"type":"string","format":"uuid"},"invitedBy":{"type":"string","format":"uuid","description":"Inviting admin UUID"},"userId":{"type":"string","format":"uuid","description":"Invited recipient UUID"},"status":{"type":"string","enum":["PENDING","ACCEPTED","DECLINED","CANCELLED"]},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"inviter":{"type":"object","description":"Included in invitation list responses","properties":{"id":{"type":"string","format":"uuid"},"username":{"type":"string","nullable":true},"displayName":{"type":"string","nullable":true}}},"community":{"type":"object","description":"Included in list responses. Contains community fields including image, joinType and shareUrl; does not grant membership or chat access.","properties":{"id":{"type":"string","format":"uuid"},"name":{"type":"string"},"shareUrl":{"type":"string","format":"uri"}}}}}
     ChatAttachmentOptimization:
       type: object
       description: Optional assets[].optimization in chat message responses. Original assets[].url is unchanged. Preview URLs require conversation-authorized Bearer requests; do not expose publicly or append tokens to URLs.

@@ -46,7 +46,7 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     const tables=source.match(/CREATE TABLE community\.[\s\S]*?\n\);/g);
     expect(tables).toHaveLength(4);for(const sql of tables)await pool.query(sql);
     for(const sql of source.match(/ALTER TABLE ONLY community\.[\s\S]*?;\n/g)??[])await pool.query(sql);
-    for(const name of ["076_chat_message_lifecycle.sql","077_chat_inbox_notifications.sql","078_chat_event_replay.sql","079_chat_conversation_event_sequence.sql","086_community_management.sql"])await pool.query(migration(name));
+    for(const name of ["076_chat_message_lifecycle.sql","077_chat_inbox_notifications.sql","078_chat_event_replay.sql","079_chat_conversation_event_sequence.sql","086_community_management.sql","091_community_invitations.sql"])await pool.query(migration(name));
   },30000);
   afterAll(async()=>{await pool?.end();if(directory){try{execFileSync("pg_ctl",["-D",`${directory}/data`,"-m","fast","-w","stop"],{stdio:"pipe"});}finally{rmSync(directory,{recursive:true,force:true});}}});
   beforeEach(async()=>{
@@ -64,6 +64,23 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     expect(await chat.access(pool,c.conversationId,owner)).toMatchObject({can_send:true});
     expect((await communities.list(owner,{limit:10},true)).communities).toHaveLength(1);
     expect((await communities.list(member,{limit:10},true)).communities).toHaveLength(0);
+  });
+  test("share URLs are consistent in creation, details and both lists without bypassing membership",async()=>{
+    const c=await create("APPROVAL");
+    const expected=`${(process.env.PUBLIC_WEB_URL??"https://artictern.com").trim().replace(/\/+$/,"")}/c/${c.id}`;
+    expect(c.shareUrl).toBe(expected);
+    expect((await communities.get(member,c.id)).community).toMatchObject({shareUrl:expected,conversationId:null,viewerRole:null});
+    expect((await communities.list(member,{limit:10})).communities[0].shareUrl).toBe(expected);
+    expect((await communities.list(owner,{limit:10},true)).communities[0].shareUrl).toBe(expected);
+    const updated=await communities.update(owner,c.id,{name:"Renamed"});
+    expect(updated.community.shareUrl).toBe(expected);
+    const joined=await communities.join(member,c.id);expect(joined.status).toBe("PENDING");
+    expect(await chat.access(pool,c.conversationId,member)).toBeNull();
+    await communities.memberAction(owner,c.id,member,"ban");
+    await expect(communities.get(member,c.id)).rejects.toMatchObject({statusCode:404});
+    expect((await communities.list(member,{limit:10})).communities).toHaveLength(0);
+    await communities.remove(owner,c.id);
+    await expect(communities.get(owner,c.id)).rejects.toMatchObject({statusCode:404});
   });
   test("multipart image and community creation share one rollback boundary",async()=>{
     const assetId=randomUUID();
@@ -181,9 +198,166 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
   test("concurrent joining is serialized and stable cursor pagination does not repeat communities",async()=>{
     const c=await create();await Promise.all([communities.join(member,c.id),communities.join(member,c.id)]);
     expect((await state(c.id)).member_count).toBe(2);await create();await create();
-    const first=await communities.list(owner,{limit:2}),next=await communities.list(owner,{limit:2,cursor:first.pagination.nextCursor});
+    const first=await communities.list(other,{limit:2}),next=await communities.list(other,{limit:2,cursor:first.pagination.nextCursor});
     expect(first.pagination.hasMore).toBe(true);expect(next.communities).toHaveLength(1);
     expect(new Set([...first.communities,...next.communities].map(x=>x.id)).size).toBe(3);
+  });
+  test("suggestions exclude creators and joined members while my communities retains them",async()=>{
+    const c=await create();
+    expect((await communities.list(owner,{limit:10})).communities).toHaveLength(0);
+    expect((await communities.list(owner,{limit:10},true)).communities.map(x=>x.id)).toEqual([c.id]);
+    expect((await communities.list(member,{limit:10})).communities.map(x=>x.id)).toEqual([c.id]);
+    await communities.join(member,c.id);
+    expect((await communities.list(member,{limit:10})).communities).toHaveLength(0);
+    expect((await communities.list(member,{limit:10},true)).communities.map(x=>x.id)).toEqual([c.id]);
+  });
+  test("approval suggestions remain until acceptance, then move to my communities",async()=>{
+    const c=await create("APPROVAL"),r=await communities.join(member,c.id);
+    expect((await communities.list(member,{limit:10})).communities.map(x=>x.id)).toEqual([c.id]);
+    expect((await communities.list(member,{limit:10},true)).communities).toHaveLength(0);
+    await communities.review(owner,c.id,r.requestId,"ACCEPTED");
+    expect((await communities.list(member,{limit:10})).communities).toHaveLength(0);
+    expect((await communities.list(member,{limit:10},true)).communities.map(x=>x.id)).toEqual([c.id]);
+  });
+  test.each(["leave","remove"])("%s restores suggestions but not active membership",async action=>{
+    const c=await create();await communities.join(member,c.id);
+    await communities.memberAction(action==="leave"?member:owner,c.id,member,action);
+    expect((await communities.list(member,{limit:10})).communities.map(x=>x.id)).toEqual([c.id]);
+    expect((await communities.list(member,{limit:10},true)).communities).toHaveLength(0);
+  });
+  test("suggestion filtering precedes search and pagination without hiding eligible results",async()=>{
+    const joined=await create();await communities.join(member,joined.id);
+    const eligible=[await create(),await create(),await create()];
+    for(const c of eligible)await communities.update(owner,c.id,{name:"Eligible community"});
+    const first=await communities.list(member,{limit:2,search:"Eligible"});
+    expect(first.communities).toHaveLength(2);expect(first.pagination.hasMore).toBe(true);
+    const next=await communities.list(member,{limit:2,search:"Eligible",cursor:first.pagination.nextCursor});
+    expect(next.communities).toHaveLength(1);expect(next.pagination.hasMore).toBe(false);
+    expect(new Set([...first.communities,...next.communities].map(x=>x.id))).toEqual(new Set(eligible.map(x=>x.id)));
+    expect((await communities.list(member,{limit:10},true)).communities.map(x=>x.id)).toEqual([joined.id]);
+  });
+  test.each(["OPEN","APPROVAL"])("admin invitation to %s waits for recipient acceptance and grants MEMBER only",async mode=>{
+    const c=await create(mode),{invitation}=await communities.invite(owner,c.id,member);
+    expect(invitation).toMatchObject({communityId:c.id,userId:member,invitedBy:owner,status:"PENDING"});
+    expect((await state(c.id)).member_count).toBe(1);expect(await chat.access(pool,c.conversationId,member)).toBeNull();
+    expect((await communities.get(member,c.id)).community.viewerRole).toBeNull();
+    const list=await communities.listInvitations(member,{limit:10,status:"PENDING"});
+    expect(list.invitations[0]).toMatchObject({id:invitation.id,community:{id:c.id},inviter:{id:owner}});
+    expect((await communities.listInvitations(other,{limit:10,status:"PENDING"})).invitations).toHaveLength(0);
+    expect((await communities.listInvitations(owner,{limit:10,status:"PENDING"},c.id)).invitations).toHaveLength(1);
+    const accepted=await communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED");
+    expect(accepted).toMatchObject({updated:true,invitation:{status:"ACCEPTED"}});
+    expect((await communities.get(member,c.id)).community).toMatchObject({viewerRole:"MEMBER",conversationId:c.conversationId});
+    expect((await state(c.id)).member_count).toBe(2);expect(await chat.access(pool,c.conversationId,member)).toMatchObject({can_send:false});
+    expect((await communities.list(member,{limit:10})).communities).toHaveLength(0);
+    expect((await communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).updated).toBe(false);
+    expect((await state(c.id)).member_count).toBe(2);
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"DECLINED")).rejects.toMatchObject({statusCode:409});
+  });
+  test("only admins invite/cancel/list and only the recipient accepts or declines",async()=>{
+    const c=await create();await communities.join(other,c.id);
+    await expect(communities.invite(other,c.id,member)).rejects.toMatchObject({statusCode:404});
+    await expect(communities.invite(member,c.id,other)).rejects.toMatchObject({statusCode:404});
+    const {invitation}=await communities.invite(owner,c.id,member);
+    for(const actor of [owner,other])await expect(communities.respondInvitation(actor,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:404});
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"CANCELLED",true)).rejects.toMatchObject({statusCode:404});
+    await expect(communities.listInvitations(other,{limit:10,status:"PENDING"},c.id)).rejects.toMatchObject({statusCode:404});
+    expect((await communities.respondInvitation(member,c.id,invitation.id,"DECLINED")).invitation.status).toBe("DECLINED");
+    expect((await state(c.id)).member_count).toBe(2);
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:409});
+    const again=await communities.invite(owner,c.id,member);expect(again.invitation.id).not.toBe(invitation.id);
+    expect((await communities.respondInvitation(owner,c.id,again.invitation.id,"CANCELLED",true)).invitation.status).toBe("CANCELLED");
+    expect((await communities.respondInvitation(owner,c.id,again.invitation.id,"CANCELLED",true)).updated).toBe(false);
+  });
+  test("duplicate concurrent invitations from equal admins share one pending invitation",async()=>{
+    const c=await create();await communities.join(other,c.id);await communities.memberAction(owner,c.id,other,"role",{role:"ADMIN"});
+    const invitations=await Promise.all([communities.invite(owner,c.id,member),communities.invite(other,c.id,member)]);
+    expect(invitations[0].invitation.id).toBe(invitations[1].invitation.id);
+    expect(invitations.map(r=>r.updated).sort()).toEqual([false,true]);
+    await communities.respondInvitation(other,c.id,invitations[0].invitation.id,"CANCELLED",true);
+  });
+  test("self, inactive, existing, banned and blocked recipients are rejected",async()=>{
+    const c=await create();
+    await expect(communities.invite(owner,c.id,owner)).rejects.toMatchObject({statusCode:422});
+    await expect(communities.invite(owner,c.id,randomUUID())).rejects.toMatchObject({statusCode:404});
+    await pool.query("UPDATE auth.users SET status='INACTIVE' WHERE id=$1",[member]);
+    await expect(communities.invite(owner,c.id,member)).rejects.toMatchObject({statusCode:404});
+    await pool.query("UPDATE auth.users SET status='ACTIVE' WHERE id=$1",[member]);
+    await communities.join(member,c.id);
+    await expect(communities.invite(owner,c.id,member)).rejects.toMatchObject({statusCode:409});
+    await communities.memberAction(owner,c.id,member,"ban");
+    await expect(communities.invite(owner,c.id,member)).rejects.toMatchObject({statusCode:409});
+    for(const pair of [[owner,other],[other,owner]]){
+      await pool.query("INSERT INTO users.blocked_users VALUES($1,$2)",pair);
+      await expect(communities.invite(owner,c.id,other)).rejects.toMatchObject({statusCode:404});
+      await pool.query("DELETE FROM users.blocked_users");
+    }
+  });
+  test("ban and admin demotion revoke pending invitations",async()=>{
+    const c=await create(),{invitation}=await communities.invite(owner,c.id,member);
+    await communities.memberAction(owner,c.id,member,"ban");
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:404});
+    await communities.memberAction(owner,c.id,member,"unban");
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:409});
+    await communities.join(other,c.id);await communities.memberAction(owner,c.id,other,"role",{role:"ADMIN"});
+    const fresh=await communities.invite(owner,c.id,member);
+    await communities.memberAction(other,c.id,owner,"role",{role:"MEMBER"});
+    await expect(communities.respondInvitation(member,c.id,fresh.invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:409});
+  });
+  test("blocking after invitation hides it and prevents acceptance",async()=>{
+    const c=await create(),{invitation}=await communities.invite(owner,c.id,member);
+    await pool.query("INSERT INTO users.blocked_users VALUES($1,$2)",[member,owner]);
+    expect((await communities.listInvitations(member,{limit:10,status:"PENDING"})).invitations).toHaveLength(0);
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:409});
+  });
+  test.each(["leave","remove"])("inviter %s revokes their pending invitations",async action=>{
+    const c=await create();await communities.join(other,c.id);await communities.memberAction(owner,c.id,other,"role",{role:"ADMIN"});
+    const {invitation}=await communities.invite(owner,c.id,member);
+    await communities.memberAction(action==="leave"?owner:other,c.id,owner,action);
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:409});
+    expect((await state(c.id)).member_count).toBe(1);
+  });
+  test("community deletion revokes invitations and cross-community IDs cannot be used",async()=>{
+    const c=await create(),another=await create(),{invitation}=await communities.invite(owner,c.id,member);
+    await expect(communities.respondInvitation(member,another.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:404});
+    await communities.remove(owner,c.id);
+    expect((await communities.listInvitations(member,{limit:10,status:"PENDING"})).invitations).toHaveLength(0);
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:404});
+  });
+  test("concurrent acceptance increments once and accepted invitations cannot rejoin after leaving",async()=>{
+    const c=await create(),{invitation}=await communities.invite(owner,c.id,member);
+    const accepted=await Promise.all([communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED"),communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")]);
+    expect(accepted.map(r=>r.updated).sort()).toEqual([false,true]);expect((await state(c.id)).member_count).toBe(2);
+    await communities.memberAction(member,c.id,member,"leave");
+    expect((await communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).updated).toBe(false);
+    expect((await state(c.id)).member_count).toBe(1);expect(await chat.access(pool,c.conversationId,member)).toBeNull();
+  });
+  test("accept cancels a pending join request; normal joining cancels stale invitations",async()=>{
+    const c=await create("APPROVAL"),request=await communities.join(member,c.id),{invitation}=await communities.invite(owner,c.id,member);
+    await communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED");
+    expect((await pool.query("SELECT status FROM community.community_member_request WHERE id=$1",[request.requestId])).rows[0].status).toBe("CANCELLED");
+    await communities.update(owner,c.id,{joinType:"OPEN"});
+    const second=await communities.invite(owner,c.id,other);await communities.join(other,c.id);
+    await expect(communities.respondInvitation(other,c.id,second.invitation.id,"ACCEPTED")).rejects.toMatchObject({statusCode:409});
+    expect((await state(c.id)).member_count).toBe(3);
+  });
+  test("invitation acceptance rolls back membership and decision if realtime journaling fails",async()=>{
+    const c=await create(),{invitation}=await communities.invite(owner,c.id,member);failEvents=true;
+    await expect(communities.respondInvitation(member,c.id,invitation.id,"ACCEPTED")).rejects.toThrow("outbox unavailable");
+    failEvents=false;expect((await state(c.id)).member_count).toBe(1);
+    expect(await chat.access(pool,c.conversationId,member)).toBeNull();
+    expect((await communities.listInvitations(member,{limit:10,status:"PENDING"})).invitations).toHaveLength(1);
+  });
+  test("invitation cursor pagination and migration reapplication are stable",async()=>{
+    for(let i=0;i<3;i++){const c=await create();await communities.invite(owner,c.id,member);}
+    const first=await communities.listInvitations(member,{limit:2,status:"PENDING"});
+    const next=await communities.listInvitations(member,{limit:2,status:"PENDING",cursor:first.pagination.nextCursor});
+    expect(first.pagination.hasMore).toBe(true);expect(next.pagination.hasMore).toBe(false);
+    expect(new Set([...first.invitations,...next.invitations].map(x=>x.id)).size).toBe(3);
+    await pool.query(migration("091_community_invitations.sql"));
+    const c=await create(),r=await communities.invite(owner,c.id,other);
+    await expect(pool.query("INSERT INTO community.community_member_request(community_id,request_type,request_by,target_user_id,status) VALUES($1,'INVITE',$2,$3,'PENDING')",[c.id,owner,other])).rejects.toMatchObject({code:"23505"});
+    expect(r.invitation.status).toBe("PENDING");
   });
   test("direct and group chat access is preserved by community migration",async()=>{
     const {rows:[direct]}=await pool.query("INSERT INTO chat.conversations(conversation_type,request_status) VALUES('direct','ACCEPTED') RETURNING id");

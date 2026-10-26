@@ -1,12 +1,14 @@
 import Database from '../../database/database-manager.js';
 import AppError from '../../core/errors/app-error.js';
 import { decodeCursor, encodeCursor } from '../../shared/utils/cursor.js';
+import { buildCommunityShareUrl } from './community-share-url.util.js';
 
 const fail = (code, message, statusCode = 404) => { throw new AppError({ code: `COMMUNITY.${code}`, message, statusCode }); };
 const one = async (client, sql, params = []) => (await client.query(sql, params)).rows[0];
 const map = row => ({ id: row.id, ownerId: row.owner_id, name: row.name, description: row.description,
   joinType: row.join_type, memberCount: Number(row.member_count), viewerRole: row.viewer_role ?? null,
   conversationId: row.conversation_id ?? null,
+  shareUrl: buildCommunityShareUrl(row.id),
   image: row.icon_asset_id ? { id: row.icon_asset_id, url: `/api/v1/media/assets/${row.icon_asset_id}/content`, mimeType: row.icon_mime_type ?? null } : null,
   createdAt: row.created_at, updatedAt: row.updated_at });
 const pageResult = (rows, limit, mapper = value => value) => {
@@ -42,7 +44,15 @@ async function activate(client, id, userId) {
     ON CONFLICT(community_id,user_id) DO UPDATE SET status='ACTIVE',role=CASE WHEN upper(community.community_members.status)='ACTIVE'
     THEN community.community_members.role ELSE 'MEMBER' END,updated_at=CURRENT_TIMESTAMP`, [id, userId]);
   await recount(client, id);
+  await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND target_user_id=$2 AND request_type='INVITE' AND status='PENDING'", [id,userId]);
 }
+async function blocked(client, first, second) {
+  return !!await one(client, `SELECT 1 FROM users.blocked_users
+    WHERE (user_id=$1 AND blocked_user_id=$2) OR (user_id=$2 AND blocked_user_id=$1)`, [first, second]);
+}
+const mapInvitation = row => ({ id: row.id, communityId: row.community_id,
+  invitedBy: row.request_by, userId: row.target_user_id, status: row.status,
+  createdAt: row.created_at, updatedAt: row.updated_at });
 async function succession(client, id) {
   if (!await one(client, "SELECT id FROM community.community_members WHERE community_id=$1 AND upper(status)='ACTIVE' AND upper(role)='ADMIN'", [id])) {
     await client.query(`UPDATE community.community_members SET role='ADMIN',updated_at=CURRENT_TIMESTAMP WHERE id=(
@@ -54,6 +64,70 @@ async function succession(client, id) {
     WHERE community_id=$1 AND status='PENDING' AND EXISTS(SELECT 1 FROM community.communities WHERE id=$1 AND deleted_at IS NOT NULL)`, [id]);
 }
 class CommunityRepository {
+  async invite(userId, id, target) {
+    return Database.transaction(async client => {
+      await access(client, id, userId, true);
+      if (userId === target) fail('SELF_INVITATION', 'You cannot invite yourself.', 422);
+      if (!await one(client, "SELECT id FROM auth.users WHERE id=$1 AND status='ACTIVE'", [target]) || await blocked(client,userId,target))
+        fail('USER_UNAVAILABLE', 'Selected user is unavailable.', 404);
+      if (await one(client, 'SELECT id FROM community.community_bans WHERE community_id=$1 AND banned_user_id=$2', [id,target]))
+        fail('MEMBER_BANNED', 'Selected user is banned from this community.', 409);
+      if (await one(client, "SELECT id FROM community.community_members WHERE community_id=$1 AND user_id=$2 AND upper(status)='ACTIVE'", [id,target]))
+        fail('ALREADY_MEMBER', 'Selected user is already a community member.', 409);
+      const existing = await one(client, "SELECT * FROM community.community_member_request WHERE community_id=$1 AND target_user_id=$2 AND request_type='INVITE' AND status='PENDING'", [id,target]);
+      const row = existing ?? await one(client, `INSERT INTO community.community_member_request
+        (community_id,request_type,request_by,target_user_id,status,reviewed_by)
+        VALUES($1,'INVITE',$2,$3,'PENDING',NULL) RETURNING *`, [id,userId,target]);
+      return { invitation: mapInvitation(row), updated: !existing };
+    });
+  }
+  async listInvitations(userId, { limit, cursor, status }, communityId = null) {
+    return Database.transaction(async client => {
+      if (communityId) await access(client, communityId, userId, true);
+      const position = decodeCursor(cursor);
+      const { rows } = await client.query(`SELECT r.*,r.created_at::text AS cursor_time,to_jsonb(c) AS community,
+        a.mime_type AS icon_mime_type,p.username AS inviter_username,p.display_name AS inviter_name
+        FROM community.community_member_request r JOIN community.communities c ON c.id=r.community_id AND c.deleted_at IS NULL
+        LEFT JOIN media.assets a ON a.id=c.icon_asset_id AND a.deleted_at IS NULL
+        LEFT JOIN users.profiles p ON p.user_id=r.request_by AND p.deleted_at IS NULL
+        WHERE r.request_type='INVITE' AND r.status=$2
+        AND (($3::uuid IS NULL AND r.target_user_id=$1) OR r.community_id=$3::uuid)
+        AND NOT EXISTS(SELECT 1 FROM community.community_bans b WHERE b.community_id=c.id AND b.banned_user_id=$1)
+        AND NOT EXISTS(SELECT 1 FROM users.blocked_users b WHERE
+          (b.user_id=r.request_by AND b.blocked_user_id=r.target_user_id) OR (b.user_id=r.target_user_id AND b.blocked_user_id=r.request_by))
+        AND (r.status<>'PENDING' OR EXISTS(SELECT 1 FROM community.community_members m
+          WHERE m.community_id=c.id AND m.user_id=r.request_by AND upper(m.status)='ACTIVE' AND upper(m.role)='ADMIN'))
+        AND ($4::timestamp IS NULL OR (r.created_at,r.id)<($4::timestamp,$5::uuid))
+        ORDER BY r.created_at DESC,r.id DESC LIMIT $6`,
+      [userId,status,communityId,position?.createdAt??null,position?.id??null,limit+1]);
+      const result = pageResult(rows,limit,row=>({ ...mapInvitation(row),
+        inviter: { id:row.request_by,username:row.inviter_username??null,displayName:row.inviter_name??null },
+        community: map({ ...row.community,icon_mime_type:row.icon_mime_type }) }));
+      return { invitations:result.items,pagination:result.pagination };
+    });
+  }
+  async respondInvitation(userId, id, invitationId, status, cancel = false) {
+    return Database.transaction(async client => {
+      await access(client,id,userId,cancel);
+      const row = await one(client, "SELECT * FROM community.community_member_request WHERE id=$1 AND community_id=$2 AND request_type='INVITE' FOR UPDATE", [invitationId,id]);
+      if (!row || (!cancel && row.target_user_id !== userId)) fail('INVITATION_NOT_FOUND','Community invitation is unavailable.');
+      if (row.status === status) return { invitation:mapInvitation(row),updated:false };
+      if (row.status !== 'PENDING') fail('INVITATION_RESOLVED','Community invitation has already been resolved.',409);
+      if (!cancel) {
+        if (await blocked(client,row.request_by,row.target_user_id) || !await one(client,
+          "SELECT id FROM community.community_members WHERE community_id=$1 AND user_id=$2 AND upper(status)='ACTIVE' AND upper(role)='ADMIN'",[id,row.request_by]))
+          fail('INVITATION_UNAVAILABLE','Community invitation is no longer available.',409);
+      }
+      if (status === 'ACCEPTED') {
+        await activate(client,id,userId);
+        await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND request_by=$2 AND request_type='JOIN' AND status='PENDING'",[id,userId]);
+      }
+      const updated = await one(client, `UPDATE community.community_member_request
+        SET status=$2,reviewed_by=$3,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=$1 RETURNING *`,[invitationId,status,userId]);
+      await event(client,id);
+      return { invitation:mapInvitation(updated),updated:true };
+    });
+  }
   async list(userId, { limit, cursor, search }, mine = false) {
     const position = decodeCursor(cursor);
     const { rows } = await Database.query(`SELECT c.*,c.created_at::text AS cursor_time,m.role AS viewer_role,
@@ -61,7 +135,7 @@ class CommunityRepository {
       LEFT JOIN community.community_members m ON m.community_id=c.id AND m.user_id=$1 AND upper(m.status)='ACTIVE'
       LEFT JOIN media.assets a ON a.id=c.icon_asset_id AND a.deleted_at IS NULL
       LEFT JOIN chat.conversations v ON v.community_id=c.id AND v.deleted_at IS NULL AND m.id IS NOT NULL
-      WHERE c.deleted_at IS NULL AND ($2::boolean IS FALSE OR m.id IS NOT NULL)
+      WHERE c.deleted_at IS NULL AND (CASE WHEN $2::boolean THEN m.id IS NOT NULL ELSE m.id IS NULL END)
       AND NOT EXISTS(SELECT 1 FROM community.community_bans b WHERE b.community_id=c.id AND b.banned_user_id=$1)
       AND ($3::text IS NULL OR c.name ILIKE '%'||$3||'%')
       AND ($4::timestamp IS NULL OR (c.created_at,c.id)<($4::timestamp,$5::uuid)) ORDER BY c.created_at DESC,c.id DESC LIMIT $6`,
@@ -161,6 +235,7 @@ class CommunityRepository {
           fail('LAST_ADMIN_REQUIRED', 'Promote another member before demoting the last admin.', 409);
         if (member.role.toUpperCase() !== input.role) {
           await client.query('UPDATE community.community_members SET role=$3,updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND user_id=$2', [id, target, input.role]);
+          if (input.role === 'MEMBER') await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND request_by=$2 AND request_type='INVITE' AND status='PENDING'",[id,target]);
           await event(client, id);
         }
         return { communityId: id, userId: target, role: input.role };
@@ -171,7 +246,7 @@ class CommunityRepository {
           ON CONFLICT(community_id,banned_user_id) DO NOTHING`, [id, userId, target, input.reason ?? null]);
       }
       if (member) await client.query("UPDATE community.community_members SET status='REMOVED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND user_id=$2", [id, target]);
-      await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND request_by=$2 AND status='PENDING'", [id, target]);
+      await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND (request_by=$2 OR (request_type='INVITE' AND target_user_id=$2)) AND status='PENDING'", [id, target]);
       await succession(client, id); await event(client, id);
       return { communityId: id, userId: target, status: action === 'ban' ? 'BANNED' : 'REMOVED' };
     });

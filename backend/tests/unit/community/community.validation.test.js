@@ -20,3 +20,11 @@ test('pagination bounds and UUIDs are validated',()=>{
   expect(V.listing.safeParse({params:{},query:{limit:1000}}).success).toBe(false);
   expect(V.resource.safeParse({params:{communityId:'invalid'},query:{}}).success).toBe(false);
 });
+test('invitation inputs accept only recipient UUID and explicit decisions',()=>{
+  const base={params:{communityId:id},query:{}};
+  expect(V.invite.safeParse({...base,body:{userId:id}}).success).toBe(true);
+  for(const body of [{},{userId:'invalid'},{userId:id,role:'ADMIN'}])expect(V.invite.safeParse({...base,body}).success).toBe(false);
+  for(const status of ['ACCEPTED','DECLINED'])expect(V.invitationDecision.safeParse({...base,params:{communityId:id,invitationId:id},body:{status}}).success).toBe(true);
+  expect(V.invitationDecision.safeParse({...base,params:{communityId:id,invitationId:id},body:{status:'CANCELLED'}}).success).toBe(false);
+  expect(V.myInvitations.parse({params:{},query:{}}).query).toEqual({status:'PENDING',limit:20});
+});

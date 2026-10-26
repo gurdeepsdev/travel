@@ -16,3 +16,14 @@ Community updates use the existing `chat.updated` event with type `conversation.
 `POST /api/v1/communities` also accepts authenticated `multipart/form-data`: required `name` and `image` (one supported image up to 10 MiB), optional `description` and `joinType` (`OPEN` default or `APPROVAL`). Do not send `iconAssetId` with multipart. Let the HTTP client generate the multipart boundary.
 
 Existing JSON creation with `iconAssetId` and the separate `/communities/images` upload remain supported. Multipart persists the image asset, community, admin membership and conversation in one database transaction; the response envelope is unchanged.
+
+Community creation, details, update and list objects include `shareUrl`, built from the existing `PUBLIC_WEB_URL` (default `https://artictern.com`) as `/c/{communityId}`. This is a shareable address, not an invitation token: authentication, bans and OPEN/APPROVAL joining remain unchanged. The frontend/web app must handle this path via an app link or landing page; no public web route is created by the backend.
+
+## Invitations
+
+- Active admins POST `/communities/{communityId}/invitations` with `{userId}`. Returns `data.invitation` and `updated`; duplicate pending invites reuse the same ID. Self-invites, inactive/blocked/banned users and existing members are rejected.
+- Recipient GET `/users/me/community-invitations`; admins GET `/communities/{communityId}/invitations`. Both accept `limit`, `cursor`, and `status` (`PENDING` default, `ACCEPTED`, `DECLINED`, `CANCELLED`). List items include community details/shareUrl and inviter identity.
+- Recipient PATCH `/communities/{communityId}/invitations/{invitationId}` with `{status:ACCEPTED|DECLINED}`. Acceptance joins as MEMBER immediately, including APPROVAL communities. The same decision is idempotent; conflicting decisions return 409. Fetch community details for conversationId after acceptance.
+- Any active admin DELETE `/communities/{communityId}/invitations/{invitationId}` to cancel a pending invite. Ban/removal, inviter demotion/departure, community deletion or normal joining invalidate pending invites. An accepted invitation cannot be reused after leaving.
+
+Opening a share link never auto-joins. Refresh the recipient invitation inbox to show invitations; no email/push or pre-membership recipient chat event is sent. Accepted membership changes use the existing transactional `conversation.updated` chat event. Apply migration `091_community_invitations.sql` before deployment.
