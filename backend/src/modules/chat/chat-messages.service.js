@@ -6,6 +6,7 @@ import { decorateChatMedia } from "./chat-media.service.js";
 import AppError from "../../core/errors/app-error.js";
 import { decodeCursor, encodeCursor } from "../../shared/utils/cursor.js";
 import { scanChatAttachment } from "./chat-malware.service.js";
+import { validateMessageLimits } from "./chat-message-limits.js";
 
 const fail = (code, message, statusCode) => {
   throw new AppError({ code: `CHAT.${code}`, message, statusCode });
@@ -74,6 +75,7 @@ export class ChatMessagesService {
         userId,
         !requestMessage,
       );
+      validateMessageLimits(conversation, input);
       if (
         requestMessage &&
         (conversation.conversation_type !== "direct" ||
@@ -262,7 +264,8 @@ export class ChatMessagesService {
         "SELECT id FROM chat.conversations WHERE id=$1::uuid FOR UPDATE",
         [conversationId],
       );
-      await authorize(client, conversationId, userId, action === "edit");
+      const conversation = await authorize(client, conversationId, userId, action === "edit");
+      if (action === "edit") validateMessageLimits(conversation, input);
       const {
         rows: [message],
       } = await client.query(

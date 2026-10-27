@@ -24,7 +24,7 @@ export const respondConversationSchema = getConversationSchema.extend({
 export const sendMessageSchema = getConversationSchema.extend({
   body: z
     .object({
-      text: z.string().trim().min(1).max(512).optional(),
+      text: z.string().trim().min(1).max(4096).optional(),
       clientMessageId: id,
       replyToMessageId: id.optional(),
       itineraryId: id.optional(),
@@ -73,7 +73,7 @@ export const replaySchema = createConversationSchema.extend({
 });
 export const editMessageSchema = getConversationSchema.extend({
   params: z.object({ conversationId: id, messageId: id }).strict(),
-  body: z.object({ text: z.string().trim().min(1).max(512) }).strict(),
+  body: z.object({ text: z.string().trim().min(1).max(4096) }).strict(),
 });
 export const deleteMessageSchema = editMessageSchema.extend({
   body: z.object({}).strict().optional(),
