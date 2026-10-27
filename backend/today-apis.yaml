@@ -235,7 +235,7 @@ paths:
     get:
       tags: [Communities]
       summary: List my active communities
-      description: Returns active memberships. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}), unreadCount (integer), lastMessage and lastUnreadMessage (object or null). Message previews contain id, senderId, type, text (nullable), deleted and createdAt (UTC date-time). Unread counts include attachment and SYSTEM messages, excluding own, hidden, deleted and read messages. lastUnreadMessage is the latest unread message or null. lastMessage is the latest visible message, including a deleted placeholder. Existing ordering and pagination are unchanged.
+      description: Returns active memberships ordered by latest visible message time descending, falling back to community creation time for empty chats, with community ID as the tie-breaker. Cursor pagination uses the same ordering. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}), unreadCount (integer), lastMessage and lastUnreadMessage (object or null). Message previews contain id, senderId, type, text (nullable), deleted and createdAt (UTC date-time). Unread counts include attachment and SYSTEM messages, excluding own, hidden, deleted and read messages. lastUnreadMessage is the latest unread message or null. lastMessage is the latest visible message, including a deleted placeholder. Refresh the first page on chat.updated and after reconnect; do not reuse an old pagination cursor for refresh.
       operationId: listMyCommunities
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]
@@ -549,7 +549,7 @@ paths:
       tags: [Chat]
       summary: Save text, attachments, or an itinerary reference
       operationId: sendChatMessage
-      description: Omit text for attachment-only messages. Each optimized attachment may additionally include optimization (status PENDING/READY/FAILED, width, height, imageVariants, thumbnailUrl, streamUrl, playbackUrl). The existing url always downloads the original. Treat pending/failed previews as optional and fall back to the original. See ChatAttachmentOptimization.
+      description: Omit text for attachment-only messages. Community messages allow up to 4096 characters and 5 attachments combined (including mixed images/videos); direct/group messages retain 512 characters and 10 attachments. Upload each file separately, then send their assetIds in one message. Each optimized attachment may additionally include optimization (status PENDING/READY/FAILED, width, height, imageVariants, thumbnailUrl, streamUrl, playbackUrl). The existing url always downloads the original. Treat pending/failed previews as optional and fall back to the original. See ChatAttachmentOptimization.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
@@ -560,7 +560,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {"type":"object","additionalProperties":false,"required":["clientMessageId"],"properties":{"clientMessageId":{"type":"string","format":"uuid"},"text":{"type":"string","minLength":1,"maxLength":512},"replyToMessageId":{"type":"string","format":"uuid"},"itineraryId":{"type":"string","format":"uuid"},"assetIds":{"type":"array","minItems":1,"maxItems":10,"uniqueItems":true,"items":{"type":"string","format":"uuid"}}}}
+            schema: {"type":"object","additionalProperties":false,"required":["clientMessageId"],"properties":{"clientMessageId":{"type":"string","format":"uuid"},"text":{"type":"string","minLength":1,"maxLength":4096,"description":"Community maximum 4096; direct/group maximum 512."},"replyToMessageId":{"type":"string","format":"uuid"},"itineraryId":{"type":"string","format":"uuid"},"assetIds":{"type":"array","minItems":1,"maxItems":10,"description":"Community maximum 5; direct/group maximum 10.","uniqueItems":true,"items":{"type":"string","format":"uuid"}}}}
       responses:
         '200': { description: Successful operation }
         '400': { description: Invalid request }
@@ -595,6 +595,7 @@ paths:
       tags: [Chat]
       summary: Edit my text message
       operationId: editChatMessage
+      description: Community text maximum is 4096 characters; direct/group maximum remains 512. Existing sender and edit permissions are unchanged.
       security: [{ bearerAuth: [] }]
       parameters:
         - name: conversationId
@@ -609,7 +610,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {"type":"object","additionalProperties":false,"required":["text"],"properties":{"text":{"type":"string","minLength":1,"maxLength":512}}}
+            schema: {"type":"object","additionalProperties":false,"required":["text"],"properties":{"text":{"type":"string","minLength":1,"maxLength":4096,"description":"Community maximum 4096; direct/group maximum 512."}}}
       responses:
         '200': { description: Successful operation }
         '400': { description: Invalid request }

@@ -136,7 +136,7 @@ class CommunityRepository {
   }
   async list(userId, { limit, cursor, search }, mine = false) {
     const position = decodeCursor(cursor);
-    const { rows } = await Database.query(`SELECT c.*,c.created_at::text AS cursor_time,m.role AS viewer_role,
+    const { rows } = await Database.query(`SELECT c.*,COALESCE(latest.created_at,c.created_at)::text AS cursor_time,m.role AS viewer_role,
       a.mime_type AS icon_mime_type,v.id AS conversation_id,
       COALESCE(unread.unread_count,0)::int AS unread_count,
       latest.message AS last_message,unread.message AS last_unread_message FROM community.communities c
@@ -144,7 +144,7 @@ class CommunityRepository {
       LEFT JOIN media.assets a ON a.id=c.icon_asset_id AND a.deleted_at IS NULL
       LEFT JOIN chat.conversations v ON v.community_id=c.id AND v.deleted_at IS NULL AND m.id IS NOT NULL
       LEFT JOIN chat.conversation_settings settings ON settings.conversation_id=v.id AND settings.user_id=$1
-      LEFT JOIN LATERAL (SELECT ${messagePreviewSQL} AS message FROM chat.chat_messages msg
+      LEFT JOIN LATERAL (SELECT msg.created_at,${messagePreviewSQL} AS message FROM chat.chat_messages msg
         WHERE msg.conversation_id=v.id
         AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=msg.id AND h.user_id=$1)
         ORDER BY msg.created_at DESC,msg.id DESC LIMIT 1) latest ON TRUE
@@ -157,7 +157,8 @@ class CommunityRepository {
       WHERE c.deleted_at IS NULL AND (CASE WHEN $2::boolean THEN m.id IS NOT NULL ELSE m.id IS NULL END)
       AND NOT EXISTS(SELECT 1 FROM community.community_bans b WHERE b.community_id=c.id AND b.banned_user_id=$1)
       AND ($3::text IS NULL OR c.name ILIKE '%'||$3||'%')
-      AND ($4::timestamp IS NULL OR (c.created_at,c.id)<($4::timestamp,$5::uuid)) ORDER BY c.created_at DESC,c.id DESC LIMIT $6`,
+      AND ($4::timestamp IS NULL OR (COALESCE(latest.created_at,c.created_at),c.id)<($4::timestamp,$5::uuid))
+      ORDER BY COALESCE(latest.created_at,c.created_at) DESC,c.id DESC LIMIT $6`,
     [userId, mine, search ?? null, position?.createdAt ?? null, position?.id ?? null, limit + 1]);
     const result = pageResult(rows, limit, row => ({ ...map(row), unreadCount: Number(row.unread_count ?? 0),
       lastMessage: row.last_message ?? null, lastUnreadMessage: row.last_unread_message ?? null }));

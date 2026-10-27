@@ -46,7 +46,8 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     const tables=source.match(/CREATE TABLE community\.[\s\S]*?\n\);/g);
     expect(tables).toHaveLength(4);for(const sql of tables)await pool.query(sql);
     for(const sql of source.match(/ALTER TABLE ONLY community\.[\s\S]*?;\n/g)??[])await pool.query(sql);
-    for(const name of ["076_chat_message_lifecycle.sql","077_chat_inbox_notifications.sql","078_chat_event_replay.sql","079_chat_conversation_event_sequence.sql","086_community_management.sql","091_community_invitations.sql"])await pool.query(migration(name));
+    await pool.query('ALTER TABLE chat.chat_messages ALTER COLUMN message_content TYPE VARCHAR(512)');
+    for(const name of ["076_chat_message_lifecycle.sql","077_chat_inbox_notifications.sql","078_chat_event_replay.sql","079_chat_conversation_event_sequence.sql","086_community_management.sql","091_community_invitations.sql","092_community_message_length.sql"])await pool.query(migration(name));
   },30000);
   afterAll(async()=>{await pool?.end();if(directory){try{execFileSync("pg_ctl",["-D",`${directory}/data`,"-m","fast","-w","stop"],{stdio:"pipe"});}finally{rmSync(directory,{recursive:true,force:true});}}});
   beforeEach(async()=>{
@@ -172,6 +173,30 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     expect((await pool.query("SELECT * FROM chat.message_reactions")).rows).toHaveLength(1);
     expect((await inbox.list(member,{limit:10,archived:false})).conversations[0]).toMatchObject({canSend:false,unreadCount:1});
   });
+  test('community messages send and edit at 4096 characters with unchanged admin permissions',async()=>{
+    const c=await create();await communities.join(member,c.id);
+    const sent=await messages.send(owner,c.conversationId,{clientMessageId:randomUUID(),text:'x'.repeat(4096)});
+    expect(sent.message.text).toHaveLength(4096);
+    await messages.mutate(owner,c.conversationId,sent.message.id,'edit',{text:'y'.repeat(4096)});
+    expect((await pool.query('SELECT message_content FROM chat.chat_messages WHERE id=$1',[sent.message.id])).rows[0].message_content).toBe('y'.repeat(4096));
+    await expect(messages.send(owner,c.conversationId,{clientMessageId:randomUUID(),text:'x'.repeat(4097)})).rejects.toMatchObject({statusCode:400});
+    await expect(messages.send(owner,c.conversationId,{clientMessageId:randomUUID(),assetIds:Array.from({length:6},()=>randomUUID())})).rejects.toMatchObject({statusCode:400});
+    await expect(messages.send(member,c.conversationId,{clientMessageId:randomUUID(),text:'x'.repeat(4096)})).rejects.toMatchObject({statusCode:403});
+    await expect(messages.mutate(owner,c.conversationId,sent.message.id,'edit',{text:'x'.repeat(4097)})).rejects.toMatchObject({statusCode:400});
+    await pool.query(migration('092_community_message_length.sql'));
+  });
+  test('community sends five mixed image/video attachments in one ordered message without text',async()=>{
+    const c=await create();
+    await pool.query('ALTER TABLE media.assets ADD COLUMN IF NOT EXISTS storage_key text, ADD COLUMN IF NOT EXISTS storage_provider text');
+    await pool.query('CREATE TABLE IF NOT EXISTS chat.asset_optimizations(asset_id uuid,status text,metadata jsonb)');
+    const ids=[];
+    for(let i=0;i<5;i++)ids.push((await pool.query(`INSERT INTO media.assets(uploaded_by,is_public,processing_status,mime_type,storage_key,storage_provider)
+      VALUES($1,false,'READY',$2,$3,'local') RETURNING id`,[owner,i%2?'video/mp4':'image/jpeg',`chat/test-${i}`])).rows[0].id);
+    const sent=await messages.send(owner,c.conversationId,{clientMessageId:randomUUID(),assetIds:ids});
+    expect(sent.message.assets.map(a=>a.id)).toEqual(ids);
+    expect(sent.message.assets.map(a=>a.mimeType)).toEqual(['image/jpeg','video/mp4','image/jpeg','video/mp4','image/jpeg']);
+    expect((await pool.query('SELECT COUNT(*) FROM chat.chat_messages WHERE conversation_id=$1',[c.conversationId])).rows[0].count).toBe('1');
+  });
   test("community lists expose personal unread previews without leaking messages to suggestions",async()=>{
     const c=await create();await communities.join(member,c.id);
     const list=async user=>(await communities.list(user,{limit:10},true)).communities[0];
@@ -195,6 +220,26 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     expect((await list(member)).lastMessage.createdAt).toMatch(/Z$/);
     await communities.memberAction(member,c.id,member,"leave");
     expect((await communities.list(member,{limit:10})).communities[0]).toMatchObject({conversationId:null,unreadCount:0,lastMessage:null,lastUnreadMessage:null});
+  });
+  test('my communities sort by latest visible message with creation fallback and matching cursor',async()=>{
+    const older=await create(),newer=await create();
+    await pool.query("UPDATE community.communities SET created_at=CASE WHEN id=$1 THEN '2026-01-01'::timestamp ELSE '2026-01-02'::timestamp END WHERE id=ANY($2::uuid[])",[older.id,[older.id,newer.id]]);
+    expect((await communities.list(owner,{limit:10},true)).communities.map(c=>c.id)).toEqual([newer.id,older.id]);
+    const sent=await messages.send(owner,older.conversationId,{clientMessageId:randomUUID(),text:'Most recent'});
+    await pool.query("UPDATE chat.chat_messages SET created_at='2026-01-03 12:00:00.123456' WHERE id=$1",[sent.message.id]);
+    const page=await communities.list(owner,{limit:1},true);
+    expect(page.communities[0].id).toBe(older.id);
+    expect(page.pagination.hasMore).toBe(true);
+    expect(JSON.parse(Buffer.from(page.pagination.nextCursor,'base64url').toString()).createdAt).toBe('2026-01-03 12:00:00.123456');
+    expect((await communities.list(owner,{limit:1,cursor:page.pagination.nextCursor},true)).communities.map(c=>c.id)).toEqual([newer.id]);
+    expect((await communities.list(other,{limit:10})).communities.map(c=>c.id)).toEqual([newer.id,older.id]);
+    await pool.query('INSERT INTO chat.hidden_messages(message_id,user_id) VALUES($1,$2)',[sent.message.id,owner]);
+    expect((await communities.list(owner,{limit:10},true)).communities.map(c=>c.id)).toEqual([newer.id,older.id]);
+    await pool.query('DELETE FROM chat.hidden_messages WHERE message_id=$1',[sent.message.id]);
+    await communities.update(owner,newer.id,{description:'Metadata must not reorder inbox'});
+    expect((await communities.list(owner,{limit:10},true)).communities.map(c=>c.id)).toEqual([older.id,newer.id]);
+    await messages.send(owner,newer.conversationId,{clientMessageId:randomUUID(),text:'Newest message'});
+    expect((await communities.list(owner,{limit:10},true)).communities.map(c=>c.id)).toEqual([newer.id,older.id]);
   });
   test("approval requires admin review; pending members cannot access chat",async()=>{
     const c=await create("APPROVAL"),r=await communities.join(member,c.id);
