@@ -8,6 +8,7 @@ const fields = z.object({ name: z.string().trim().min(1).max(100), description: 
 export const creation = z.object({ params: empty, query: empty, body: fields.extend({ joinType: fields.shape.joinType.default('OPEN') }) });
 export const multipartCreation = creation.extend({ body: creation.shape.body.omit({ iconAssetId: true }) });
 export const editing = resource.extend({ body: fields.partial().refine(value => Object.keys(value).length > 0, 'Provide a community field to update.') });
+export const multipartEditing = resource.extend({ body: fields.omit({ iconAssetId: true }).partial() });
 export const members = resource.extend({ query: page });
 export const member = resource.extend({ params: z.object({ communityId: id, userId: id }).strict() });
 export const role = member.extend({ body: z.object({ role: z.enum(['ADMIN', 'MEMBER']) }).strict() });

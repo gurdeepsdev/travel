@@ -5,6 +5,7 @@ import { handle } from './community.controller.js';
 import * as V from './community.validation.js';
 import { uploadCommunityImage } from './community-image-upload.js';
 import { createCommunity } from './community-create.js';
+import { updateCommunity } from './community-update.js';
 const router = Router();
 router.post('/communities/images', Auth.authenticate, uploadCommunityImage);
 router.post('/communities', Auth.authenticate, createCommunity);
@@ -16,7 +17,7 @@ router.get('/communities/:communityId/invitations', Auth.authenticate, validate(
 router.patch('/communities/:communityId/invitations/:invitationId', Auth.authenticate, validate(V.invitationDecision), handle((s,u,v) => s.respondInvitation(u,v.params.communityId,v.params.invitationId,v.body.status), 'Community invitation updated successfully.'));
 router.delete('/communities/:communityId/invitations/:invitationId', Auth.authenticate, validate(V.invitation), handle((s,u,v) => s.respondInvitation(u,v.params.communityId,v.params.invitationId,'CANCELLED',true), 'Community invitation cancelled successfully.'));
 router.get('/communities/:communityId', Auth.authenticate, validate(V.resource), handle((s,u,v) => s.get(u,v.params.communityId), 'Community fetched successfully.'));
-router.patch('/communities/:communityId', Auth.authenticate, validate(V.editing), handle((s,u,v) => s.update(u,v.params.communityId,v.body)));
+router.patch('/communities/:communityId', Auth.authenticate, updateCommunity);
 router.delete('/communities/:communityId', Auth.authenticate, validate(V.resource), handle((s,u,v) => s.remove(u,v.params.communityId)));
 router.post('/communities/:communityId/join', Auth.authenticate, validate(V.resource), handle((s,u,v) => s.join(u,v.params.communityId)));
 router.post('/communities/:communityId/leave', Auth.authenticate, validate(V.resource), handle((s,u,v) => s.memberAction(u,v.params.communityId,u,'leave')));

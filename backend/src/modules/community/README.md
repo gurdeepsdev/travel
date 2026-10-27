@@ -17,6 +17,8 @@ Community updates use the existing `chat.updated` event with type `conversation.
 
 Existing JSON creation with `iconAssetId` and the separate `/communities/images` upload remain supported. Multipart persists the image asset, community, admin membership and conversation in one database transaction; the response envelope is unchanged.
 
+Active admins can also PATCH `/communities/{communityId}` with multipart `name`, `description`, `joinType` and `image` (same 10 MiB image limit). All are optional, but at least one field or image is required. Omit unchanged fields; an omitted image or joinType stays unchanged. Image-only and metadata-only updates are supported. JSON PATCH with `iconAssetId`, including `description: null` to clear the description, remains supported. Multipart must not contain `iconAssetId`. The new asset, metadata changes and refresh event commit atomically; replaced images are not deleted because other records may reference them.
+
 Community creation, details, update and list objects include `shareUrl`, built from the existing `PUBLIC_WEB_URL` (default `https://artictern.com`) as `/c/{communityId}`. This is a shareable address, not an invitation token: authentication, bans and OPEN/APPROVAL joining remain unchanged. The frontend/web app must handle this path via an app link or landing page; no public web route is created by the backend.
 
 ## Invitations

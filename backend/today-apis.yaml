@@ -264,7 +264,7 @@ paths:
     patch:
       tags: [Communities]
       summary: Update a community (active admins)
-      description: Returns the updated data.community including its stable shareUrl. The URL does not change when the name or image changes.
+      description: Active admins may update any subset of name, description, joinType and image using multipart/form-data. One optional image up to 10 MiB; omit unchanged fields. At least one field or image is required. JSON updates with iconAssetId remain supported. Omitted joinType is preserved, not reset. Returns data.community including its stable shareUrl. Invalid or oversized image uploads return 415 or 413 respectively.
       operationId: updateCommunity
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"communityId","in":"path","required":true,"schema":{"type":"string","format":"uuid"}}]
@@ -272,7 +272,17 @@ paths:
         required: true
         content:
           application/json:
-            schema: {"type":"object","additionalProperties":false,"minProperties":1,"properties":{"name":{"type":"string","minLength":1,"maxLength":100},"description":{"type":"string","nullable":true,"maxLength":250},"iconAssetId":{"type":"string","format":"uuid"},"joinType":{"type":"string","enum":["OPEN","APPROVAL"],"default":"OPEN"}}}
+            schema: {"type":"object","additionalProperties":false,"minProperties":1,"properties":{"name":{"type":"string","minLength":1,"maxLength":100},"description":{"type":"string","nullable":true,"maxLength":250},"iconAssetId":{"type":"string","format":"uuid"},"joinType":{"type":"string","enum":["OPEN","APPROVAL"]}}}
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                description: { type: string, minLength: 1, maxLength: 250 }
+                joinType: { type: string, enum: [OPEN, APPROVAL] }
+                image: { type: string, format: binary, description: Optional replacement image up to 10 MiB. Omit to preserve the current image. Do not send iconAssetId with multipart. }
       responses:
         '200': { description: Successful operation in the standard success envelope }
         '400': { description: Invalid request }

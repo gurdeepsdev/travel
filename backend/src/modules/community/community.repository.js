@@ -165,14 +165,18 @@ class CommunityRepository {
       return row.id;
   }
   async update(userId, id, input) {
-    await Database.transaction(async client => {
+    await Database.transaction(client => this.updateInTransaction(userId, id, input, client));
+    return this.get(userId, id);
+  }
+  async lockForUpdate(userId, id, client) {
+    return access(client, id, userId, true);
+  }
+  async updateInTransaction(userId, id, input, client) {
       const current = await access(client, id, userId, true);
       if (input.iconAssetId) await icon(client, input.iconAssetId, userId);
       await client.query(`UPDATE community.communities SET name=$2,description=$3,icon_asset_id=$4,join_type=$5,updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
         [id, input.name ?? current.name, Object.hasOwn(input,'description') ? input.description : current.description, input.iconAssetId ?? current.icon_asset_id, input.joinType ?? current.join_type]);
       await event(client, id);
-    });
-    return this.get(userId, id);
   }
   async remove(userId, id) {
     return Database.transaction(async client => {
