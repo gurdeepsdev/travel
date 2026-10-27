@@ -175,7 +175,7 @@ paths:
     get:
       tags: [Communities]
       summary: Discover communities
-      description: Suggests non-deleted communities where the caller is not an active member or admin. Joined communities appear in GET /users/me/communities. Pending approval requests remain discoverable until accepted. Banned communities are excluded; search and cursor pagination apply after membership filtering. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}).
+      description: Suggests non-deleted communities where the caller is not an active member or admin. Joined communities appear in GET /users/me/communities. Pending approval requests remain discoverable until accepted. Banned communities are excluded; search and cursor pagination apply after membership filtering. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}). Suggestions return unreadCount=0, lastMessage=null and lastUnreadMessage=null; non-members cannot access message previews.
       operationId: listCommunities
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]
@@ -235,7 +235,7 @@ paths:
     get:
       tags: [Communities]
       summary: List my active communities
-      description: Returns active memberships. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}).
+      description: Returns active memberships. Each data.communities item includes shareUrl, using PUBLIC_WEB_URL/c/{communityId} (default https://artictern.com/c/{communityId}), unreadCount (integer), lastMessage and lastUnreadMessage (object or null). Message previews contain id, senderId, type, text (nullable), deleted and createdAt (UTC date-time). Unread counts include attachment and SYSTEM messages, excluding own, hidden, deleted and read messages. lastUnreadMessage is the latest unread message or null. lastMessage is the latest visible message, including a deleted placeholder. Existing ordering and pagination are unchanged.
       operationId: listMyCommunities
       security: [{ bearerAuth: [] }]
       parameters: [{"name":"limit","in":"query","schema":{"type":"integer","minimum":1,"maximum":50,"default":20}},{"name":"cursor","in":"query","schema":{"type":"string"}},{"name":"search","in":"query","schema":{"type":"string","maxLength":100}}]

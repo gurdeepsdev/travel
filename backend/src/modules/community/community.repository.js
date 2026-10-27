@@ -2,6 +2,7 @@ import Database from '../../database/database-manager.js';
 import AppError from '../../core/errors/app-error.js';
 import { decodeCursor, encodeCursor } from '../../shared/utils/cursor.js';
 import { buildCommunityShareUrl } from './community-share-url.util.js';
+import { publishCommunityNotice } from './community-chat-notices.service.js';
 
 const fail = (code, message, statusCode = 404) => { throw new AppError({ code: `COMMUNITY.${code}`, message, statusCode }); };
 const one = async (client, sql, params = []) => (await client.query(sql, params)).rows[0];
@@ -53,10 +54,15 @@ async function blocked(client, first, second) {
 const mapInvitation = row => ({ id: row.id, communityId: row.community_id,
   invitedBy: row.request_by, userId: row.target_user_id, status: row.status,
   createdAt: row.created_at, updatedAt: row.updated_at });
+const messagePreviewSQL = `jsonb_build_object('id',msg.id,'senderId',msg.sent_by,'type',msg.message_type,
+  'text',CASE WHEN msg.deleted_at IS NULL THEN msg.message_content ELSE NULL END,
+  'deleted',msg.deleted_at IS NOT NULL,'createdAt',to_char(msg.created_at,'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`;
 async function succession(client, id) {
   if (!await one(client, "SELECT id FROM community.community_members WHERE community_id=$1 AND upper(status)='ACTIVE' AND upper(role)='ADMIN'", [id])) {
-    await client.query(`UPDATE community.community_members SET role='ADMIN',updated_at=CURRENT_TIMESTAMP WHERE id=(
-      SELECT id FROM community.community_members WHERE community_id=$1 AND upper(status)='ACTIVE' ORDER BY created_at,id LIMIT 1)`, [id]);
+    const promoted = await one(client, `UPDATE community.community_members SET role='ADMIN',updated_at=CURRENT_TIMESTAMP WHERE id=(
+      SELECT id FROM community.community_members WHERE community_id=$1 AND upper(status)='ACTIVE' ORDER BY created_at,id LIMIT 1) RETURNING user_id`, [id]);
+    if (promoted) await publishCommunityNotice(client, { communityId: id, actorId: promoted.user_id,
+      memberId: promoted.user_id, type: 'ADMIN_PROMOTED', automatic: true });
   }
   await recount(client, id);
   await client.query(`UPDATE community.communities SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1 AND member_count=0`, [id]);
@@ -131,16 +137,31 @@ class CommunityRepository {
   async list(userId, { limit, cursor, search }, mine = false) {
     const position = decodeCursor(cursor);
     const { rows } = await Database.query(`SELECT c.*,c.created_at::text AS cursor_time,m.role AS viewer_role,
-      a.mime_type AS icon_mime_type,v.id AS conversation_id FROM community.communities c
+      a.mime_type AS icon_mime_type,v.id AS conversation_id,
+      COALESCE(unread.unread_count,0)::int AS unread_count,
+      latest.message AS last_message,unread.message AS last_unread_message FROM community.communities c
       LEFT JOIN community.community_members m ON m.community_id=c.id AND m.user_id=$1 AND upper(m.status)='ACTIVE'
       LEFT JOIN media.assets a ON a.id=c.icon_asset_id AND a.deleted_at IS NULL
       LEFT JOIN chat.conversations v ON v.community_id=c.id AND v.deleted_at IS NULL AND m.id IS NOT NULL
+      LEFT JOIN chat.conversation_settings settings ON settings.conversation_id=v.id AND settings.user_id=$1
+      LEFT JOIN LATERAL (SELECT ${messagePreviewSQL} AS message FROM chat.chat_messages msg
+        WHERE msg.conversation_id=v.id
+        AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=msg.id AND h.user_id=$1)
+        ORDER BY msg.created_at DESC,msg.id DESC LIMIT 1) latest ON TRUE
+      LEFT JOIN LATERAL (SELECT COUNT(*) OVER() AS unread_count,${messagePreviewSQL} AS message
+        FROM chat.chat_messages msg WHERE msg.conversation_id=v.id AND msg.sent_by<>$1::uuid AND msg.deleted_at IS NULL
+        AND (settings.last_read_at IS NULL OR (msg.created_at,msg.id)>(settings.last_read_at,settings.last_read_id))
+        AND NOT EXISTS(SELECT 1 FROM chat.hidden_messages h WHERE h.message_id=msg.id AND h.user_id=$1)
+        AND NOT EXISTS(SELECT 1 FROM chat.message_receipts r WHERE r.message_id=msg.id AND r.user_id=$1 AND r.read_at IS NOT NULL)
+        ORDER BY msg.created_at DESC,msg.id DESC LIMIT 1) unread ON TRUE
       WHERE c.deleted_at IS NULL AND (CASE WHEN $2::boolean THEN m.id IS NOT NULL ELSE m.id IS NULL END)
       AND NOT EXISTS(SELECT 1 FROM community.community_bans b WHERE b.community_id=c.id AND b.banned_user_id=$1)
       AND ($3::text IS NULL OR c.name ILIKE '%'||$3||'%')
       AND ($4::timestamp IS NULL OR (c.created_at,c.id)<($4::timestamp,$5::uuid)) ORDER BY c.created_at DESC,c.id DESC LIMIT $6`,
     [userId, mine, search ?? null, position?.createdAt ?? null, position?.id ?? null, limit + 1]);
-    const result = pageResult(rows, limit, map); return { communities: result.items, pagination: result.pagination };
+    const result = pageResult(rows, limit, row => ({ ...map(row), unreadCount: Number(row.unread_count ?? 0),
+      lastMessage: row.last_message ?? null, lastUnreadMessage: row.last_unread_message ?? null }));
+    return { communities: result.items, pagination: result.pagination };
   }
   async get(userId, id) {
     return Database.transaction(async client => {
@@ -176,6 +197,10 @@ class CommunityRepository {
       if (input.iconAssetId) await icon(client, input.iconAssetId, userId);
       await client.query(`UPDATE community.communities SET name=$2,description=$3,icon_asset_id=$4,join_type=$5,updated_at=CURRENT_TIMESTAMP WHERE id=$1`,
         [id, input.name ?? current.name, Object.hasOwn(input,'description') ? input.description : current.description, input.iconAssetId ?? current.icon_asset_id, input.joinType ?? current.join_type]);
+      if (input.name !== undefined && input.name !== current.name)
+        await publishCommunityNotice(client, { communityId: id, actorId: userId, type: 'COMMUNITY_NAME_CHANGED', communityName: input.name, previousName: current.name });
+      if (input.iconAssetId && input.iconAssetId !== current.icon_asset_id)
+        await publishCommunityNotice(client, { communityId: id, actorId: userId, type: 'COMMUNITY_IMAGE_CHANGED', imageAssetId: input.iconAssetId });
       await event(client, id);
   }
   async remove(userId, id) {
@@ -240,6 +265,8 @@ class CommunityRepository {
         if (member.role.toUpperCase() !== input.role) {
           await client.query('UPDATE community.community_members SET role=$3,updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND user_id=$2', [id, target, input.role]);
           if (input.role === 'MEMBER') await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND request_by=$2 AND request_type='INVITE' AND status='PENDING'",[id,target]);
+          await publishCommunityNotice(client, { communityId: id, actorId: userId, memberId: target,
+            type: input.role === 'ADMIN' ? 'ADMIN_PROMOTED' : 'ADMIN_DEMOTED' });
           await event(client, id);
         }
         return { communityId: id, userId: target, role: input.role };
@@ -250,6 +277,9 @@ class CommunityRepository {
           ON CONFLICT(community_id,banned_user_id) DO NOTHING`, [id, userId, target, input.reason ?? null]);
       }
       if (member) await client.query("UPDATE community.community_members SET status='REMOVED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND user_id=$2", [id, target]);
+      if (member?.role.toUpperCase() === 'ADMIN')
+        await publishCommunityNotice(client, { communityId: id, actorId: userId, memberId: target,
+          type: action === 'leave' ? 'ADMIN_LEFT' : 'ADMIN_REMOVED' });
       await client.query("UPDATE community.community_member_request SET status='CANCELLED',updated_at=CURRENT_TIMESTAMP WHERE community_id=$1 AND (request_by=$2 OR (request_type='INVITE' AND target_user_id=$2)) AND status='PENDING'", [id, target]);
       await succession(client, id); await event(client, id);
       return { communityId: id, userId: target, status: action === 'ban' ? 'BANNED' : 'REMOVED' };
