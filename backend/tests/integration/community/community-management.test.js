@@ -99,6 +99,26 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     });
     expect((await communities.get(owner,id)).community).toMatchObject({name:"Committed",viewerRole:"ADMIN",image:{id:assetId}});
   });
+  test("multipart image replacement and metadata updates share the event transaction",async()=>{
+    const c=await create("APPROVAL"),assetId=randomUUID();
+    failEvents=true;
+    await expect(db.transaction(async client=>{
+      await communities.lockForUpdate(owner,c.id,client);
+      await client.query("INSERT INTO media.assets(id,uploaded_by,is_public,processing_status,mime_type) VALUES($1,$2,true,'READY','image/png')",[assetId,owner]);
+      await communities.updateInTransaction(owner,c.id,{name:"New",iconAssetId:assetId},client);
+    })).rejects.toThrow("outbox unavailable");
+    failEvents=false;
+    expect(await state(c.id)).toMatchObject({name:"Community",icon_asset_id:iconId,join_type:"APPROVAL"});
+    expect((await pool.query("SELECT id FROM media.assets WHERE id=$1",[assetId])).rows).toHaveLength(0);
+    await db.transaction(async client=>{
+      await communities.lockForUpdate(owner,c.id,client);
+      await client.query("INSERT INTO media.assets(id,uploaded_by,is_public,processing_status,mime_type) VALUES($1,$2,true,'READY','image/png')",[assetId,owner]);
+      await communities.updateInTransaction(owner,c.id,{iconAssetId:assetId},client);
+    });
+    expect(await state(c.id)).toMatchObject({name:"Community",icon_asset_id:assetId,join_type:"APPROVAL"});
+    expect((await pool.query("SELECT id FROM media.assets WHERE id=$1",[iconId])).rows).toHaveLength(1);
+    await expect(db.transaction(client=>communities.lockForUpdate(member,c.id,client))).rejects.toMatchObject({statusCode:404});
+  });
   test("foreign, private, deleted or non-image icons are rejected without creating rows",async()=>{
     await expect(communities.create(member,{name:"bad",iconAssetId:iconId,joinType:"OPEN"})).rejects.toMatchObject({statusCode:422});
     for(const sql of ["is_public=false","deleted_at=now()","mime_type='video/mp4'"]){
