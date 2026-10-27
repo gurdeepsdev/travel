@@ -65,6 +65,40 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     expect((await communities.list(owner,{limit:10},true)).communities).toHaveLength(1);
     expect((await communities.list(member,{limit:10},true)).communities).toHaveLength(0);
   });
+  test("name and image changes create SYSTEM notices once with message delivery events",async()=>{
+    const c=await create();
+    const nextIcon=(await pool.query("INSERT INTO media.assets(uploaded_by,is_public,processing_status,mime_type) VALUES($1,true,'READY','image/png') RETURNING id",[owner])).rows[0].id;
+    await communities.update(owner,c.id,{name:"Updated community",iconAssetId:nextIcon});
+    await communities.update(owner,c.id,{name:"Updated community",iconAssetId:nextIcon,description:"Description only"});
+    const {rows}=await pool.query("SELECT * FROM chat.chat_messages WHERE conversation_id=$1 ORDER BY created_at,id",[c.conversationId]);
+    expect(rows).toHaveLength(2);
+    expect(rows.every(r=>r.message_type==="SYSTEM")).toBe(true);
+    expect(rows.map(r=>r.group_event.type)).toEqual(["COMMUNITY_NAME_CHANGED","COMMUNITY_IMAGE_CHANGED"]);
+    expect(rows[0].group_event).toMatchObject({communityId:c.id,actorId:owner,previousName:"Community",communityName:"Updated community"});
+    expect(rows[1].group_event.imageAssetId).toBe(nextIcon);
+    expect(Number((await pool.query("SELECT COUNT(*) FROM chat.event_outbox WHERE conversation_id=$1 AND event_type='message.created'",[c.conversationId])).rows[0].count)).toBe(2);
+    expect((await pool.query("SELECT last_message_id FROM chat.conversations WHERE id=$1",[c.conversationId])).rows[0].last_message_id).toBe(rows[1].id);
+  });
+  test("promotion, demotion, admin removal and automatic succession create notices",async()=>{
+    const c=await create();await communities.join(member,c.id);await communities.join(other,c.id);
+    await communities.memberAction(owner,c.id,member,"role",{role:"ADMIN"});
+    await communities.memberAction(owner,c.id,member,"role",{role:"ADMIN"});
+    await communities.memberAction(owner,c.id,member,"role",{role:"MEMBER"});
+    await communities.memberAction(owner,c.id,member,"role",{role:"ADMIN"});
+    await communities.memberAction(owner,c.id,member,"remove");
+    await communities.memberAction(owner,c.id,owner,"leave");
+    const {rows}=await pool.query("SELECT group_event FROM chat.chat_messages WHERE conversation_id=$1 ORDER BY created_at,id",[c.conversationId]);
+    expect(rows.map(r=>r.group_event.type)).toEqual(["ADMIN_PROMOTED","ADMIN_DEMOTED","ADMIN_PROMOTED","ADMIN_REMOVED","ADMIN_LEFT","ADMIN_PROMOTED"]);
+    expect(rows.at(-1).group_event).toMatchObject({memberId:other,automatic:true});
+  });
+  test("notice outbox failure rolls back metadata and role changes",async()=>{
+    const c=await create();await communities.join(member,c.id);failEvents=true;
+    await expect(communities.update(owner,c.id,{name:"Must roll back"})).rejects.toThrow("outbox unavailable");
+    await expect(communities.memberAction(owner,c.id,member,"role",{role:"ADMIN"})).rejects.toThrow("outbox unavailable");
+    expect((await state(c.id)).name).toBe("Community");
+    expect((await pool.query("SELECT role FROM community.community_members WHERE community_id=$1 AND user_id=$2",[c.id,member])).rows[0].role).toBe("MEMBER");
+    expect((await pool.query("SELECT * FROM chat.chat_messages WHERE conversation_id=$1",[c.conversationId])).rows).toHaveLength(0);
+  });
   test("share URLs are consistent in creation, details and both lists without bypassing membership",async()=>{
     const c=await create("APPROVAL");
     const expected=`${(process.env.PUBLIC_WEB_URL??"https://artictern.com").trim().replace(/\/+$/,"")}/c/${c.id}`;
@@ -137,6 +171,30 @@ const state=id=>pool.query("SELECT * FROM community.communities WHERE id=$1",[id
     await messages.react(member,c.conversationId,sent.message.id,"👍");
     expect((await pool.query("SELECT * FROM chat.message_reactions")).rows).toHaveLength(1);
     expect((await inbox.list(member,{limit:10,archived:false})).conversations[0]).toMatchObject({canSend:false,unreadCount:1});
+  });
+  test("community lists expose personal unread previews without leaking messages to suggestions",async()=>{
+    const c=await create();await communities.join(member,c.id);
+    const list=async user=>(await communities.list(user,{limit:10},true)).communities[0];
+    expect(await list(member)).toMatchObject({unreadCount:0,lastMessage:null,lastUnreadMessage:null});
+    const first=(await messages.send(owner,c.conversationId,{clientMessageId:randomUUID(),text:"First"})).message;
+    const attachment=(await messages.send(owner,c.conversationId,{clientMessageId:randomUUID(),text:"Attachment preview"})).message;
+    await pool.query("UPDATE chat.chat_messages SET message_type='IMAGE',message_content=NULL WHERE id=$1",[attachment.id]);
+    expect(await list(member)).toMatchObject({unreadCount:2,lastMessage:{id:attachment.id,type:"IMAGE",text:null},lastUnreadMessage:{id:attachment.id,type:"IMAGE"}});
+    expect(await list(owner)).toMatchObject({unreadCount:0,lastUnreadMessage:null,lastMessage:{id:attachment.id}});
+    expect((await communities.list(other,{limit:10})).communities[0]).toMatchObject({conversationId:null,unreadCount:0,lastMessage:null,lastUnreadMessage:null});
+    await inbox.read(member,c.conversationId,first.id);
+    expect(await list(member)).toMatchObject({unreadCount:1,lastUnreadMessage:{id:attachment.id}});
+    await pool.query("INSERT INTO chat.message_receipts(message_id,user_id,read_at) VALUES($1,$2,CURRENT_TIMESTAMP)",[attachment.id,member]);
+    expect(await list(member)).toMatchObject({unreadCount:0,lastUnreadMessage:null,lastMessage:{id:attachment.id}});
+    await pool.query("DELETE FROM chat.message_receipts WHERE message_id=$1",[attachment.id]);
+    await pool.query("INSERT INTO chat.hidden_messages(message_id,user_id) VALUES($1,$2)",[attachment.id,member]);
+    expect(await list(member)).toMatchObject({unreadCount:0,lastUnreadMessage:null,lastMessage:{id:first.id}});
+    await pool.query("DELETE FROM chat.hidden_messages WHERE message_id=$1",[attachment.id]);
+    await pool.query("UPDATE chat.chat_messages SET deleted_at=CURRENT_TIMESTAMP WHERE id=$1",[attachment.id]);
+    expect(await list(member)).toMatchObject({unreadCount:0,lastUnreadMessage:null,lastMessage:{id:attachment.id,deleted:true,text:null}});
+    expect((await list(member)).lastMessage.createdAt).toMatch(/Z$/);
+    await communities.memberAction(member,c.id,member,"leave");
+    expect((await communities.list(member,{limit:10})).communities[0]).toMatchObject({conversationId:null,unreadCount:0,lastMessage:null,lastUnreadMessage:null});
   });
   test("approval requires admin review; pending members cannot access chat",async()=>{
     const c=await create("APPROVAL"),r=await communities.join(member,c.id);
