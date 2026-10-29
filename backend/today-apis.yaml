@@ -29,6 +29,136 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  '/notifications':
+    get:
+      tags: [Notifications]
+      operationId: listNotifications
+      summary: List my in-app notifications
+      description: Authenticated caller only. Newest first by createdAt and ID with stable cursor pagination. Push-only events are excluded. Refresh the first page after reconnect; this is the durable inbox, not a realtime event replay endpoint.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+        - { name: cursor, in: query, schema: { type: string, maxLength: 1000 } }
+        - { name: unreadOnly, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: Notifications fetched successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      notifications: { type: array, items: { $ref: '#/components/schemas/AppNotification' } }
+                      pagination:
+                        type: object
+                        properties:
+                          hasMore: { type: boolean }
+                          nextCursor: { type: string, nullable: true }
+        '400': { description: Invalid filter or cursor }
+        '401': { description: Authentication required }
+  '/notifications/unread-count':
+    get:
+      tags: [Notifications]
+      operationId: getNotificationUnreadCount
+      summary: Get my in-app unread notification count
+      description: Does not include chat unread-message totals. Counts unread in-app notifications only.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Standard success envelope with data.unreadCount (integer).
+          content:
+            application/json:
+              example: { success: true, message: Notification unread count fetched successfully., data: { unreadCount: 5 } }
+        '401': { description: Authentication required }
+  '/notifications/{notificationId}/read':
+    put:
+      tags: [Notifications]
+      operationId: readNotification
+      summary: Mark one notification read across my devices
+      description: Idempotent. Returns data.notification and data.updated. Emits notification.read only for a changed read state. Other users' and push-only notifications are unavailable.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: notificationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Notification marked as read.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      notification: { $ref: '#/components/schemas/AppNotification' }
+                      updated: { type: boolean }
+        '400': { description: Invalid identifier }
+        '401': { description: Authentication required }
+        '404': { description: Notification unavailable }
+  '/notifications/read-all':
+    put:
+      tags: [Notifications]
+      operationId: readAllNotifications
+      summary: Mark my current in-app notifications read across devices
+      description: No body required. Idempotent. New notifications arriving after the update remain unread. Emits notification.read with all=true when rows changed.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Standard success envelope with data.updatedCount (integer).
+          content:
+            application/json:
+              example: { success: true, message: Notifications marked as read., data: { updatedCount: 5 } }
+        '401': { description: Authentication required }
+  '/notifications/preferences':
+    get:
+      tags: [Notifications]
+      operationId: getNotificationPreferences
+      summary: Get my notification category preferences
+      description: Returns data.preferences with category, inApp and push. Defaults are true; event channel policy still applies. Does not change existing chat mute settings.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Notification preferences fetched successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      preferences: { type: array, items: { $ref: '#/components/schemas/AppNotificationPreference' } }
+        '401': { description: Authentication required }
+    patch:
+      tags: [Notifications]
+      operationId: updateNotificationPreferences
+      summary: Partially update my notification category preferences
+      description: At least one category is required, without duplicates. Each item must set inApp or push; omitted flags remain unchanged. Applies to future events; existing history is retained. Generic push delivery is introduced in a later implementation stage.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [preferences]
+              properties:
+                preferences:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  items: { $ref: '#/components/schemas/AppNotificationPreference' }
+            example: { preferences: [{ category: EXPLORE, push: false }] }
+      responses:
+        '200': { description: Standard success envelope with the full effective data.preferences list. }
+        '400': { description: Invalid or duplicate category, empty update, or unknown field }
+        '401': { description: Authentication required }
   '/chat/events':
     get:
       tags: [Chat]
@@ -6114,6 +6244,33 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: 2026-08-17T05:33:44.704Z
   schemas:
+    AppNotification:
+      type: object
+      required: [id, type, category, priority, actorId, title, body, target, readAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, description: Server-defined event type from the approved notification matrix. }
+        category: { type: string, enum: [CONNECTIONS, CHAT, GROUPS, TRIPS, TRAVEL, EXPLORE, VERIFICATION, EXPENSES, MODERATION, DOCUMENTS] }
+        priority: { type: string, enum: [LOW, NORMAL, HIGH, URGENT] }
+        actorId: { type: string, format: uuid, nullable: true }
+        title: { type: string, maxLength: 120 }
+        body: { type: string, maxLength: 500 }
+        target:
+          type: object
+          required: [type, id]
+          properties:
+            type: { type: string, enum: [USER, POST, COMMENT, CONVERSATION, GROUP, ITINERARY, EXPENSE, PLACE, DOCUMENT, SUPPORT] }
+            id: { type: string, format: uuid }
+        readAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    AppNotificationPreference:
+      type: object
+      additionalProperties: false
+      required: [category]
+      properties:
+        category: { type: string, enum: [CONNECTIONS, CHAT, GROUPS, TRIPS, TRAVEL, EXPLORE, VERIFICATION, EXPENSES, MODERATION, DOCUMENTS] }
+        inApp: { type: boolean }
+        push: { type: boolean }
     CommunityInvitation: {"type":"object","required":["id","communityId","invitedBy","userId","status","createdAt","updatedAt"],"properties":{"id":{"type":"string","format":"uuid"},"communityId":{"type":"string","format":"uuid"},"invitedBy":{"type":"string","format":"uuid","description":"Inviting admin UUID"},"userId":{"type":"string","format":"uuid","description":"Invited recipient UUID"},"status":{"type":"string","enum":["PENDING","ACCEPTED","DECLINED","CANCELLED"]},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"inviter":{"type":"object","description":"Included in invitation list responses","properties":{"id":{"type":"string","format":"uuid"},"username":{"type":"string","nullable":true},"displayName":{"type":"string","nullable":true}}},"community":{"type":"object","description":"Included in list responses. Contains community fields including image, joinType and shareUrl; does not grant membership or chat access.","properties":{"id":{"type":"string","format":"uuid"},"name":{"type":"string"},"shareUrl":{"type":"string","format":"uri"}}}}}
     ChatAttachmentOptimization:
       type: object

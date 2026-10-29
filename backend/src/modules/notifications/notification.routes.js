@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import Auth from '../../middleware/auth.middleware.js';
+import validate from '../../middleware/validate.middleware.js';
+import Response from '../../core/response/index.js';
+import Repository from './notification.repository.js';
+import * as V from './notification.validation.js';
+const router=Router();
+router.use(Auth.authenticate);
+const handle=(action,message)=>async(req,res,next)=>{try{return Response.success(res,await action(req.user.id,req.validated),message);}catch(error){next(error);}};
+router.get('/',validate(V.listing),handle((u,v)=>Repository.list(u,v.query),'Notifications fetched successfully.'));
+router.get('/unread-count',validate(V.base),handle(u=>Repository.unread(u),'Notification unread count fetched successfully.'));
+router.get('/preferences',validate(V.base),handle(u=>Repository.preferences(u),'Notification preferences fetched successfully.'));
+router.patch('/preferences',validate(V.preferenceUpdate),handle((u,v)=>Repository.updatePreferences(u,v.body.preferences),'Notification preferences updated successfully.'));
+router.put('/read-all',validate(V.base),handle(u=>Repository.readAll(u),'Notifications marked as read.'));
+router.put('/:notificationId/read',validate(V.resource),handle((u,v)=>Repository.read(u,v.params.notificationId),'Notification marked as read.'));
+export default router;
