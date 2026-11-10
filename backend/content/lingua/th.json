@@ -1,0 +1,883 @@
+{
+  "language": {
+    "code": "th",
+    "name": "Thai",
+    "nativeName": "ไทย",
+    "displayOrder": 8,
+    "defaultCountryCodes": [
+      "TH"
+    ]
+  },
+  "lessons": [
+    {
+      "stableKey": "greetings",
+      "version": 1,
+      "title": "Essential greetings",
+      "topic": "GREETINGS",
+      "displayOrder": 1,
+      "phrases": [
+        {
+          "stableKey": "please",
+          "targetText": "กรุณา",
+          "englishMeaning": "Please",
+          "romanization": "karunaa",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “กรุณา” mean in English?",
+            "explanation": "Use this to make a request polite.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Please",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Thank you",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Yes",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "thank-you",
+          "targetText": "ขอบคุณ",
+          "englishMeaning": "Thank you",
+          "romanization": "khàwp khun",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ขอบคุณ” mean in English?",
+            "explanation": "Use this to express gratitude.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Thank you",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Yes",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "No",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "yes",
+          "targetText": "ใช่",
+          "englishMeaning": "Yes",
+          "romanization": "châi",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ใช่” mean in English?",
+            "explanation": "Use this for an affirmative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Yes",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "No",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Excuse me",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "no",
+          "targetText": "ไม่",
+          "englishMeaning": "No",
+          "romanization": "mâi",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ไม่” mean in English?",
+            "explanation": "Use this for a negative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "No",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Excuse me",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Please",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "excuse-me",
+          "targetText": "ขอโทษ",
+          "englishMeaning": "Excuse me",
+          "romanization": "khǎw thôht",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ขอโทษ” mean in English?",
+            "explanation": "Use this politely before asking for attention or assistance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Excuse me",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Please",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Thank you",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "transport",
+      "version": 1,
+      "title": "Transport and directions",
+      "topic": "TRANSPORT",
+      "displayOrder": 2,
+      "phrases": [
+        {
+          "stableKey": "left",
+          "targetText": "ซ้าย",
+          "englishMeaning": "Left",
+          "romanization": "sáai",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ซ้าย” mean in English?",
+            "explanation": "This direction means left.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Left",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Right",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Straight ahead",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "right",
+          "targetText": "ขวา",
+          "englishMeaning": "Right",
+          "romanization": "khwǎa",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ขวา” mean in English?",
+            "explanation": "This direction means right.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Right",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Straight ahead",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Taxi",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "straight-ahead",
+          "targetText": "ตรงไป",
+          "englishMeaning": "Straight ahead",
+          "romanization": "trong pai",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ตรงไป” mean in English?",
+            "explanation": "Use this direction to continue forward.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Straight ahead",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Taxi",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Airport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "taxi",
+          "targetText": "แท็กซี่",
+          "englishMeaning": "Taxi",
+          "romanization": "thaeksîi",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “แท็กซี่” mean in English?",
+            "explanation": "Use this word when looking for a taxi.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Taxi",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Airport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Left",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "airport",
+          "targetText": "สนามบิน",
+          "englishMeaning": "Airport",
+          "romanization": "sanǎam bin",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “สนามบิน” mean in English?",
+            "explanation": "Use this word when referring to an airport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Airport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Left",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Right",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "hotel",
+      "version": 1,
+      "title": "Hotel essentials",
+      "topic": "HOTEL",
+      "displayOrder": 3,
+      "phrases": [
+        {
+          "stableKey": "reservation",
+          "targetText": "การจอง",
+          "englishMeaning": "Reservation",
+          "romanization": "kaan jaawng",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “การจอง” mean in English?",
+            "explanation": "Use this word when referring to a booking.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Reservation",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Hotel",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Passport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hotel",
+          "targetText": "โรงแรม",
+          "englishMeaning": "Hotel",
+          "romanization": "rohng raem",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “โรงแรม” mean in English?",
+            "explanation": "Use this word when referring to a hotel.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Hotel",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Passport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Toilet / WC",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "passport",
+          "targetText": "หนังสือเดินทาง",
+          "englishMeaning": "Passport",
+          "romanization": "nǎngsʉ̌ʉ dəən thaang",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “หนังสือเดินทาง” mean in English?",
+            "explanation": "Use this word when referring to your passport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Passport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Toilet / WC",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Where is …?",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "toilet",
+          "targetText": "ห้องน้ำ",
+          "englishMeaning": "Toilet / WC",
+          "romanization": "hâwng náam",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ห้องน้ำ” mean in English?",
+            "explanation": "Use this when asking about a toilet or restroom.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Toilet / WC",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Where is …?",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Reservation",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "where-is",
+          "targetText": "…อยู่ที่ไหน",
+          "englishMeaning": "Where is …?",
+          "romanization": "… yùu thîi nǎi",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “…อยู่ที่ไหน” mean in English?",
+            "explanation": "Use this pattern to ask for the location of something.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Where is …?",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Reservation",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Hotel",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "food",
+      "version": 1,
+      "title": "Food and payment",
+      "topic": "FOOD",
+      "displayOrder": 4,
+      "phrases": [
+        {
+          "stableKey": "i-would-like",
+          "targetText": "อยากได้ …",
+          "englishMeaning": "I would like …",
+          "romanization": "yàak dâai …",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “อยากได้ …” mean in English?",
+            "explanation": "Use this pattern to request an item politely.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "I would like …",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Water",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Cash",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "water",
+          "targetText": "น้ำ",
+          "englishMeaning": "Water",
+          "romanization": "náam",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “น้ำ” mean in English?",
+            "explanation": "Use this word when ordering or asking for water.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Water",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Cash",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Card",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "cash",
+          "targetText": "เงินสด",
+          "englishMeaning": "Cash",
+          "romanization": "ngən sòt",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “เงินสด” mean in English?",
+            "explanation": "Use this word when asking about cash payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Cash",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Card",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Bill / check",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "card",
+          "targetText": "บัตรเครดิต",
+          "englishMeaning": "Card",
+          "romanization": "bàt kredìt",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “บัตรเครดิต” mean in English?",
+            "explanation": "Use this word when asking about card payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Card",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Bill / check",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "bill",
+          "targetText": "เช็คบิล",
+          "englishMeaning": "Bill / check",
+          "romanization": "chék bin",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “เช็คบิล” mean in English?",
+            "explanation": "Use this when asking for the bill after a meal.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Bill / check",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Water",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "help",
+      "version": 1,
+      "title": "Getting help",
+      "topic": "HELP",
+      "displayOrder": 5,
+      "phrases": [
+        {
+          "stableKey": "help",
+          "targetText": "ช่วยด้วย!",
+          "englishMeaning": "Help!",
+          "romanization": "chûay dûay!",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ช่วยด้วย!” mean in English?",
+            "explanation": "Use this to call for urgent help.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Help!",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Doctor",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Hospital",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "doctor",
+          "targetText": "หมอ",
+          "englishMeaning": "Doctor",
+          "romanization": "mǎw",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “หมอ” mean in English?",
+            "explanation": "Use this word when you need a doctor.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Doctor",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Hospital",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Ambulance",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hospital",
+          "targetText": "โรงพยาบาล",
+          "englishMeaning": "Hospital",
+          "romanization": "rohng phayaabaan",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “โรงพยาบาล” mean in English?",
+            "explanation": "Use this word when looking for a hospital.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Hospital",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Ambulance",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Police",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "ambulance",
+          "targetText": "รถพยาบาล",
+          "englishMeaning": "Ambulance",
+          "romanization": "rót phayaabaan",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “รถพยาบาล” mean in English?",
+            "explanation": "Use this word when requesting an ambulance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Ambulance",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Police",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Help!",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "police",
+          "targetText": "ตำรวจ",
+          "englishMeaning": "Police",
+          "romanization": "tamrùat",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ตำรวจ” mean in English?",
+            "explanation": "Use this word when you need the police.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Police",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Help!",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Doctor",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

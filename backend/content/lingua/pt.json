@@ -1,0 +1,883 @@
+{
+  "language": {
+    "code": "pt",
+    "name": "Portuguese",
+    "nativeName": "Português",
+    "displayOrder": 9,
+    "defaultCountryCodes": [
+      "PT"
+    ]
+  },
+  "lessons": [
+    {
+      "stableKey": "greetings",
+      "version": 1,
+      "title": "Essential greetings",
+      "topic": "GREETINGS",
+      "displayOrder": 1,
+      "phrases": [
+        {
+          "stableKey": "please",
+          "targetText": "por favor",
+          "englishMeaning": "Please",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “por favor” mean in English?",
+            "explanation": "Use this to make a request polite.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Please",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Thank you",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Yes",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "thank-you",
+          "targetText": "obrigado / obrigada",
+          "englishMeaning": "Thank you",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “obrigado / obrigada” mean in English?",
+            "explanation": "Use this to express gratitude.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Thank you",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Yes",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "No",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "yes",
+          "targetText": "sim",
+          "englishMeaning": "Yes",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “sim” mean in English?",
+            "explanation": "Use this for an affirmative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Yes",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "No",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Excuse me",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "no",
+          "targetText": "não",
+          "englishMeaning": "No",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “não” mean in English?",
+            "explanation": "Use this for a negative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "No",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Excuse me",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Please",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "excuse-me",
+          "targetText": "com licença",
+          "englishMeaning": "Excuse me",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “com licença” mean in English?",
+            "explanation": "Use this politely before asking for attention or assistance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Excuse me",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Please",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Thank you",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "transport",
+      "version": 1,
+      "title": "Transport and directions",
+      "topic": "TRANSPORT",
+      "displayOrder": 2,
+      "phrases": [
+        {
+          "stableKey": "left",
+          "targetText": "esquerda",
+          "englishMeaning": "Left",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “esquerda” mean in English?",
+            "explanation": "This direction means left.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Left",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Right",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Straight ahead",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "right",
+          "targetText": "direita",
+          "englishMeaning": "Right",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “direita” mean in English?",
+            "explanation": "This direction means right.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Right",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Straight ahead",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Taxi",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "straight-ahead",
+          "targetText": "em frente",
+          "englishMeaning": "Straight ahead",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “em frente” mean in English?",
+            "explanation": "Use this direction to continue forward.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Straight ahead",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Taxi",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Airport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "taxi",
+          "targetText": "táxi",
+          "englishMeaning": "Taxi",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “táxi” mean in English?",
+            "explanation": "Use this word when looking for a taxi.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Taxi",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Airport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Left",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "airport",
+          "targetText": "aeroporto",
+          "englishMeaning": "Airport",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “aeroporto” mean in English?",
+            "explanation": "Use this word when referring to an airport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Airport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Left",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Right",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "hotel",
+      "version": 1,
+      "title": "Hotel essentials",
+      "topic": "HOTEL",
+      "displayOrder": 3,
+      "phrases": [
+        {
+          "stableKey": "reservation",
+          "targetText": "reserva",
+          "englishMeaning": "Reservation",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “reserva” mean in English?",
+            "explanation": "Use this word when referring to a booking.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Reservation",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Hotel",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Passport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hotel",
+          "targetText": "hotel",
+          "englishMeaning": "Hotel",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “hotel” mean in English?",
+            "explanation": "Use this word when referring to a hotel.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Hotel",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Passport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Toilet / WC",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "passport",
+          "targetText": "passaporte",
+          "englishMeaning": "Passport",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “passaporte” mean in English?",
+            "explanation": "Use this word when referring to your passport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Passport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Toilet / WC",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Where is …?",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "toilet",
+          "targetText": "casa de banho",
+          "englishMeaning": "Toilet / WC",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “casa de banho” mean in English?",
+            "explanation": "Use this when asking about a toilet or restroom.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Toilet / WC",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Where is …?",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Reservation",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "where-is",
+          "targetText": "onde fica …?",
+          "englishMeaning": "Where is …?",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “onde fica …?” mean in English?",
+            "explanation": "Use this pattern to ask for the location of something.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Where is …?",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Reservation",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Hotel",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "food",
+      "version": 1,
+      "title": "Food and payment",
+      "topic": "FOOD",
+      "displayOrder": 4,
+      "phrases": [
+        {
+          "stableKey": "i-would-like",
+          "targetText": "queria …",
+          "englishMeaning": "I would like …",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “queria …” mean in English?",
+            "explanation": "Use this pattern to request an item politely.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "I would like …",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Water",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Cash",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "water",
+          "targetText": "água",
+          "englishMeaning": "Water",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “água” mean in English?",
+            "explanation": "Use this word when ordering or asking for water.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Water",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Cash",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Card",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "cash",
+          "targetText": "dinheiro",
+          "englishMeaning": "Cash",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “dinheiro” mean in English?",
+            "explanation": "Use this word when asking about cash payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Cash",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Card",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Bill / check",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "card",
+          "targetText": "cartão",
+          "englishMeaning": "Card",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “cartão” mean in English?",
+            "explanation": "Use this word when asking about card payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Card",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Bill / check",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "bill",
+          "targetText": "a conta",
+          "englishMeaning": "Bill / check",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “a conta” mean in English?",
+            "explanation": "Use this when asking for the bill after a meal.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Bill / check",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Water",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "help",
+      "version": 1,
+      "title": "Getting help",
+      "topic": "HELP",
+      "displayOrder": 5,
+      "phrases": [
+        {
+          "stableKey": "help",
+          "targetText": "socorro!",
+          "englishMeaning": "Help!",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “socorro!” mean in English?",
+            "explanation": "Use this to call for urgent help.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Help!",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Doctor",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Hospital",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "doctor",
+          "targetText": "médico",
+          "englishMeaning": "Doctor",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “médico” mean in English?",
+            "explanation": "Use this word when you need a doctor.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Doctor",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Hospital",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Ambulance",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hospital",
+          "targetText": "hospital",
+          "englishMeaning": "Hospital",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “hospital” mean in English?",
+            "explanation": "Use this word when looking for a hospital.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Hospital",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Ambulance",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Police",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "ambulance",
+          "targetText": "ambulância",
+          "englishMeaning": "Ambulance",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ambulância” mean in English?",
+            "explanation": "Use this word when requesting an ambulance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Ambulance",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Police",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Help!",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "police",
+          "targetText": "polícia",
+          "englishMeaning": "Police",
+          "regionalVariant": "European Portuguese (pt-PT)",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “polícia” mean in English?",
+            "explanation": "Use this word when you need the police.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Police",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Help!",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Doctor",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
