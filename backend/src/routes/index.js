@@ -17,6 +17,8 @@ import itineraryRoutes
   from "../modules/itinerary/itinerary.routes.js";
 import groupsRoutes
   from "../modules/groups/groups.routes.js";
+import linguaRoutes
+  from "../modules/lingua/lingua.routes.js";
 
 const router = Router();
 router.use("/notifications", notificationRoutes);
@@ -42,6 +44,10 @@ router.use(
 router.use(
   "/itineraries",
   itineraryRoutes,
+);
+router.use(
+  "/lingua",
+  linguaRoutes,
 );
 router.use("/", groupsRoutes);
 

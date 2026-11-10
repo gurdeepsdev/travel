@@ -10,6 +10,7 @@ servers:
   - url: 'http://localhost:3001/api/v1'
     description: Local development
 tags:
+  - name: LinguaTrail
   - name: Post Engagement
   - name: Saved Content
   - name: Profile
@@ -1095,6 +1096,258 @@ paths:
         '401': { description: Authentication required }
         '404': { description: Request unavailable or caller is not the recipient }
         '409': { description: Request already decided }
+  '/lingua/languages':
+    get:
+      tags: [LinguaTrail]
+      summary: List published travel languages
+      operationId: listLinguaLanguages
+      description: Lists published languages. When itineraryId is supplied, also resolves the authenticated user's personal override or the itinerary destination's default language.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: itineraryId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Published languages and optional itinerary selection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Itinerary is missing or inaccessible }
+  '/lingua/progress':
+    get:
+      tags: [LinguaTrail]
+      summary: Get my language-learning progress
+      operationId: getLinguaProgress
+      description: Returns version-specific lesson completion and scores for the authenticated user. Supply languageId or itineraryId.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: languageId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: itineraryId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Personal learning progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Language or itinerary not found }
+  '/lingua/languages/{languageId}/lessons':
+    get:
+      tags: [LinguaTrail]
+      summary: List current lessons with my progress
+      operationId: listLinguaLessons
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaLanguageId'
+      responses:
+        '200':
+          description: Current published lesson versions with personal progress
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Published language not found }
+  '/lingua/lessons/{lessonId}/cards':
+    get:
+      tags: [LinguaTrail]
+      summary: Get five learning cards
+      operationId: getLinguaLessonCards
+      description: Returns phrase learning content and optional public audio. Quiz questions and answer keys are excluded.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaLessonId'
+      responses:
+        '200':
+          description: Five ordered learning cards
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Published complete lesson not found }
+  '/lingua/lessons/{lessonId}/attempts':
+    post:
+      tags: [LinguaTrail]
+      summary: Start, resume, or retry a lesson attempt
+      operationId: startLinguaAttempt
+      description: Creates a server-shuffled attempt, resumes the one active attempt without reshuffling, or creates a deliberate retry.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaLessonId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                retry: { type: boolean, default: false }
+      responses:
+        '200': { description: Existing active attempt resumed }
+        '201':
+          description: New attempt created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Published lesson not found }
+        '409': { description: Explicit retry required or published content is invalid }
+  '/lingua/attempts/{attemptId}':
+    get:
+      tags: [LinguaTrail]
+      summary: Reload my attempt
+      operationId: getLinguaAttempt
+      description: Returns the persisted question and option order. Correctness is included only for questions already answered.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaAttemptId'
+      responses:
+        '200':
+          description: Owned attempt
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Attempt not found or owned by another user }
+  '/lingua/attempts/{attemptId}/questions/{questionId}/answers':
+    post:
+      tags: [LinguaTrail]
+      summary: Submit a quiz or practice answer
+      operationId: submitLinguaAnswer
+      description: Saves the first QUIZ answer immutably. Repeating the same answer is idempotent. PRACTICE grades a previously incorrect question without persisting or changing score.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaAttemptId'
+        - $ref: '#/components/parameters/LinguaQuestionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [optionId]
+              properties:
+                optionId: { type: string, format: uuid }
+                mode: { type: string, enum: [QUIZ, PRACTICE], default: QUIZ }
+      responses:
+        '200':
+          description: Answer saved, repeated idempotently, or checked as practice
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Attempt or question not found }
+        '409': { description: Answer immutable, attempt completed, or practice unavailable }
+  '/lingua/attempts/{attemptId}/finish':
+    post:
+      tags: [LinguaTrail]
+      summary: Finish my attempt
+      operationId: finishLinguaAttempt
+      description: Locks the attempt, requires all five original answers, calculates score server-side, and is idempotent.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaAttemptId'
+      responses:
+        '200':
+          description: Stable completed result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Attempt not found }
+        '422': { description: One or more questions remain unanswered }
+  '/lingua/attempts/{attemptId}/result':
+    get:
+      tags: [LinguaTrail]
+      summary: Get my completed result
+      operationId: getLinguaAttemptResult
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaAttemptId'
+      responses:
+        '200':
+          description: Completed score and question feedback
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Attempt not found }
+        '422': { description: Attempt is not completed }
+  '/lingua/attempts/{attemptId}/review':
+    get:
+      tags: [LinguaTrail]
+      summary: Review my incorrect answers
+      operationId: reviewLinguaAttempt
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/LinguaAttemptId'
+        - name: scope
+          in: query
+          schema: { type: string, enum: [INCORRECT], default: INCORRECT }
+      responses:
+        '200':
+          description: Incorrect original answers with explanations
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Attempt not found }
+        '422': { description: Attempt is not completed }
+  '/lingua/itineraries/{itineraryId}/language':
+    put:
+      tags: [LinguaTrail]
+      summary: Set my itinerary language override
+      operationId: setLinguaItineraryLanguage
+      description: Sets only the authenticated user's language selection for an owned or active group-linked itinerary.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ItineraryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [languageId]
+              properties:
+                languageId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Personal language override saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Itinerary or published language not found }
+    delete:
+      tags: [LinguaTrail]
+      summary: Reset my itinerary language to its destination default
+      operationId: resetLinguaItineraryLanguage
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ItineraryId'
+      responses:
+        '200':
+          description: Override removed and default selection resolved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LinguaSuccessResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Itinerary not found or inaccessible }
+
   '/users/me/tagged-posts':
     get:
       tags: [Posts]
@@ -7452,6 +7705,26 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    LinguaLanguageId:
+      name: languageId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LinguaLessonId:
+      name: lessonId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LinguaAttemptId:
+      name: attemptId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LinguaQuestionId:
+      name: questionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ItineraryChangeRequestId:
       name: requestId
       in: path
@@ -7752,6 +8025,18 @@ components:
         thumbnailUrl: { type: string, nullable: true }
         streamUrl: { type: string, nullable: true }
         playbackUrl: { type: string, nullable: true }
+    LinguaSuccessResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+          description: Endpoint-specific LinguaTrail payload.
+        requestId: { type: string, format: uuid, nullable: true }
+        timestamp: { type: string, format: date-time }
     SavedLocationCard:
       type: object
       required: [id, itemType, title, viewerState]

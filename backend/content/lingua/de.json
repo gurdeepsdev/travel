@@ -1,0 +1,858 @@
+{
+  "language": {
+    "code": "de",
+    "name": "German",
+    "nativeName": "Deutsch",
+    "displayOrder": 6,
+    "defaultCountryCodes": [
+      "DE"
+    ]
+  },
+  "lessons": [
+    {
+      "stableKey": "greetings",
+      "version": 1,
+      "title": "Essential greetings",
+      "topic": "GREETINGS",
+      "displayOrder": 1,
+      "phrases": [
+        {
+          "stableKey": "please",
+          "targetText": "bitte",
+          "englishMeaning": "Please",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “bitte” mean in English?",
+            "explanation": "Use this to make a request polite.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Please",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Thank you",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Yes",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "thank-you",
+          "targetText": "danke",
+          "englishMeaning": "Thank you",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “danke” mean in English?",
+            "explanation": "Use this to express gratitude.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Thank you",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Yes",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "No",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "yes",
+          "targetText": "ja",
+          "englishMeaning": "Yes",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ja” mean in English?",
+            "explanation": "Use this for an affirmative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Yes",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "No",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Excuse me",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "no",
+          "targetText": "nein",
+          "englishMeaning": "No",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “nein” mean in English?",
+            "explanation": "Use this for a negative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "No",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Excuse me",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Please",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "excuse-me",
+          "targetText": "Entschuldigung",
+          "englishMeaning": "Excuse me",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Entschuldigung” mean in English?",
+            "explanation": "Use this politely before asking for attention or assistance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Excuse me",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Please",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Thank you",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "transport",
+      "version": 1,
+      "title": "Transport and directions",
+      "topic": "TRANSPORT",
+      "displayOrder": 2,
+      "phrases": [
+        {
+          "stableKey": "left",
+          "targetText": "links",
+          "englishMeaning": "Left",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “links” mean in English?",
+            "explanation": "This direction means left.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Left",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Right",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Straight ahead",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "right",
+          "targetText": "rechts",
+          "englishMeaning": "Right",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “rechts” mean in English?",
+            "explanation": "This direction means right.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Right",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Straight ahead",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Taxi",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "straight-ahead",
+          "targetText": "geradeaus",
+          "englishMeaning": "Straight ahead",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “geradeaus” mean in English?",
+            "explanation": "Use this direction to continue forward.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Straight ahead",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Taxi",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Airport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "taxi",
+          "targetText": "Taxi",
+          "englishMeaning": "Taxi",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Taxi” mean in English?",
+            "explanation": "Use this word when looking for a taxi.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Taxi",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Airport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Left",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "airport",
+          "targetText": "Flughafen",
+          "englishMeaning": "Airport",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Flughafen” mean in English?",
+            "explanation": "Use this word when referring to an airport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Airport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Left",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Right",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "hotel",
+      "version": 1,
+      "title": "Hotel essentials",
+      "topic": "HOTEL",
+      "displayOrder": 3,
+      "phrases": [
+        {
+          "stableKey": "reservation",
+          "targetText": "Reservierung",
+          "englishMeaning": "Reservation",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Reservierung” mean in English?",
+            "explanation": "Use this word when referring to a booking.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Reservation",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Hotel",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Passport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hotel",
+          "targetText": "Hotel",
+          "englishMeaning": "Hotel",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Hotel” mean in English?",
+            "explanation": "Use this word when referring to a hotel.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Hotel",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Passport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Toilet / WC",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "passport",
+          "targetText": "Reisepass",
+          "englishMeaning": "Passport",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Reisepass” mean in English?",
+            "explanation": "Use this word when referring to your passport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Passport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Toilet / WC",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Where is …?",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "toilet",
+          "targetText": "Toilette",
+          "englishMeaning": "Toilet / WC",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Toilette” mean in English?",
+            "explanation": "Use this when asking about a toilet or restroom.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Toilet / WC",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Where is …?",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Reservation",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "where-is",
+          "targetText": "wo ist …?",
+          "englishMeaning": "Where is …?",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “wo ist …?” mean in English?",
+            "explanation": "Use this pattern to ask for the location of something.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Where is …?",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Reservation",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Hotel",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "food",
+      "version": 1,
+      "title": "Food and payment",
+      "topic": "FOOD",
+      "displayOrder": 4,
+      "phrases": [
+        {
+          "stableKey": "i-would-like",
+          "targetText": "ich möchte …",
+          "englishMeaning": "I would like …",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “ich möchte …” mean in English?",
+            "explanation": "Use this pattern to request an item politely.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "I would like …",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Water",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Cash",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "water",
+          "targetText": "Wasser",
+          "englishMeaning": "Water",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Wasser” mean in English?",
+            "explanation": "Use this word when ordering or asking for water.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Water",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Cash",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Card",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "cash",
+          "targetText": "Bargeld",
+          "englishMeaning": "Cash",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Bargeld” mean in English?",
+            "explanation": "Use this word when asking about cash payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Cash",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Card",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Bill / check",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "card",
+          "targetText": "Karte",
+          "englishMeaning": "Card",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Karte” mean in English?",
+            "explanation": "Use this word when asking about card payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Card",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Bill / check",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "bill",
+          "targetText": "die Rechnung",
+          "englishMeaning": "Bill / check",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “die Rechnung” mean in English?",
+            "explanation": "Use this when asking for the bill after a meal.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Bill / check",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Water",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "help",
+      "version": 1,
+      "title": "Getting help",
+      "topic": "HELP",
+      "displayOrder": 5,
+      "phrases": [
+        {
+          "stableKey": "help",
+          "targetText": "Hilfe!",
+          "englishMeaning": "Help!",
+          "displayOrder": 1,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Hilfe!” mean in English?",
+            "explanation": "Use this to call for urgent help.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Help!",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Doctor",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Hospital",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "doctor",
+          "targetText": "Arzt",
+          "englishMeaning": "Doctor",
+          "displayOrder": 2,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Arzt” mean in English?",
+            "explanation": "Use this word when you need a doctor.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Doctor",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Hospital",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Ambulance",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hospital",
+          "targetText": "Krankenhaus",
+          "englishMeaning": "Hospital",
+          "displayOrder": 3,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Krankenhaus” mean in English?",
+            "explanation": "Use this word when looking for a hospital.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Hospital",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Ambulance",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Police",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "ambulance",
+          "targetText": "Krankenwagen",
+          "englishMeaning": "Ambulance",
+          "displayOrder": 4,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Krankenwagen” mean in English?",
+            "explanation": "Use this word when requesting an ambulance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Ambulance",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Police",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Help!",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "police",
+          "targetText": "Polizei",
+          "englishMeaning": "Police",
+          "displayOrder": 5,
+          "question": {
+            "type": "MEANING_RECOGNITION",
+            "prompt": "What does “Polizei” mean in English?",
+            "explanation": "Use this word when you need the police.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "Police",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "Help!",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "Doctor",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,858 @@
+{
+  "language": {
+    "code": "en",
+    "name": "English",
+    "nativeName": "English",
+    "displayOrder": 3,
+    "defaultCountryCodes": [
+      "GB"
+    ]
+  },
+  "lessons": [
+    {
+      "stableKey": "greetings",
+      "version": 1,
+      "title": "Essential greetings",
+      "topic": "GREETINGS",
+      "displayOrder": 1,
+      "phrases": [
+        {
+          "stableKey": "please",
+          "targetText": "please",
+          "englishMeaning": "Please",
+          "displayOrder": 1,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase makes a request polite?",
+            "explanation": "Use this to make a request polite.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "please",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "thank you",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "yes",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "thank-you",
+          "targetText": "thank you",
+          "englishMeaning": "Thank you",
+          "displayOrder": 2,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase expresses gratitude?",
+            "explanation": "Use this to express gratitude.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "thank you",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "yes",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "no",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "yes",
+          "targetText": "yes",
+          "englishMeaning": "Yes",
+          "displayOrder": 3,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase gives an affirmative answer?",
+            "explanation": "Use this for an affirmative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "yes",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "no",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "excuse me",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "no",
+          "targetText": "no",
+          "englishMeaning": "No",
+          "displayOrder": 4,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase gives a negative answer?",
+            "explanation": "Use this for a negative response.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "no",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "excuse me",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "please",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "excuse-me",
+          "targetText": "excuse me",
+          "englishMeaning": "Excuse me",
+          "displayOrder": 5,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase politely gets someone's attention?",
+            "explanation": "Use this politely before asking for attention or assistance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "excuse me",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "please",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "thank you",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "transport",
+      "version": 1,
+      "title": "Transport and directions",
+      "topic": "TRANSPORT",
+      "displayOrder": 2,
+      "phrases": [
+        {
+          "stableKey": "left",
+          "targetText": "left",
+          "englishMeaning": "Left",
+          "displayOrder": 1,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word directs someone to the left?",
+            "explanation": "This direction means left.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "left",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "right",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "straight ahead",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "right",
+          "targetText": "right",
+          "englishMeaning": "Right",
+          "displayOrder": 2,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word directs someone to the right?",
+            "explanation": "This direction means right.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "right",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "straight ahead",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "taxi",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "straight-ahead",
+          "targetText": "straight ahead",
+          "englishMeaning": "Straight ahead",
+          "displayOrder": 3,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase tells someone to continue forward?",
+            "explanation": "Use this direction to continue forward.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "straight ahead",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "taxi",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "airport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "taxi",
+          "targetText": "taxi",
+          "englishMeaning": "Taxi",
+          "displayOrder": 4,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word asks for a hired car?",
+            "explanation": "Use this word when looking for a taxi.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "taxi",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "airport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "left",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "airport",
+          "targetText": "airport",
+          "englishMeaning": "Airport",
+          "displayOrder": 5,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies the place where flights arrive and depart?",
+            "explanation": "Use this word when referring to an airport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "airport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "left",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "right",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "hotel",
+      "version": 1,
+      "title": "Hotel essentials",
+      "topic": "HOTEL",
+      "displayOrder": 3,
+      "phrases": [
+        {
+          "stableKey": "reservation",
+          "targetText": "reservation",
+          "englishMeaning": "Reservation",
+          "displayOrder": 1,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word refers to a booking?",
+            "explanation": "Use this word when referring to a booking.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "reservation",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "hotel",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "passport",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hotel",
+          "targetText": "hotel",
+          "englishMeaning": "Hotel",
+          "displayOrder": 2,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies paid travel accommodation?",
+            "explanation": "Use this word when referring to a hotel.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "hotel",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "passport",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "toilet / WC",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "passport",
+          "targetText": "passport",
+          "englishMeaning": "Passport",
+          "displayOrder": 3,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies an international travel document?",
+            "explanation": "Use this word when referring to your passport.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "passport",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "toilet / WC",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "where is …?",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "toilet",
+          "targetText": "toilet / WC",
+          "englishMeaning": "Toilet / WC",
+          "displayOrder": 4,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase identifies a restroom?",
+            "explanation": "Use this when asking about a toilet or restroom.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "toilet / WC",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "where is …?",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "reservation",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "where-is",
+          "targetText": "where is …?",
+          "englishMeaning": "Where is …?",
+          "displayOrder": 5,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase asks for the location of something?",
+            "explanation": "Use this pattern to ask for the location of something.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "where is …?",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "reservation",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "hotel",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "food",
+      "version": 1,
+      "title": "Food and payment",
+      "topic": "FOOD",
+      "displayOrder": 4,
+      "phrases": [
+        {
+          "stableKey": "i-would-like",
+          "targetText": "I would like …",
+          "englishMeaning": "I would like …",
+          "displayOrder": 1,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase politely requests an item?",
+            "explanation": "Use this pattern to request an item politely.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "I would like …",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "water",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "cash",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "water",
+          "targetText": "water",
+          "englishMeaning": "Water",
+          "displayOrder": 2,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word asks for drinking water?",
+            "explanation": "Use this word when ordering or asking for water.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "water",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "cash",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "card",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "cash",
+          "targetText": "cash",
+          "englishMeaning": "Cash",
+          "displayOrder": 3,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies payment using notes or coins?",
+            "explanation": "Use this word when asking about cash payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "cash",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "card",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "bill / check",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "card",
+          "targetText": "card",
+          "englishMeaning": "Card",
+          "displayOrder": 4,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies card payment?",
+            "explanation": "Use this word when asking about card payment.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "card",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "bill / check",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "bill",
+          "targetText": "bill / check",
+          "englishMeaning": "Bill / check",
+          "displayOrder": 5,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase asks for the amount owed after a meal?",
+            "explanation": "Use this when asking for the bill after a meal.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "bill / check",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "I would like …",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "water",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "stableKey": "help",
+      "version": 1,
+      "title": "Getting help",
+      "topic": "HELP",
+      "displayOrder": 5,
+      "phrases": [
+        {
+          "stableKey": "help",
+          "targetText": "help!",
+          "englishMeaning": "Help!",
+          "displayOrder": 1,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which phrase calls for urgent assistance?",
+            "explanation": "Use this to call for urgent help.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "help!",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "doctor",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "hospital",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "doctor",
+          "targetText": "doctor",
+          "englishMeaning": "Doctor",
+          "displayOrder": 2,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies a medical doctor?",
+            "explanation": "Use this word when you need a doctor.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "doctor",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "hospital",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "ambulance",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "hospital",
+          "targetText": "hospital",
+          "englishMeaning": "Hospital",
+          "displayOrder": 3,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies a medical facility?",
+            "explanation": "Use this word when looking for a hospital.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "hospital",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "ambulance",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "police",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "ambulance",
+          "targetText": "ambulance",
+          "englishMeaning": "Ambulance",
+          "displayOrder": 4,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies an emergency medical vehicle?",
+            "explanation": "Use this word when requesting an ambulance.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "ambulance",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "police",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "help!",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        },
+        {
+          "stableKey": "police",
+          "targetText": "police",
+          "englishMeaning": "Police",
+          "displayOrder": 5,
+          "question": {
+            "type": "SITUATION_TO_PHRASE",
+            "prompt": "Which word identifies law-enforcement officers?",
+            "explanation": "Use this word when you need the police.",
+            "explanationLanguage": "en",
+            "options": [
+              {
+                "stableKey": "option-1",
+                "text": "police",
+                "correct": true,
+                "displayOrder": 1
+              },
+              {
+                "stableKey": "option-2",
+                "text": "help!",
+                "correct": false,
+                "displayOrder": 2
+              },
+              {
+                "stableKey": "option-3",
+                "text": "doctor",
+                "correct": false,
+                "displayOrder": 3
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
