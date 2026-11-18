@@ -30,6 +30,54 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  '/users/me/settings':
+    get:
+      tags: [Profile]
+      operationId: getMyAppSettings
+      summary: Get my typed app settings
+      description: Fetch after login/signup. Returns an empty list when unset. Unknown keys are visible only in UAT; other environments expose backend-approved keys only. Does not alter login/signup responses or security settings.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Current user's settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppSettingsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Profile]
+      operationId: updateMyAppSettings
+      summary: Partially update my typed app settings
+      description: New keys auto-create only when server NODE_ENV is exactly uat. All other environments reject unapproved keys/values with SETTINGS.KEY_NOT_APPROVED. Production approved-key registry is initially empty. Preserves omitted keys and existing legacy settings. Maximum 100 stored keys per user; no privacy/auth/notification behavior is controlled by this API.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [settings]
+              properties:
+                settings:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  description: Unique case-sensitive keys; changing a key's type is allowed with a matching value.
+                  items: { $ref: '#/components/schemas/TypedAppSetting' }
+            example:
+              settings:
+                - { key: theme, type: string, value: dark }
+                - { key: autoplayVideos, type: boolean, value: false }
+      responses:
+        '200':
+          description: Full effective settings after merge, sorted by key
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppSettingsResponse' }
+        '400':
+          description: Invalid key, duplicate key, mismatched type/value, SETTINGS.KEY_NOT_APPROVED, or SETTINGS.LIMIT_EXCEEDED
+        '401': { $ref: '#/components/responses/Unauthorized' }
   '/notifications':
     get:
       tags: [Notifications]
@@ -6568,6 +6616,44 @@ components:
         thumbnailUrl: { type: string, nullable: true }
         streamUrl: { type: string, nullable: true }
         playbackUrl: { type: string, nullable: true }
+    TypedAppSetting:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [key, type, value]
+          properties:
+            key: { type: string, minLength: 1, maxLength: 64, pattern: '^[a-zA-Z][a-zA-Z0-9_.-]*$' }
+            type: { type: string, enum: [string] }
+            value: { type: string, maxLength: 2048 }
+        - type: object
+          additionalProperties: false
+          required: [key, type, value]
+          properties:
+            key: { type: string, minLength: 1, maxLength: 64, pattern: '^[a-zA-Z][a-zA-Z0-9_.-]*$' }
+            type: { type: string, enum: [boolean] }
+            value: { type: boolean }
+        - type: object
+          additionalProperties: false
+          required: [key, type, value]
+          properties:
+            key: { type: string, minLength: 1, maxLength: 64, pattern: '^[a-zA-Z][a-zA-Z0-9_.-]*$' }
+            type: { type: string, enum: [number] }
+            value: { type: number }
+    AppSettingsResponse:
+      type: object
+      required: [success, message, data, requestId, timestamp]
+      properties:
+        success: { type: boolean, enum: [true] }
+        message: { type: string }
+        requestId: { type: string, format: uuid, nullable: true }
+        timestamp: { type: string, format: date-time }
+        data:
+          type: object
+          required: [settings]
+          properties:
+            settings:
+              type: array
+              items: { $ref: '#/components/schemas/TypedAppSetting' }
     LinguaSuccessResponse:
       type: object
       required: [success, message, data, requestId, timestamp]
