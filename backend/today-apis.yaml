@@ -10,6 +10,7 @@ servers:
   - url: http://localhost:3001/api/v1
     description: Local development
 tags:
+  - name: Visit Review Administration
   - name: LinguaTrail
   - name: Post Engagement
   - name: Saved Content
@@ -30,6 +31,89 @@ tags:
   - name: Itineraries
   - name: Itinerary Groups
 paths:
+  '/admin/visit-verifications':
+    get:
+      tags: [Visit Review Administration]
+      operationId: listVisitReviewSubmissions
+      summary: List city and place submissions for manual review
+      description: Requires an authenticated VPS user listed in server-only VISIT_REVIEW_ADMIN_USER_IDS. Empty or malformed allowlist denies access. No AWS dashboard token is accepted.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, VERIFIED, REJECTED], default: PENDING } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+        - { name: cursor, in: query, schema: { type: string, maxLength: 1000 } }
+      responses:
+        '200':
+          description: Standard success envelope with data.verifications and data.pagination.hasMore/nextCursor. Each submission includes id, targetType, user, status, location, private evidence URL, review and timestamps. Cursor is ordered by creation time, ID and target type.
+        '400': { description: Invalid filter or cursor }
+        '401': { description: Authentication required }
+        '403': { description: Reviewer is not allowlisted }
+  '/admin/visit-verifications/{targetType}/{verificationId}':
+    parameters:
+      - $ref: '#/components/parameters/VisitReviewTargetType'
+      - $ref: '#/components/parameters/VisitReviewId'
+    get:
+      tags: [Visit Review Administration]
+      operationId: getVisitReviewSubmission
+      summary: Get one submission for review
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Standard envelope with data.verification. Evidence is private and served only through the admin evidence route; storage keys are not exposed. }
+        '400': { description: Invalid identifier }
+        '401': { description: Authentication required }
+        '403': { description: Reviewer is not allowlisted }
+        '404': { description: Submission not found }
+  '/admin/visit-verifications/{targetType}/{verificationId}/evidence':
+    parameters:
+      - $ref: '#/components/parameters/VisitReviewTargetType'
+      - $ref: '#/components/parameters/VisitReviewId'
+    get:
+      tags: [Visit Review Administration]
+      operationId: getVisitReviewEvidence
+      summary: Privately view submitted photo evidence
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Image bytes with private no-store caching, not a JSON envelope or public URL.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '401': { description: Authentication required }
+        '403': { description: Reviewer is not allowlisted }
+        '404': { description: Submission or evidence not found }
+        '503': { description: Evidence storage temporarily unavailable }
+  '/admin/visit-verifications/{targetType}/{verificationId}/review':
+    parameters:
+      - $ref: '#/components/parameters/VisitReviewTargetType'
+      - $ref: '#/components/parameters/VisitReviewId'
+    post:
+      tags: [Visit Review Administration]
+      operationId: reviewVisitVerification
+      summary: Approve or reject a pending city or place visit
+      description: Transactional audited decision. VERIFIED approves and verifies the city collection without automatically selecting it for the profile. Existing profile preference API and five-city limit remain. evidenceAssetId must match the displayed evidence; stale evidence conflicts. Same decision/evidence is idempotent, opposite decision conflicts. A configured active public icon is required; optional iconAssetId is an existing public image owned by the reviewer and applies to this collection only. Self-review and overriding automatic verification are forbidden. New photo evidence can be resubmitted after rejection. No push/socket event is introduced.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [decision, evidenceAssetId]
+              properties:
+                decision: { type: string, enum: [VERIFIED, REJECTED] }
+                evidenceAssetId: { type: string, format: uuid }
+                reason: { type: string, minLength: 1, maxLength: 1000, description: Required for rejection }
+                iconAssetId: { type: string, format: uuid, description: Optional on approval only }
+      responses:
+        '200':
+          description: Standard success envelope with data.updated, data.decision and data.reviewId. False updated means an idempotent retry.
+        '400': { description: Invalid decision/body or missing rejection reason }
+        '401': { description: Authentication required }
+        '403': { description: Reviewer is not allowlisted or attempts self-review }
+        '404': { description: Submission not found or city is a place-evidence container }
+        '409': { description: VISIT_REVIEW.STALE_EVIDENCE, ALREADY_REVIEWED, EVIDENCE_UNAVAILABLE or ICON_REQUIRED. No partial writes. }
   '/users/me/settings':
     get:
       tags: [Profile]
@@ -4718,9 +4802,9 @@ paths:
   /users/me/visited-place-verifications:
     get:
       tags: [Visited Places]
-      summary: List my pending and verified visit verifications
+      summary: List my pending, verified and rejected visit verifications
       operationId: getMyVisitedPlaceVerifications
-      description: Lists owned city and place submissions. Rejected submissions are excluded.
+      description: Manual decisions are reflected as VERIFIED or REJECTED for both cities and places. Reviewed submissions include review.decision, review.reason and review.reviewedAt. Approval does not auto-select a profile badge; use the existing collection preference API.
       security:
         - bearerAuth: []
       parameters:
@@ -6289,6 +6373,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    VisitReviewTargetType:
+      name: targetType
+      in: path
+      required: true
+      schema: { type: string, enum: [CITY, PLACE] }
+    VisitReviewId:
+      name: verificationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     LinguaLanguageId:
       name: languageId
       in: path

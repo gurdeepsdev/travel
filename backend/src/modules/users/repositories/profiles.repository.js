@@ -841,7 +841,7 @@ cover_photo.original_width
           LEFT JOIN media.assets
             AS icon_asset
             ON icon_asset.id =
-              city.icon_asset_id
+              COALESCE((user_collection.review_details->'review'->>'iconAssetId')::uuid, city.icon_asset_id)
 
            AND icon_asset.deleted_at
              IS NULL

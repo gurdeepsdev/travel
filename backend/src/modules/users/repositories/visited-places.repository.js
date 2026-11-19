@@ -66,7 +66,8 @@ class VisitedPlacesRepository {
         WHERE visited_place.user_id = $1::uuid
           AND visited_place.verification_status IN (
             'PENDING',
-            'VERIFIED'
+            'VERIFIED',
+            'REJECTED'
           )
 
         UNION ALL
@@ -77,9 +78,9 @@ class VisitedPlacesRepository {
           CASE
             WHEN user_collection.verification_status IS TRUE
               THEN 'VERIFIED'
-            ELSE 'PENDING'
+            ELSE user_collection.review_status
           END::varchar AS verification_status,
-          '{}'::jsonb AS verification_details,
+          user_collection.review_details AS verification_details,
           user_collection.created_at,
           user_collection.updated_at,
           city.id AS location_id,
@@ -179,9 +180,9 @@ class VisitedPlacesRepository {
         CASE
           WHEN user_collection.verification_status IS TRUE
             THEN 'VERIFIED'
-          ELSE 'PENDING'
+          ELSE user_collection.review_status
         END::varchar AS verification_status,
-        '{}'::jsonb AS verification_details,
+        user_collection.review_details AS verification_details,
         user_collection.created_at,
         user_collection.updated_at,
         city.id AS location_id,
@@ -1229,7 +1230,8 @@ class VisitedPlacesRepository {
           user_collection.visited_at,
           user_collection.is_preference,
           user_collection.created_at,
-          user_collection.updated_at
+          user_collection.updated_at,
+          user_collection.review_details
       )
 
       SELECT
@@ -1247,7 +1249,7 @@ class VisitedPlacesRepository {
         country.name
           AS country_name,
 
-        city.icon_asset_id,
+        icon_asset.id AS icon_asset_id,
 
         icon_asset.storage_provider
           AS icon_storage_provider,
@@ -1279,7 +1281,7 @@ class VisitedPlacesRepository {
       LEFT JOIN media.assets
         AS icon_asset
         ON icon_asset.id =
-          city.icon_asset_id
+          COALESCE((updated_collection.review_details->'review'->>'iconAssetId')::uuid, city.icon_asset_id)
 
        AND icon_asset.deleted_at
          IS NULL
@@ -1403,7 +1405,7 @@ class VisitedPlacesRepository {
         country.name
           AS country_name,
 
-        city.icon_asset_id,
+        icon_asset.id AS icon_asset_id,
 
         icon_asset.storage_provider
           AS icon_storage_provider,
@@ -1452,7 +1454,7 @@ class VisitedPlacesRepository {
       LEFT JOIN media.assets
         AS icon_asset
         ON icon_asset.id =
-          city.icon_asset_id
+          COALESCE((user_collection.review_details->'review'->>'iconAssetId')::uuid, city.icon_asset_id)
 
        AND icon_asset.deleted_at
          IS NULL
