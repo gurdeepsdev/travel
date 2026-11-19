@@ -143,6 +143,7 @@ class SessionsRepository extends BaseRepository {
             SELECT *
             FROM ${this.fullTableName}
             WHERE user_id = $1
+              AND expires_at > (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
             ORDER BY created_at DESC
         `;
     
