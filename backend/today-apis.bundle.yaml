@@ -6540,7 +6540,16 @@ paths:
                             status: { type: string, enum: [PENDING, VERIFIED] }
                             method: { type: string, nullable: true }
                             uploadSource: { type: string, enum: [CAMERA, GALLERY], nullable: true }
-                            location: { type: object }
+                            location:
+                              type: object
+                              description: Coordinates belong to the attraction for PLACE submissions or to the city for CITY submissions. Missing coordinates are null.
+                              properties:
+                                id: { type: string, format: uuid }
+                                name: { type: string, nullable: true }
+                                latitude: { type: number, format: double, nullable: true }
+                                longitude: { type: number, format: double, nullable: true }
+                                city: { type: object }
+                                country: { type: object }
                             evidence: { type: object }
                             createdAt: { type: string, format: date-time }
                             updatedAt: { type: string, format: date-time }
@@ -6900,7 +6909,16 @@ paths:
                           status: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
                           method: { type: string, nullable: true }
                           uploadSource: { type: string, nullable: true, enum: [CAMERA, GALLERY] }
-                          location: { type: object }
+                          location:
+                            type: object
+                            description: Coordinates belong to the attraction for PLACE submissions or to the city for CITY submissions. Missing coordinates are null.
+                            properties:
+                              id: { type: string, format: uuid }
+                              name: { type: string, nullable: true }
+                              latitude: { type: number, format: double, nullable: true }
+                              longitude: { type: number, format: double, nullable: true }
+                              city: { type: object }
+                              country: { type: object }
                           evidence:
                             type: object
                             properties:

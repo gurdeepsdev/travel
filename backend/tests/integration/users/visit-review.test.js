@@ -46,7 +46,7 @@ async function profileCollections(){
       CREATE TABLE users.profiles(user_id uuid,username text,display_name text);
       CREATE TABLE media.assets(id uuid PRIMARY KEY,uploaded_by uuid,mime_type text,is_public boolean,deleted_at timestamptz,storage_provider text DEFAULT 'local',storage_key text,original_filename text,extension text,file_size bigint,bucket text);
       CREATE TABLE poi.countries(id uuid PRIMARY KEY,name text);
-      CREATE TABLE poi.cities(id uuid PRIMARY KEY,name text,official_name text,country_id uuid,icon_asset_id uuid,is_active boolean DEFAULT true);
+      CREATE TABLE poi.cities(id uuid PRIMARY KEY,name text,official_name text,country_id uuid,icon_asset_id uuid,is_active boolean DEFAULT true,latitude float8,longitude float8);
       CREATE TABLE poi.places(id uuid PRIMARY KEY,name text,city_id uuid,country_id uuid,latitude float8,longitude float8,media_id uuid);
       CREATE TABLE users.collection(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,city_id uuid,collections_name text,icon_asset_id uuid,verification_asset_id uuid,verification_status boolean DEFAULT false,is_preference boolean DEFAULT false,visited_at timestamptz DEFAULT now(),created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),UNIQUE(user_id,city_id));
       CREATE TABLE users.visited_places(id uuid PRIMARY KEY,user_id uuid,place_id uuid,collections_id uuid,verification_asset_id uuid,verification_status text,verification_details jsonb DEFAULT '{}',created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now(),visited_at timestamptz DEFAULT now(),visit_source text);`);
@@ -90,6 +90,27 @@ async function profileCollections(){
     const userDetail=await userRepo.findVerificationById({userId:user,verificationId:submission});expect(mapper.toVerificationDetail(userDetail)).toMatchObject({status:'VERIFIED',review:{decision:'VERIFIED'}});
     const preference=await userRepo.updateCollectionPreference({userId:user,collectionId:submission,isPreference:true});expect(preference.is_preference).toBe(true);
     expect((await profileCollections())[0].icon.id).toBe(icon);
+  });
+  test('user verification list and detail expose the correct city or place coordinates',async()=>{
+    await pool.query('UPDATE poi.cities SET latitude=28.5355,longitude=77.3910 WHERE id=$1',[city]);
+    await pool.query('UPDATE poi.places SET latitude=28.5001,longitude=77.4002 WHERE id=$1',[place]);
+    const placeVisit=await addPlace();
+    const list=await userRepo.listVerifications({userId:user});
+    const cityEntry=mapper.toVerificationDetail(list.rows.find(r=>r.target_type==='CITY'));
+    const placeEntry=mapper.toVerificationDetail(list.rows.find(r=>r.target_type==='PLACE'));
+    expect(cityEntry.location).toMatchObject({latitude:28.5355,longitude:77.391});
+    expect(placeEntry.location).toMatchObject({latitude:28.5001,longitude:77.4002});
+    for(const [id,expected] of [[submission,cityEntry.location],[placeVisit,placeEntry.location]]){
+      const detail=await userRepo.findVerificationById({userId:user,verificationId:id});
+      expect(mapper.toVerificationDetail(detail).location).toEqual(expected);
+      expect(await userRepo.findVerificationById({userId:admin,verificationId:id})).toBeNull();
+    }
+    await pool.query('UPDATE poi.cities SET latitude=NULL,longitude=NULL');
+    await pool.query('UPDATE poi.places SET latitude=0,longitude=0');
+    const nullCity=await userRepo.findVerificationById({userId:user,verificationId:submission});
+    const zeroPlace=await userRepo.findVerificationById({userId:user,verificationId:placeVisit});
+    expect(mapper.toVerificationDetail(nullCity).location).toMatchObject({latitude:null,longitude:null});
+    expect(mapper.toVerificationDetail(zeroPlace).location).toMatchObject({latitude:0,longitude:0});
   });
   test('CITY rejection is visible to its user and new evidence resets to pending without losing audit history',async()=>{
     expect((await api('post',`/CITY/${submission}/review`,review('REJECTED',{reason:'Not enough evidence'}))).status).toBe(200);

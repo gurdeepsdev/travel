@@ -52,6 +52,8 @@ class VisitedPlacesMapper {
           row.location_id,
         name:
           row.location_name ?? null,
+        latitude: row.location_latitude == null ? null : Number(row.location_latitude),
+        longitude: row.location_longitude == null ? null : Number(row.location_longitude),
         city: {
           id:
             row.city_id,
