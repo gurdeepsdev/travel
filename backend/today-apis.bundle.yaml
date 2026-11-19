@@ -30,7 +30,147 @@ tags:
   - name: Explore
   - name: Itineraries
   - name: Itinerary Groups
+  - name: Visited City Itineraries
 paths:
+  '/users/me/visited-cities/{cityId}/itinerary-draft':
+    parameters:
+      - { name: cityId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Visited City Itineraries]
+      operationId: getVisitedCityItineraryDraft
+      summary: Read my saved attractions and metadata for an approved city
+      description: Requires this city to be active and verified for the authenticated user. Returns data.draft=null before the first write. Drafts do not create an itinerary. One draft per user/city; completed drafts are immutable. Private, no-store.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Draft or null
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitedCityDraftResponse' }
+        '400': { description: Invalid city UUID }
+        '401': { description: Authentication required }
+        '403': { description: City not verified for this user or inactive }
+    patch:
+      tags: [Visited City Itineraries]
+      operationId: updateVisitedCityItineraryDraft
+      summary: Create or partially update my draft travel metadata
+      description: At least one field is required. Does not generate an itinerary. Future visit month/year is rejected. Existing values omitted from the request are preserved.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VisitedCityDraftMetadata' }
+            example: { year: 2020, month: 5, tripType: FAMILY, title: My Agra trip }
+      responses:
+        '200':
+          description: Saved draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitedCityDraftResponse' }
+        '400': { description: Invalid metadata or future visit }
+        '401': { description: Authentication required }
+        '403': { description: City not verified for this user or inactive }
+        '409': { description: Draft already completed }
+  '/users/me/visited-cities/{cityId}/itinerary-draft/attractions':
+    parameters:
+      - { name: cityId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Visited City Itineraries]
+      operationId: addVisitedCityAttraction
+      summary: Add an attraction to my draft without generating an itinerary
+      description: Provide an existing VPS POI UUID in placeId, or a manually entered name with optional description/address/coordinates. POIs must be active and in this city; their current details are copied. Manual attractions are self-reported, not separately verified. Append order determines days. Maximum 200 attractions; duplicate non-null placeId rejected. Both coordinates or neither.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VisitedCityAttractionInput' }
+            example: { name: Taj Mahal, description: Visited with family }
+      responses:
+        '200':
+          description: Updated draft including generated attraction IDs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitedCityDraftResponse' }
+        '400': { description: Invalid attraction fields }
+        '401': { description: Authentication required }
+        '403': { description: City not verified for this user or inactive }
+        '404': { description: POI not found, inactive or belongs to another city }
+        '409': { description: Duplicate POI, 200-attraction limit or completed draft }
+  '/users/me/visited-cities/{cityId}/itinerary-draft/attractions/{attractionId}':
+    parameters:
+      - { name: cityId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: attractionId, in: path, required: true, schema: { type: string, format: uuid }, description: Attraction ID returned by the draft API, not the POI ID }
+    patch:
+      tags: [Visited City Itineraries]
+      operationId: updateVisitedCityAttraction
+      summary: Edit, replace or reorder an attraction in my draft
+      description: At least one field required. position is one-based and cannot exceed the current count. Other attractions retain their relative order. Setting placeId resolves the POI in this city; null converts the existing snapshot to a manual attraction. Completed drafts cannot change.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - { $ref: '#/components/schemas/VisitedCityAttractionInput' }
+                - type: object
+                  properties:
+                    position: { type: integer, minimum: 1, maximum: 200 }
+            example: { name: Agra Fort, position: 1 }
+      responses:
+        '200':
+          description: Updated draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitedCityDraftResponse' }
+        '400': { description: Invalid fields or position }
+        '401': { description: Authentication required }
+        '403': { description: City not verified for this user or inactive }
+        '404': { description: Own draft attraction or valid city POI not found }
+        '409': { description: Duplicate POI or completed draft }
+    delete:
+      tags: [Visited City Itineraries]
+      operationId: deleteVisitedCityAttraction
+      summary: Remove an attraction from my draft
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Updated draft with remaining attractions renumbered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitedCityDraftResponse' }
+        '400': { description: Invalid identifier }
+        '401': { description: Authentication required }
+        '403': { description: City not verified for this user or inactive }
+        '404': { description: Own draft attraction not found }
+        '409': { description: Draft already completed }
+  '/users/me/visited-cities/{cityId}/itinerary-draft/complete':
+    parameters:
+      - { name: cityId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Visited City Itineraries]
+      operationId: completeVisitedCityItinerary
+      summary: Move my saved attractions to a completed historical itinerary
+      description: Requires at least one attraction and year, month and tripType (previously saved or supplied now). Splits in saved order into up to four attractions per day, e.g. five becomes 4+1. Saves a private non-AI itinerary and COMPLETED personal state atomically. No exact travel dates are invented. The existing itinerary APIs can read the returned itineraryId. Repeated/concurrent calls return the same itinerary with created=false; supplied changes on a retry are ignored. Completed draft is immutable. If its itinerary was deleted, returns 409 instead of regenerating.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VisitedCityDraftMetadata' }
+            example: { year: 2020, month: 5, tripType: FAMILY }
+      responses:
+        '200':
+          description: Standard success envelope. data contains draft, itinerary (same fields as existing saved itinerary response), and created boolean.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VisitedCityCompletedResponse' }
+        '400': { description: Missing or invalid metadata, future month/year }
+        '401': { description: Authentication required }
+        '403': { description: City not verified for this user or inactive }
+        '409': { description: Empty draft or completed itinerary unavailable }
   '/admin/visit-verifications':
     get:
       tags: [Visit Review Administration]
@@ -8116,6 +8256,82 @@ components:
             requestId: 1e573acd-0633-4c84-b478-634055f390bb
             timestamp: '2026-08-17T05:33:44.704Z'
   schemas:
+    VisitedCityDraftMetadata:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 255 }
+        year: { type: integer, minimum: 1900, maximum: 9999 }
+        month: { type: integer, minimum: 1, maximum: 12 }
+        tripType: { type: string, enum: [FAMILY, FRIENDS, SOLO, COUPLE, OTHER] }
+    VisitedCityAttractionInput:
+      type: object
+      properties:
+        placeId: { type: string, format: uuid, nullable: true }
+        name: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, nullable: true, maxLength: 1000 }
+        address: { type: string, nullable: true, maxLength: 500 }
+        latitude: { type: number, nullable: true, minimum: -90, maximum: 90 }
+        longitude: { type: number, nullable: true, minimum: -180, maximum: 180 }
+    VisitedCityDraft:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string, format: uuid }
+        cityId: { type: string, format: uuid }
+        status: { type: string, enum: [DRAFT, COMPLETED] }
+        title: { type: string, nullable: true }
+        year: { type: integer, nullable: true }
+        month: { type: integer, nullable: true }
+        tripType: { type: string, nullable: true }
+        itineraryId: { type: string, format: uuid, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        attractions:
+          type: array
+          maxItems: 200
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/VisitedCityAttractionInput' }
+              - type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  position: { type: integer, minimum: 1, maximum: 200 }
+    VisitedCityDraftResponse:
+      allOf:
+        - { $ref: '#/components/schemas/SuccessBase' }
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                draft: { $ref: '#/components/schemas/VisitedCityDraft' }
+    VisitedCityCompletedResponse:
+      allOf:
+        - { $ref: '#/components/schemas/VisitedCityDraftResponse' }
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                created: { type: boolean }
+                itinerary:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    ownerId: { type: string, format: uuid }
+                    createdBy: { type: string, format: uuid }
+                    title: { type: string }
+                    durationDays: { type: integer }
+                    visibility: { type: string, enum: [private] }
+                    tripStatus: { type: string, enum: [completed] }
+                    aiGenerated: { type: boolean, enum: [false] }
+                    itineraryJson:
+                      type: object
+                      description: "Existing itinerary JSON format: request_id, status=success, mode=past, source=visited_city, city_id, city_name, title, visit_year, visit_month, trip_type, summary.num_days/total_places/primary_place_name, days[].day/items[]. Each item includes item_type (poi or custom), place_id (UUID or null), name, description, address, latitude, longitude, status=completed and source_attraction_id. Exact travel dates are not inferred."
+                    createdAt: { type: string, format: date-time }
+                    updatedAt: { type: string, format: date-time }
     AppNotification:
       type: object
       required: [id, type, category, priority, actorId, title, body, target, readAt, createdAt]
