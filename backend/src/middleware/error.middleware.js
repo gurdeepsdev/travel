@@ -27,6 +27,15 @@ export default function errorMiddleware(error, req, res, next) {
     return next(error);
   }
 
+  if (error.type === "entity.too.large" && error.status === HttpStatus.PAYLOAD_TOO_LARGE) {
+    return Response.error(res, {
+      statusCode: HttpStatus.PAYLOAD_TOO_LARGE,
+      code: ErrorCodes.COMMON.PAYLOAD_TOO_LARGE,
+      message: "Request body exceeds the allowed size limit.",
+      details: null,
+    });
+  }
+
   if (error instanceof SyntaxError && error.type === "entity.parse.failed" && error.status === HttpStatus.BAD_REQUEST) {
     return Response.error(res, {
       statusCode: HttpStatus.BAD_REQUEST,
