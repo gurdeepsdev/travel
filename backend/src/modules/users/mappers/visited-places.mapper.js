@@ -40,6 +40,7 @@ class VisitedPlacesMapper {
         row.target_type,
       status:
         row.verification_status,
+      ...(details.review ? { review: details.review } : {}),
       method:
         details.verificationMethod ??
         null,

@@ -9,6 +9,7 @@ import testRoutes from "./test.routes.js";
 import authRoutes from "../modules/auth/auth.routes.js";
 import usersRoutes from "../modules/users/users.routes.js";
 import userSettingsRoutes from "../modules/users/settings/user-settings.routes.js";
+import visitReviewRoutes from "../modules/users/visit-review/visit-review.routes.js";
 import postsRoutes from "../modules/posts/posts.routes.js";
 import commentsRoutes from "../modules/posts/comments.routes.js";
 import mediaRoutes from "../modules/media/media.routes.js";
@@ -22,6 +23,7 @@ import linguaRoutes
   from "../modules/lingua/lingua.routes.js";
 
 const router = Router();
+router.use("/admin/visit-verifications", visitReviewRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/chat", chatRoutes);
 router.use("/", communityRoutes);
