@@ -7,7 +7,10 @@ const metadata = {
   tripType: z.enum(['FAMILY','FRIENDS','SOLO','COUPLE','OTHER']),
 };
 const attractionFields = {
-  placeId: z.string().uuid().nullable(),
+  placeId: z.union([
+    z.string().uuid(),
+    z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{19,254}$/, 'Provide a VPS POI UUID or Google Places ID.'),
+  ]).nullable(),
   name: z.string().trim().min(1).max(255),
   description: z.string().trim().max(1000).nullable(),
   address: z.string().trim().max(500).nullable(),

@@ -2,6 +2,9 @@ import {randomUUID} from 'node:crypto';
 import Database from '../../../database/database-manager.js';
 import Itineraries from '../itinerary.repository.js';
 import AppError from '../../../core/errors/app-error.js';
+import {resolveGoogleAttraction} from './visited-city-google.service.js';
+
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function fail(code,message,statusCode=409){throw new AppError({code:`VISITED_ITINERARY.${code}`,message,statusCode});}
 const mapItinerary = r => ({id:r.id,ownerId:r.created_by,createdBy:r.created_by,title:r.title,
@@ -34,9 +37,11 @@ function applyMetadata(draft,input){
 async function resolveAttraction(client,cityId,input,existing={}){
   let data={...existing,...input};delete data.position;
   if(input.placeId){
-    const place=(await client.query('SELECT id,name,description,address,latitude,longitude FROM poi.places WHERE id=$1 AND city_id=$2 AND is_active=true FOR SHARE',[input.placeId,cityId])).rows[0];
-    if(!place)fail('PLACE_NOT_FOUND','Select an active attraction in this city.',404);
-    data={...data,placeId:place.id,name:place.name,description:place.description,address:place.address,latitude:place.latitude,longitude:place.longitude};
+    if(UUID.test(input.placeId)){
+      const place=(await client.query('SELECT id,name,description,address,latitude,longitude FROM poi.places WHERE id=$1 AND city_id=$2 AND is_active=true FOR SHARE',[input.placeId,cityId])).rows[0];
+      if(!place)fail('PLACE_NOT_FOUND','Select an active attraction in this city.',404);
+      data={...data,placeId:place.id,name:place.name,description:place.description,address:place.address,latitude:place.latitude,longitude:place.longitude};
+    }else data={...data,...await resolveGoogleAttraction(client,cityId,input.placeId)};
   }
   if(!data.name)fail('ATTRACTION_INVALID','Attraction name is required.',400);
   if((data.latitude==null)!==(data.longitude==null))fail('ATTRACTION_INVALID','Provide both latitude and longitude.',400);
@@ -62,7 +67,9 @@ class VisitedCityRepository {
       if(action==='add'){
         if(draft.attractions.length>=200)fail('ATTRACTION_LIMIT','A draft can contain at most 200 attractions.');
         if(input.placeId&&draft.attractions.some(a=>a.placeId===input.placeId))fail('DUPLICATE_ATTRACTION','This attraction is already in your draft.');
-        draft.attractions.push(await resolveAttraction(client,cityId,input));
+        const attraction=await resolveAttraction(client,cityId,input);
+        if(attraction.placeId&&draft.attractions.some(a=>a.placeId===attraction.placeId))fail('DUPLICATE_ATTRACTION','This attraction is already in your draft.');
+        draft.attractions.push(attraction);
       }
       if(action==='update'||action==='delete'){
         const index=draft.attractions.findIndex(a=>a.id===attractionId);
@@ -71,6 +78,7 @@ class VisitedCityRepository {
         else{
           if(input.placeId&&draft.attractions.some((a,i)=>i!==index&&a.placeId===input.placeId))fail('DUPLICATE_ATTRACTION','This attraction is already in your draft.');
           const attraction=await resolveAttraction(client,cityId,input,draft.attractions[index]);
+          if(attraction.placeId&&draft.attractions.some((a,i)=>i!==index&&a.placeId===attraction.placeId))fail('DUPLICATE_ATTRACTION','This attraction is already in your draft.');
           if(input.position>draft.attractions.length)fail('POSITION_INVALID','Position exceeds the attraction count.',400);
           draft.attractions.splice(index,1);draft.attractions.splice((input.position??index+1)-1,0,attraction);
         }

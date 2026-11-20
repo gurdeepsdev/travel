@@ -79,14 +79,19 @@ paths:
       tags: [Visited City Itineraries]
       operationId: addVisitedCityAttraction
       summary: Add an attraction to my draft without generating an itinerary
-      description: Provide an existing VPS POI UUID in placeId, or a manually entered name with optional description/address/coordinates. POIs must be active and in this city; their current details are copied. Manual attractions are self-reported, not separately verified. Append order determines days. Maximum 200 attractions; duplicate non-null placeId rejected. Both coordinates or neither.
+      description: Provide a VPS POI UUID or Google Places ID in placeId, or a manually entered name with optional description/address/coordinates. Google IDs are resolved server-side using English place details; country code and a city address component must match the approved city name or official name. Missing or mismatched Google city information is rejected. Google results supply canonical name, address and coordinates; no global POI or city records are created. VPS POIs must be active and in this city. Manual attractions are self-reported, not separately verified. Append order determines days. Maximum 200 attractions; duplicate canonical non-null placeId rejected. Both coordinates or neither for manual entries.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: '#/components/schemas/VisitedCityAttractionInput' }
-            example: { name: Taj Mahal, description: Visited with family }
+            examples:
+              googlePlace:
+                summary: Google Places ID from frontend search
+                value: { placeId: ChIJGoogleAttractionId1234567 }
+              manual:
+                value: { name: Taj Mahal, description: Visited with family }
       responses:
         '200':
           description: Updated draft including generated attraction IDs
@@ -96,7 +101,9 @@ paths:
         '400': { description: Invalid attraction fields }
         '401': { description: Authentication required }
         '403': { description: City not verified for this user or inactive }
-        '404': { description: POI not found, inactive or belongs to another city }
+        '404': { description: VPS POI not found, inactive or belongs to another city; or Google attraction missing, invalid or permanently closed }
+        '422': { description: Google country/city does not match this approved city or Google city information is missing }
+        '503': { description: Google lookup not configured, timed out or temporarily unavailable }
         '409': { description: Duplicate POI, 200-attraction limit or completed draft }
   '/users/me/visited-cities/{cityId}/itinerary-draft/attractions/{attractionId}':
     parameters:
@@ -106,7 +113,7 @@ paths:
       tags: [Visited City Itineraries]
       operationId: updateVisitedCityAttraction
       summary: Edit, replace or reorder an attraction in my draft
-      description: At least one field required. position is one-based and cannot exceed the current count. Other attractions retain their relative order. Setting placeId resolves the POI in this city; null converts the existing snapshot to a manual attraction. Completed drafts cannot change.
+      description: At least one field required. position is one-based and cannot exceed the current count. Other attractions retain their relative order. Setting placeId resolves a VPS POI UUID or Google Places ID in this approved city; null converts the existing snapshot to a manual attraction. Google lookup uses the same city/country checks as adding an attraction. Completed drafts cannot change.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -129,6 +136,8 @@ paths:
         '401': { description: Authentication required }
         '403': { description: City not verified for this user or inactive }
         '404': { description: Own draft attraction or valid city POI not found }
+        '422': { description: Google attraction country/city mismatch or missing city information }
+        '503': { description: Google lookup not configured or temporarily unavailable }
         '409': { description: Duplicate POI or completed draft }
     delete:
       tags: [Visited City Itineraries]
@@ -8285,7 +8294,11 @@ components:
     VisitedCityAttractionInput:
       type: object
       properties:
-        placeId: { type: string, format: uuid, nullable: true }
+        placeId:
+          type: string
+          nullable: true
+          maxLength: 255
+          description: VPS POI UUID or Google Places ID (20-255 URL-safe alphanumeric, underscore or hyphen characters, starting with an alphanumeric character). Google name/address/coordinates are looked up server-side. Null clears the reference when editing; omit for a manual attraction with name.
         name: { type: string, minLength: 1, maxLength: 255 }
         description: { type: string, nullable: true, maxLength: 1000 }
         address: { type: string, nullable: true, maxLength: 500 }

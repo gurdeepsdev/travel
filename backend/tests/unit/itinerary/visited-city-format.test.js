@@ -19,6 +19,15 @@ test('validation rejects injected ownership and malformed field types',()=>{
   expect(metadataSchema.safeParse({params,body:{year:'2020'}}).success).toBe(false);
   expect(completeSchema.safeParse({params}).success).toBe(true);
 });
+test('attraction validation accepts Google IDs or UUIDs but not URLs, empty or oversized identifiers',()=>{
+  const params={cityId,attractionId:randomUUID()};
+  for(const placeId of ['ChIJGoogleAttractionId1234567',randomUUID()]){
+    expect(addSchema.safeParse({params,body:{placeId}}).success).toBe(true);
+    expect(updateSchema.safeParse({params,body:{placeId}}).success).toBe(true);
+  }
+  for(const placeId of ['', 'short', 'https://maps.google.com/places/123', 'x'.repeat(256)])
+    expect(addSchema.safeParse({params,body:{placeId}}).success).toBe(false);
+});
 test.each(['today-apis.yaml','today-apis.bundle.yaml'])('%s documents all six operations and resolves their schema refs',file=>{
   const doc=yaml.load(readFileSync(new URL('../../../'+file,import.meta.url),'utf8'));
   const paths=Object.entries(doc.paths).filter(([path])=>path.includes('/visited-cities/'));

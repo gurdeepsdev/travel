@@ -5,7 +5,7 @@ All endpoints use the current user's Bearer token. Prefix:
 
 - `GET /`: read draft; returns `data.draft: null` before the first write.
 - `PATCH /`: upsert optional `title`, `year`, `month`, `tripType` metadata. At least one field is required.
-- `POST /attractions`: append `{placeId: "<VPS POI UUID>"}` or `{name: "Taj Mahal", description: "..."}`.
+- `POST /attractions`: append `{placeId: "<VPS POI UUID or Google Places ID>"}` or `{name: "Taj Mahal", description: "..."}`.
 - `PATCH /attractions/{attractionId}`: edit fields, replace with another city POI, or reorder with one-based `position`.
 - `DELETE /attractions/{attractionId}`: delete only this user's draft attraction.
 - `POST /complete`: generate once; optional metadata body merges with saved metadata.
@@ -27,7 +27,14 @@ Existing itinerary APIs remain available for the generated itinerary.
 City must be active and verified in this user's collection on every request.
 Only the city is verified: manually entered attractions are self-reported, not
 evidence-backed visits. POI UUIDs must reference active places in that city.
-No Google ID resolution or writes to global POIs are performed by these endpoints.
+Google IDs in `placeId` are resolved server-side using `GOOGLE_PLACES_API_KEY`.
+The returned country code and city address component must match the draft city's
+country and name/official name; unresolved or mismatched city information returns
+422. Closed/invalid attractions return 404; missing credentials/provider failures
+return 503 without exposing Google request headers. No global POIs are written.
+Google canonical details replace client-supplied text/coordinates. Duplicate
+canonical IDs are rejected, including aliases returned by Google. External
+attractions keep their canonical Google ID in the draft and generated JSON.
 POI details are copied when added/replaced; no travel/photo proof is fabricated.
 
 Attractions accept `placeId`, `name`, `description` (max 1000), `address` (max 500),

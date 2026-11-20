@@ -8,6 +8,13 @@ import {userInfo} from 'node:os';
 import {randomUUID} from 'node:crypto';
 
 let directory,pool,user,other,city,foreignCity,place,failSave=false;
+const googleGet=jest.fn();
+const originalGoogleKey=process.env.GOOGLE_PLACES_API_KEY;
+const googleId='ChIJGoogleAttractionId1234567';
+function googlePlace(overrides={}){return {id:googleId,types:['tourist_attraction','point_of_interest'],displayName:{text:'Taj Mahal'},
+  formattedAddress:'Agra, Uttar Pradesh, India',addressComponents:[{longText:'Agra',shortText:'Agra',types:['locality']},
+    {longText:'India',shortText:'IN',types:['country']}],location:{latitude:27.1751,longitude:78.0421},...overrides};}
+jest.unstable_mockModule('axios',()=>({default:{get:googleGet}}));
 const db={query:(...args)=>pool.query(...args),transaction:async fn=>{
   const c=await pool.connect();try{
     await c.query('BEGIN');const value=await fn({query:(sql,args)=>{
@@ -40,7 +47,8 @@ async function rows(table){return (await pool.query('SELECT * FROM '+table)).row
     pool=new pg.Pool({host:directory,user:userInfo().username,database:'postgres'});
     await pool.query(`CREATE SCHEMA auth;CREATE SCHEMA media;CREATE SCHEMA poi;CREATE SCHEMA users;CREATE SCHEMA itinerary;CREATE SCHEMA groups;
       CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE media.assets(id uuid PRIMARY KEY);
-      CREATE TABLE poi.cities(id uuid PRIMARY KEY,name text,is_active boolean DEFAULT true);
+      CREATE TABLE poi.countries(id uuid PRIMARY KEY,code text);
+      CREATE TABLE poi.cities(id uuid PRIMARY KEY,name text,official_name text,country_id uuid REFERENCES poi.countries(id),is_active boolean DEFAULT true);
       CREATE TABLE poi.places(id uuid PRIMARY KEY,city_id uuid,name text,description text,address text,latitude float8,longitude float8,is_active boolean DEFAULT true);
       CREATE TABLE users.collection(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid,city_id uuid,verification_status boolean DEFAULT false,UNIQUE(user_id,city_id));
       CREATE TABLE groups.groups(id uuid PRIMARY KEY,itinerary_id uuid,status text,deleted_at timestamptz);
@@ -51,13 +59,15 @@ async function rows(table){return (await pool.query('SELECT * FROM '+table)).row
     await pool.query(migration.slice(migration.indexOf('CREATE FUNCTION itinerary.initialize_owner_state()'),migration.indexOf('CREATE FUNCTION itinerary.sync_group_personal_states')));
     await pool.query(readFileSync(new URL('../../../src/database/migrations/096_visited_city_itinerary_drafts.sql',import.meta.url),'utf8'));
   },30000);
-  afterAll(async()=>{await pool?.end();if(directory){try{execFileSync('pg_ctl',['-D',directory+'/data','-m','fast','-w','stop'],{stdio:'pipe'});}finally{rmSync(directory,{recursive:true,force:true});}}});
+  afterAll(async()=>{if(originalGoogleKey===undefined)delete process.env.GOOGLE_PLACES_API_KEY;else process.env.GOOGLE_PLACES_API_KEY=originalGoogleKey;await pool?.end();if(directory){try{execFileSync('pg_ctl',['-D',directory+'/data','-m','fast','-w','stop'],{stdio:'pipe'});}finally{rmSync(directory,{recursive:true,force:true});}}});
   beforeEach(async()=>{
     failSave=false;
-    await pool.query('TRUNCATE itinerary.visited_city_drafts,itinerary.user_itinerary_states,itinerary.itineraries,users.collection,poi.places,poi.cities,auth.users CASCADE');
+    googleGet.mockReset();googleGet.mockResolvedValue({data:googlePlace()});process.env.GOOGLE_PLACES_API_KEY='test-google-key-not-real';
+    await pool.query('TRUNCATE itinerary.visited_city_drafts,itinerary.user_itinerary_states,itinerary.itineraries,users.collection,poi.places,poi.cities,poi.countries,auth.users CASCADE');
     [user,other,city,foreignCity,place]=Array.from({length:5},randomUUID);
     await pool.query('INSERT INTO auth.users VALUES($1),($2)',[user,other]);
-    await pool.query("INSERT INTO poi.cities(id,name) VALUES($1,'Agra'),($2,'Delhi')",[city,foreignCity]);
+    await pool.query("INSERT INTO poi.countries(id,code) VALUES($1,'IN')",[city]);
+    await pool.query("INSERT INTO poi.cities(id,name,country_id) VALUES($1,'Agra',$1),($2,'Delhi',$1)",[city,foreignCity]);
     await pool.query('INSERT INTO users.collection(user_id,city_id,verification_status) VALUES($1,$2,true)',[user,city]);
     await pool.query("INSERT INTO poi.places(id,city_id,name,description,address,latitude,longitude) VALUES($1,$2,'Taj Mahal','Marble monument','Agra',27.17,78.04)",[place,city]);
   });
@@ -190,5 +200,62 @@ async function rows(table){return (await pool.query('SELECT * FROM '+table)).row
     await pool.query('UPDATE itinerary.itineraries SET deleted_at=now() WHERE id=$1',[r.body.data.itinerary.id]);
     expect((await api('post','/complete',{})).body.code).toBe('VISITED_ITINERARY.ITINERARY_UNAVAILABLE');
     expect(await rows('itinerary.itineraries')).toHaveLength(2);
+  });
+  test('Google placeId alone resolves canonical draft details and completes without global POI writes',async()=>{
+    const poisBefore=await rows('poi.places'),citiesBefore=await rows('poi.cities');
+    const r=await api('post','/attractions',{placeId:googleId});expect(r.status).toBe(200);
+    expect(r.body.data.draft.attractions[0]).toMatchObject({placeId:googleId,name:'Taj Mahal',latitude:27.1751,longitude:78.0421,address:'Agra, Uttar Pradesh, India'});
+    expect(googleGet).toHaveBeenCalledWith(expect.stringContaining(googleId),expect.objectContaining({timeout:5000,maxRedirects:0}));
+    const finished=await api('post','/complete',metadata);expect(finished.status).toBe(200);
+    expect(finished.body.data.itinerary.itineraryJson.days[0].items[0]).toMatchObject({item_type:'poi',place_id:googleId,name:'Taj Mahal'});
+    expect(await rows('poi.places')).toEqual(poisBefore);expect(await rows('poi.cities')).toEqual(citiesBefore);
+  });
+  test('UUID and manual paths never call Google or require its credentials',async()=>{
+    delete process.env.GOOGLE_PLACES_API_KEY;
+    expect((await api('post','/attractions',{placeId:place})).status).toBe(200);
+    expect((await api('post','/attractions',{name:'Local history'})).status).toBe(200);
+    expect(googleGet).not.toHaveBeenCalled();
+  });
+  test('Google update preserves attraction ID and duplicate canonical IDs are rejected',async()=>{
+    const a=(await add()).body.data.draft.attractions[0];
+    const r=await api('patch','/attractions/'+a.id,{placeId:googleId});expect(r.status).toBe(200);
+    expect(r.body.data.draft.attractions[0]).toMatchObject({id:a.id,placeId:googleId,name:'Taj Mahal'});
+    expect((await api('post','/attractions',{placeId:googleId})).status).toBe(409);
+    expect((await api('post','/attractions',{placeId:'ChIJCanonicalAliasId12345678'})).status).toBe(409);
+    expect((await api()).body.data.draft.attractions).toHaveLength(1);
+    const b=(await api('post','/attractions',{name:'Fort'})).body.data.draft.attractions[1];
+    expect((await api('patch','/attractions/'+b.id,{placeId:'ChIJCanonicalAliasId12345678'})).status).toBe(409);
+  });
+  test.each([
+    ['another city',[{longText:'Delhi',types:['locality']},{shortText:'IN',types:['country']}]],
+    ['another country',[{longText:'Agra',types:['locality']},{shortText:'GB',types:['country']}]],
+    ['missing city',[{shortText:'IN',types:['country']}]],
+  ])('Google attraction from %s cannot enter this city draft',async(_label,addressComponents)=>{
+    googleGet.mockResolvedValue({data:googlePlace({addressComponents})});
+    const r=await api('post','/attractions',{placeId:googleId});expect(r.status).toBe(422);expect(r.body.code).toBe('VISITED_ITINERARY.PLACE_CITY_MISMATCH');
+    expect(await rows('itinerary.visited_city_drafts')).toHaveLength(0);
+  });
+  test.each([{types:['locality']},{businessStatus:'CLOSED_PERMANENTLY'},{displayName:{}},{location:{latitude:91,longitude:0}}])('invalid or closed Google result is rejected (%j)',async(overrides)=>{
+    googleGet.mockResolvedValue({data:googlePlace(overrides)});
+    expect((await api('post','/attractions',{placeId:googleId})).status).toBe(404);
+    expect(await rows('itinerary.visited_city_drafts')).toHaveLength(0);
+  });
+  test.each([[400,404],[404,404],[403,503],[429,503],[500,503],[undefined,503]])('Google failure %s returns safe status %i without credentials',async(status,expected)=>{
+    googleGet.mockRejectedValue({response:{status},config:{headers:{'X-Goog-Api-Key':'secret-must-not-leak'}}});
+    const r=await api('post','/attractions',{placeId:googleId});expect(r.status).toBe(expected);expect(JSON.stringify(r.body)).not.toContain('secret-must-not-leak');
+    expect(await rows('itinerary.visited_city_drafts')).toHaveLength(0);
+  });
+  test('missing Google key returns 503, while denied city access prevents external lookups',async()=>{
+    delete process.env.GOOGLE_PLACES_API_KEY;
+    expect((await api('post','/attractions',{placeId:googleId})).status).toBe(503);
+    process.env.GOOGLE_PLACES_API_KEY='test-google-key-not-real';
+    expect((await api('post','/attractions',{placeId:googleId},other)).status).toBe(403);
+    expect(googleGet).not.toHaveBeenCalled();
+  });
+  test('Google result is not trusted from client text, and an official city-name match is supported',async()=>{
+    await pool.query("UPDATE poi.cities SET official_name='Agra City' WHERE id=$1",[city]);
+    googleGet.mockResolvedValue({data:googlePlace({addressComponents:[{longText:'Agra City',types:['locality']},{shortText:'IN',types:['country']}]})});
+    const r=await api('post','/attractions',{placeId:googleId,name:'Spoofed',latitude:1,longitude:1});expect(r.status).toBe(200);
+    expect(r.body.data.draft.attractions[0]).toMatchObject({name:'Taj Mahal',latitude:27.1751,longitude:78.0421});
   });
 });
