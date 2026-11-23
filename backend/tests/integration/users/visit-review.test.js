@@ -112,6 +112,18 @@ async function profileCollections(){
     expect(mapper.toVerificationDetail(nullCity).location).toMatchObject({latitude:null,longitude:null});
     expect(mapper.toVerificationDetail(zeroPlace).location).toMatchObject({latitude:0,longitude:0});
   });
+  test('profile collection SQL includes city coordinates and retains nested verified place coordinates',async()=>{
+    await pool.query('UPDATE poi.cities SET latitude=28.5355,longitude=77.391 WHERE id=$1',[city]);
+    await pool.query('UPDATE poi.places SET latitude=28.5,longitude=77.4 WHERE id=$1',[place]);
+    const visit=await addPlace();
+    await pool.query("UPDATE users.visited_places SET verification_status='VERIFIED' WHERE id=$1",[visit]);
+    await pool.query('UPDATE users.collection SET verification_status=true,is_preference=true WHERE id=$1',[submission]);
+    const collections=await profileCollections();
+    expect(collections[0]).toMatchObject({cityId:city,latitude:28.5355,longitude:77.391});
+    expect(collections[0].places[0]).toMatchObject({id:place,latitude:28.5,longitude:77.4});
+    await pool.query('UPDATE poi.cities SET latitude=NULL,longitude=NULL');
+    expect((await profileCollections())[0]).toMatchObject({latitude:null,longitude:null});
+  });
   test('CITY rejection is visible to its user and new evidence resets to pending without losing audit history',async()=>{
     expect((await api('post',`/CITY/${submission}/review`,review('REJECTED',{reason:'Not enough evidence'}))).status).toBe(200);
     const rows=await userRepo.listVerifications({userId:user});expect(rows.rows[0].verification_status).toBe('REJECTED');

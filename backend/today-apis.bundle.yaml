@@ -10491,6 +10491,21 @@ components:
           type: array
           items:
             type: object
+            properties:
+              cityId: { type: string, format: uuid }
+              name: { type: string, nullable: true }
+              latitude: { type: number, format: double, nullable: true, description: City latitude for map markers }
+              longitude: { type: number, format: double, nullable: true, description: City longitude for map markers }
+              icon: { type: object, nullable: true }
+              places:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    name: { type: string, nullable: true }
+                    latitude: { type: number, format: double, nullable: true }
+                    longitude: { type: number, format: double, nullable: true }
         createdAt:
           type: string
           format: date-time
