@@ -1,6 +1,16 @@
 import ProfileMapper from "../../../src/modules/users/mappers/profile.mapper.js";
 
 describe("ProfileMapper toPublicResponse", () => {
+  test('maps city and nested place coordinates, preserving zero and missing values',()=>{
+    const result=ProfileMapper.toPublicResponse({preferred_visited_collections:[
+      {id:'a',latitude:'27.1751',longitude:'78.0421',places:[{id:'p',latitude:'27.1',longitude:'78.1'}]},
+      {id:'b',latitude:0,longitude:0,places:[{id:'q',latitude:0,longitude:0}]},
+      {id:'c',places:[{id:'r'}]},
+    ]});
+    expect(result.preferredVisitedCollections[0]).toMatchObject({latitude:27.1751,longitude:78.0421,places:[{latitude:27.1,longitude:78.1}]});
+    expect(result.preferredVisitedCollections[1]).toMatchObject({latitude:0,longitude:0,places:[{latitude:0,longitude:0}]});
+    expect(result.preferredVisitedCollections[2]).toMatchObject({latitude:null,longitude:null,places:[{latitude:null,longitude:null}]});
+  });
   test("includes the user ID and privacy state", () => {
     const result =
       ProfileMapper.toPublicResponse({

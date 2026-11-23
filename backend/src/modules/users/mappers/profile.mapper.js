@@ -356,6 +356,9 @@ class ProfileMapper {
             collection.cityId ??
             null,
 
+          latitude: this.#toNullableNumber(collection.latitude),
+          longitude: this.#toNullableNumber(collection.longitude),
+
           name:
             collection.name ??
             null,

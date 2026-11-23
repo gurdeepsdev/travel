@@ -701,6 +701,9 @@ cover_photo.original_width
                 'name',
                   collection_data.city_name,
 
+                'latitude', collection_data.city_latitude,
+                'longitude', collection_data.city_longitude,
+
                 'officialName',
                   collection_data
                     .city_official_name,
@@ -745,6 +748,9 @@ cover_photo.original_width
 
             city.name
               AS city_name,
+
+            city.latitude AS city_latitude,
+            city.longitude AS city_longitude,
 
             city.official_name
               AS city_official_name,
