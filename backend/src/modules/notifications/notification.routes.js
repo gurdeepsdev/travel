@@ -3,9 +3,16 @@ import Auth from '../../middleware/auth.middleware.js';
 import validate from '../../middleware/validate.middleware.js';
 import Response from '../../core/response/index.js';
 import Repository from './notification.repository.js';
+import Push from '../chat/chat-push.service.js';
 import * as V from './notification.validation.js';
 const router=Router();
 router.use(Auth.authenticate);
+router.put('/push-devices',validate(V.pushDevice),async(req,res,next)=>{
+  try{return Response.success(res,await Push.register(req.user.id,req.session.id,req.validated.body),'Push device registered successfully.');}catch(error){next(error);}
+});
+router.delete('/push-devices/:deviceId',validate(V.deletePushDevice),async(req,res,next)=>{
+  try{return Response.success(res,await Push.remove(req.user.id,req.validated.params.deviceId),'Push device removed successfully.');}catch(error){next(error);}
+});
 const handle=(action,message)=>async(req,res,next)=>{try{return Response.success(res,await action(req.user.id,req.validated),message);}catch(error){next(error);}};
 router.get('/',validate(V.listing),handle((u,v)=>Repository.list(u,v.query),'Notifications fetched successfully.'));
 router.get('/unread-count',validate(V.base),handle(u=>Repository.unread(u),'Notification unread count fetched successfully.'));

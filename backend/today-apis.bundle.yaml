@@ -357,6 +357,44 @@ paths:
             application/json:
               example: { success: true, message: Notification unread count fetched successfully., data: { unreadCount: 5 } }
         '401': { description: Authentication required }
+  '/notifications/push-devices':
+    put:
+      tags: [Notifications]
+      operationId: registerNotificationPushDevice
+      summary: Register or refresh my Firebase device token
+      description: Shares the existing chat device registry. Session is derived from authentication. Register again on token refresh and remove before logout/account switch. Never send Firebase service-account credentials here.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [deviceId, platform, token]
+              properties:
+                deviceId: { type: string, format: uuid }
+                platform: { type: string, enum: [android, ios] }
+                token: { type: string, minLength: 20, maxLength: 4096 }
+      responses:
+        '200':
+          description: Standard success envelope containing data.deviceId and data.registered=true. Token is never returned.
+        '400': { description: Invalid device identifier, platform, token or unknown field }
+        '401': { description: Authentication required }
+        '409': { description: CHAT.DEVICE_CONFLICT - device or token already belongs to another account }
+  '/notifications/push-devices/{deviceId}':
+    delete:
+      tags: [Notifications]
+      operationId: removeNotificationPushDevice
+      summary: Unregister my device from generic and chat push delivery
+      description: Idempotent and owned by the authenticated user. Does not remove another account's device.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Standard success envelope containing data.deviceId and data.registered=false. }
+        '400': { description: Invalid device identifier }
+        '401': { description: Authentication required }
   '/notifications/{notificationId}/read':
     put:
       tags: [Notifications]
