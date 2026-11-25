@@ -2,12 +2,26 @@ import { GoogleAuth } from "google-auth-library";
 import axios from "axios";
 import Database from "../database/database-manager.js";
 import logger from "../core/logger/logger.js";
+import {relayConfiguration,sendRelayPayload} from '../modules/notifications/notification-fcm.service.js';
 
 let timer,
   busy = false;
 const enabled = () => process.env.CHAT_PUSH_ENABLED === "true";
 let auth;
+export function chatPushConfiguration() {
+  const relayUrl=process.env.CHAT_RELAY_URL?.trim()||process.env.NOTIFICATION_RELAY_URL?.trim();
+  if(relayUrl)return relayConfiguration(relayUrl,process.env.CHAT_RELAY_SECRET||process.env.NOTIFICATION_RELAY_SECRET);
+  if(!process.env.CHAT_FCM_PROJECT_ID||!process.env.CHAT_FCM_CREDENTIALS_FILE)
+    throw Object.assign(new Error('Push configuration missing'),{code:'FCM_CONFIGURATION'});
+  return {};
+}
 export async function sendChatPush(row) {
+  const configuration=chatPushConfiguration();
+  if(configuration.relayUrl){
+    await sendRelayPayload(configuration,{kind:'CHAT',token:row.token,conversationId:row.conversation_id,
+      messageId:row.message_id,eventId:String(row.event_id)});
+    return;
+  }
   const project = process.env.CHAT_FCM_PROJECT_ID;
   if (!project || !process.env.CHAT_FCM_CREDENTIALS_FILE)
     throw Object.assign(new Error("Push configuration missing"), {
@@ -60,6 +74,9 @@ export async function enqueueChatPush(client, event) {
 }
 export async function processChatPush(send = sendChatPush) {
   if (busy || !enabled()) return;
+  if(send===sendChatPush){
+    try{chatPushConfiguration();}catch{logger.error({code:'FCM_CONFIGURATION'},'Chat push configuration missing or invalid.');return;}
+  }
   busy = true;
   try {
     await Database.transaction(async (client) => {
@@ -134,11 +151,8 @@ export async function processChatPush(send = sendChatPush) {
 }
 export function startChatPushWorker() {
   if (timer || !enabled()) return;
-  if (
-    !process.env.CHAT_FCM_PROJECT_ID ||
-    !process.env.CHAT_FCM_CREDENTIALS_FILE
-  ) {
-    logger.error("Chat push enabled without FCM configuration.");
+  try{chatPushConfiguration();}catch{
+    logger.error({code:'FCM_CONFIGURATION'},"Chat push enabled without valid FCM configuration.");
     return;
   }
   timer = setInterval(processChatPush, 1000);

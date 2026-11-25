@@ -8,6 +8,9 @@ export const listing = base.extend({ query: z.object({
   unreadOnly: z.enum(['true','false']).transform(v => v === 'true').default(false),
 }).strict() });
 export const resource = base.extend({ params: z.object({ notificationId: z.string().uuid() }).strict() });
+export const pushDevice = base.extend({ body: z.object({ deviceId: z.string().uuid(),
+  platform: z.enum(['android','ios']),token: z.string().trim().min(20).max(4096) }).strict() });
+export const deletePushDevice = base.extend({ params: z.object({deviceId:z.string().uuid()}).strict() });
 export const preferenceUpdate = base.extend({ body: z.object({ preferences: z.array(z.object({
   category: z.enum(categories), inApp: z.boolean().optional(), push: z.boolean().optional(),
 }).strict().refine(v => v.inApp !== undefined || v.push !== undefined, 'Provide inApp or push.'))

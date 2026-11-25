@@ -3,6 +3,7 @@ import AppError from '../../core/errors/app-error.js';
 import { decodeCursor, encodeCursor } from '../../shared/utils/cursor.js';
 import { categories, notificationTypes } from './notification.types.js';
 import { notificationInput } from './notification.validation.js';
+import { enqueueNotificationPush } from './notification-push.repository.js';
 
 export const mapNotification = row => ({ id: row.id, type: row.type, category: row.category,
   priority: row.priority, actorId: row.actor_id, title: row.title, body: row.body, target: row.target,
@@ -29,6 +30,7 @@ export class NotificationRepository {
       value.type,rule.category,rule.priority,value.title,value.body,JSON.stringify(value.target),inApp,push]);
     if (!row) return { notification:null,created:false };
     if (inApp) await journal(client,value.userId,'notification.created',row.id);
+    await enqueueNotificationPush(client,row);
     return { notification:inApp?mapNotification(row):null,created:true };
   }
   async list(userId,{limit,cursor,unreadOnly=false}) {

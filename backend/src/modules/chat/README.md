@@ -1,5 +1,19 @@
 # Chat implementation checkpoints
 
+## Optional keyless push transport
+
+`CHAT_PUSH_ENABLED` remains off unless explicitly set to `true`. Chat can share
+the general `NOTIFICATION_RELAY_URL` / `NOTIFICATION_RELAY_SECRET` configuration,
+or override it with `CHAT_RELAY_URL` / `CHAT_RELAY_SECRET`. Deploy the updated
+Cloud Run relay before enabling chat delivery. Requests are signed server-side;
+no Firebase JSON key is needed on VPS. When relay is absent, existing direct FCM
+credentials and payloads remain supported. Invalid relay settings fail closed.
+Recipient eligibility, unread counts, mute/archive behavior and chat events are
+unchanged. Relay messages preserve `conversationId`, `messageId` and string
+`eventId`; general pushes retain their own notification navigation fields.
+See `infrastructure/notification-relay/README.md`. Nothing is deployed or enabled
+by these code changes.
+
 ## Implemented: conversation foundation
 
 All routes require Bearer authentication and use the existing success/error envelope.

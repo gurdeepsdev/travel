@@ -1,5 +1,6 @@
 import app from "./app.js";
 import { startNotificationOutboxWorker, stopNotificationOutboxWorker } from './realtime/notification-outbox.worker.js';
+import { startNotificationPushWorker, stopNotificationPushWorker } from './realtime/notification-push.worker.js';
 import {startChatPushWorker,stopChatPushWorker} from './realtime/chat-push.worker.js';
 import {
   startChatOutboxWorker,
@@ -30,6 +31,7 @@ async function bootstrap() {
   startChatOutboxWorker();
   startChatPushWorker();
   startNotificationOutboxWorker();
+  startNotificationPushWorker();
 
   httpServer.listen(PORT, () => {
     logger.info(
@@ -42,6 +44,7 @@ async function bootstrap() {
     stopChatOutboxWorker();
     stopChatPushWorker();
     stopNotificationOutboxWorker();
+    stopNotificationPushWorker();
     httpServer.close();
   };
 
